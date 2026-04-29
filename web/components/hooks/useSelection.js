@@ -2,7 +2,7 @@
  * 多选状态管理 Hook
  * 管理多选模式、选中项、批量操作
  */
-import { useState } from '../../lib/hooks.mjs';
+import { useState, useMemo } from '../../lib/hooks.mjs';
 import { showToast } from '../Toast.js';
 
 export function useSelection({
@@ -13,13 +13,26 @@ export function useSelection({
   loadData,
   setCurrentArtist,
   refreshCategories,
-  openBatchExportDialog,
 }) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
-  const [batchOperation, setBatchOperation] = useState(null); // 'delete' | 'move' | 'copy'
+  const [batchOperation, setBatchOperation] = useState(null); // 'delete' | 'move'
   const [lastSelectedItem, setLastSelectedItem] = useState(null);
+
+  // 将树形分类扁平化，以便按 id 查找任意深度的分类
+  const flatCategories = useMemo(() => {
+    const result = [];
+    function traverse(nodes) {
+      if (!nodes) return;
+      nodes.forEach((node) => {
+        result.push(node);
+        if (node.children) traverse(node.children);
+      });
+    }
+    traverse(categories);
+    return result;
+  }, [categories]);
 
   const handleToggleSelectionMode = () => {
     setSelectionMode((prev) => !prev);
@@ -66,7 +79,7 @@ export function useSelection({
 
   const handleSelectAll = () => {
     const newSet = new Set();
-    categories.forEach((cat) => {
+    flatCategories.forEach((cat) => {
       newSet.add(`category:${cat.id}`);
     });
     filteredArtists.forEach((artist) => {
@@ -105,7 +118,7 @@ export function useSelection({
       const id = parts.slice(1).join(':');
 
       if (type === 'category') {
-        const cat = categories.find((c) => c.id === id);
+        const cat = flatCategories.find((c) => c.id === id);
         if (cat) result.categories.push(cat);
       } else if (type === 'artist') {
         const artist = filteredArtists.find((a) => `${a.categoryId}:${a.name}` === id);
@@ -147,30 +160,6 @@ export function useSelection({
       setMoveItem(details.artists[0]);
     }
     setShowMoveDialog(true);
-  };
-
-  const handleBatchCopy = ({ setCopyItem, setCopyItemType, setShowCopyDialog }) => {
-    const details = getSelectedDetails();
-    if (details.artists.length === 0 && details.images.length === 0) return;
-
-    setBatchOperation('copy');
-    if (details.images.length > 0) {
-      setCopyItemType('image');
-      setCopyItem(details.images[0]);
-    } else {
-      setCopyItemType('artist');
-      setCopyItem(details.artists[0]);
-    }
-    setShowCopyDialog(true);
-  };
-
-  const handleBatchExport = () => {
-    const details = getSelectedDetails();
-    if (details.artists.length === 0) {
-      showToast('请选择Prompt后导出', 'warning');
-      return;
-    }
-    openBatchExportDialog();
   };
 
   const handleBatchConfirm = async () => {
@@ -219,26 +208,21 @@ export function useSelection({
             })),
           }),
         });
-      } else if (operation === 'move') {
-        console.log('批量移动:', details);
-        setShowBatchConfirm(false);
-        return;
-      } else if (operation === 'copy') {
-        console.log('批量复制:', details);
-        setShowBatchConfirm(false);
-        return;
       }
+
+      if (!response) return;
 
       const data = await response.json();
 
       if (data.success) {
-        showToast(`批量${operation === 'delete' ? '删除' : operation}成功`, 'success');
+        showToast(`批量删除成功`, 'success');
         setShowBatchConfirm(false);
         setSelectionMode(false);
         setSelectedItems(new Set());
         await loadData();
+        await refreshCategories();
       } else {
-        showToast(`批量${operation}失败: ${data.error}`, 'error');
+        showToast(`批量删除失败: ${data.error}`, 'error');
       }
     } catch (error) {
       console.error('批量操作失败:', error);
@@ -266,8 +250,6 @@ export function useSelection({
     getSelectedDetails,
     handleBatchDelete,
     handleBatchMove,
-    handleBatchCopy,
-    handleBatchExport,
     handleBatchConfirm,
     resetSelection,
     setBatchOperation,

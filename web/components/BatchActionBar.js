@@ -62,15 +62,6 @@ export function BatchActionBar() {
       h(
         'button',
         {
-          class: 'batch-op-btn export-btn',
-          onClick: ctx.handleBatchExport,
-          title: '导出选中Prompt',
-        },
-        [h(Icon, { name: 'upload', size: 14 }), ' 导出'],
-      ),
-      h(
-        'button',
-        {
           class: 'batch-op-btn delete-btn',
           onClick: ctx.handleBatchDelete,
           title: '删除选中项目',
@@ -85,15 +76,6 @@ export function BatchActionBar() {
           title: '移动选中项目',
         },
         [h(Icon, { name: 'move', size: 14 }), ' 移动'],
-      ),
-      h(
-        'button',
-        {
-          class: 'batch-op-btn copy-btn',
-          onClick: ctx.handleBatchCopyAction,
-          title: '复制选中项目',
-        },
-        [h(Icon, { name: 'copy', size: 14 }), ' 复制'],
       ),
       h(
         'button',

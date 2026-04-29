@@ -48,7 +48,7 @@ async def batch_delete(request):
 
                 # 递归获取所有子分类
                 def get_all_child_categories(parent_id):
-                    children = category_storage.get_child_categories(parent_id)
+                    children = category_storage.get_children(parent_id)
                     result = [parent_id]
                     for child in children:
                         result.extend(get_all_child_categories(child['id']))
@@ -114,8 +114,11 @@ async def batch_delete(request):
             except Exception as e:
                 errors.append(f"删除Prompt {artist_data.get('name')} 失败: {str(e)}")
 
+        had_errors = len(errors) > 0
+        had_deletions = len(deleted_categories) > 0 or len(deleted_artists) > 0 or len(deleted_images) > 0
+
         return web.json_response({
-            "success": True,
+            "success": had_deletions or not had_errors,
             "deletedCategories": deleted_categories,
             "deletedArtists": deleted_artists,
             "deletedImages": deleted_images,

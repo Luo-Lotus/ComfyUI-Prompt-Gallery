@@ -170,60 +170,57 @@ export function useItemOperations({
       // 批量移动
       if (batchOperation === 'move') {
         const details = getSelectedDetails();
-        const allItems = [
-          ...details.categories.map((c) => ({
-            type: 'category',
-            item: c,
-          })),
-          ...details.artists.map((a) => ({
-            type: 'artist',
-            item: a,
-          })),
-          ...details.images.map((i) => ({ type: 'image', item: i })),
-        ];
-        if (allItems.length === 0) return;
-
+        let successCount = 0;
         let failCount = 0;
-        for (const { type, item: it } of allItems) {
+
+        // 使用批量API移动分类和Prompt
+        const batchPayload = {
+          categories: details.categories.map((c) => ({ id: c.id, newParentId: target.id })),
+          artists: details.artists.map((a) => ({
+            categoryId: a.categoryId,
+            name: a.name,
+            newCategoryId: target.id,
+          })),
+        };
+
+        if (batchPayload.categories.length > 0 || batchPayload.artists.length > 0) {
           try {
-            let res;
-            if (type === 'category') {
-              res = await fetch(`/artist_gallery/categories/${it.id}/move`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  newParentId: target.id,
-                }),
-              });
-            } else if (type === 'artist') {
-              res = await fetch(
-                `/artist_gallery/artists/${encodeURIComponent(it.categoryId)}/${encodeURIComponent(it.name)}`,
-                {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    categoryId: target.id,
-                  }),
-                },
-              );
-            } else if (type === 'image') {
-              res = await fetch('/artist_gallery/image/move', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  imagePath: it.path,
-                  fromArtistName: currentArtist.name,
-                  toArtistName: target.name,
-                  toCategoryId: target.categoryId || 'root',
-                }),
-              });
-            }
+            const res = await fetch('/artist_gallery/batch/move', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(batchPayload),
+            });
             const data = await res.json();
-            if (!res.ok || !data.success) failCount++;
+            if (res.ok && data.success) {
+              successCount += (data.movedCategories?.length || 0) + (data.movedArtists?.length || 0);
+              if (data.errors?.length > 0) failCount += data.errors.length;
+            } else {
+              failCount += batchPayload.categories.length + batchPayload.artists.length;
+            }
+          } catch {
+            failCount += batchPayload.categories.length + batchPayload.artists.length;
+          }
+        }
+
+        // 图片逐个移动（没有批量API）
+        for (const img of details.images) {
+          try {
+            const res = await fetch('/artist_gallery/image/move', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imagePath: img.path,
+                fromArtistName: currentArtist.name,
+                toArtistName: target.name,
+                toCategoryId: target.categoryId || 'root',
+              }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+              successCount++;
+            } else {
+              failCount++;
+            }
           } catch {
             failCount++;
           }
@@ -235,9 +232,9 @@ export function useItemOperations({
         await refreshCategories();
 
         if (failCount > 0) {
-          showToast(`${allItems.length - failCount}项移动成功，${failCount}项失败`, 'warning');
+          showToast(`${successCount}项移动成功，${failCount}项失败`, 'warning');
         } else {
-          showToast(`已移动 ${allItems.length} 项`, 'success');
+          showToast(`已移动 ${successCount} 项`, 'success');
         }
         if (currentArtist) {
           const updatedData = await fetch(`/artist_gallery/data?category=${currentCategory}`);

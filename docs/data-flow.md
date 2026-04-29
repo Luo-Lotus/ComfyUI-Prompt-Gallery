@@ -2,6 +2,8 @@
 
 本文档详细描述 `ArtistSelector`（Prompt选择）节点和 `SaveToGallery`（保存到画廊）节点的完整数据处理流程。
 
+由于插件改过一次名，从 画师(artist) 改为 Prompt，系统中还是存在大量使用artist命名的代码，这些命名都指的是prompt
+
 ---
 
 ## 一、整体架构概览
