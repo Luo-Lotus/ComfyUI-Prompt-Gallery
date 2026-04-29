@@ -8,130 +8,146 @@ import { Dialog, DialogButton } from './Dialog.js';
 import { Icon } from '../lib/icons.mjs';
 
 export function BatchConfirmDialog({
-    isOpen,
-    onClose,
-    operation, // 'delete' | 'move' | 'copy'
-    items, // { categories, artists, images }
-    onConfirm
+  isOpen,
+  onClose,
+  operation, // 'delete' | 'move' | 'copy'
+  items, // { categories, artists, images }
+  onConfirm,
 }) {
-    // 计算统计信息
-    const getSummary = () => {
-        const imageCount = Array.isArray(items.images) ? items.images.length : (items.images || 0);
-        const counts = {
-            categories: items.categories?.length || 0,
-            artists: items.artists?.length || 0,
-            images: imageCount
-        };
-
-        const summary = [];
-
-        if (counts.categories > 0) {
-            summary.push(`${counts.categories} 个分类`);
-        }
-
-        if (counts.artists > 0) {
-            summary.push(`${counts.artists} 个画师`);
-        }
-
-        if (counts.images > 0) {
-            summary.push(`${counts.images} 张图片`);
-        }
-
-        return summary.join('，');
+  // 计算统计信息
+  const getSummary = () => {
+    const imageCount = Array.isArray(items.images) ? items.images.length : items.images || 0;
+    const counts = {
+      categories: items.categories?.length || 0,
+      artists: items.artists?.length || 0,
+      images: imageCount,
     };
 
-    const getOperationLabel = () => {
-        switch(operation) {
-            case 'delete': return '删除';
-            case 'move': return '移动';
-            case 'copy': return '复制';
-            default: return '操作';
-        }
-    };
+    const summary = [];
 
-    const getOperationIcon = () => {
-        switch(operation) {
-            case 'delete': return h(Icon, { name: 'trash-2', size: 18 });
-            case 'move': return h(Icon, { name: 'package', size: 18 });
-            case 'copy': return h(Icon, { name: 'copy', size: 18 });
-            default: return h(Icon, { name: 'alert-triangle', size: 18 });
-        }
-    };
+    if (counts.categories > 0) {
+      summary.push(`${counts.categories} 个分类`);
+    }
 
-    const getConfirmationLevel = () => {
-        const imageCount = Array.isArray(items.images) ? items.images.length : (items.images || 0);
-        const totalItems = (items.categories?.length || 0) + (items.artists?.length || 0) + imageCount;
+    if (counts.artists > 0) {
+      summary.push(`${counts.artists} 个Prompt`);
+    }
 
-        if (totalItems <= 5) return 'low';
-        if (totalItems <= 20) return 'medium';
-        return 'high';
-    };
+    if (counts.images > 0) {
+      summary.push(`${counts.images} 张图片`);
+    }
 
-    const renderWarning = () => {
-        const level = getConfirmationLevel();
-        const imageCount = Array.isArray(items.images) ? items.images.length : (items.images || 0);
-        const totalItems = (items.categories?.length || 0) + (items.artists?.length || 0) + imageCount;
+    return summary.join('，');
+  };
 
-        if (level === 'low') {
-            return null; // 少量项目，无需特殊警告
-        }
+  const getOperationLabel = () => {
+    switch (operation) {
+      case 'delete':
+        return '删除';
+      case 'move':
+        return '移动';
+      case 'copy':
+        return '复制';
+      default:
+        return '操作';
+    }
+  };
 
-        if (level === 'medium') {
-            return h('div', { class: 'batch-confirm-warning-medium' }, [
-                h('span', { class: 'warning-icon' }, '⚠️'),
-                h('span', {}, `您即将${getOperationLabel()} ${totalItems} 个项目`)
-            ]);
-        }
+  const getOperationIcon = () => {
+    switch (operation) {
+      case 'delete':
+        return h(Icon, { name: 'trash-2', size: 18 });
+      case 'move':
+        return h(Icon, { name: 'package', size: 18 });
+      case 'copy':
+        return h(Icon, { name: 'copy', size: 18 });
+      default:
+        return h(Icon, { name: 'alert-triangle', size: 18 });
+    }
+  };
 
-        // high level - 需要二次确认
-        return h('div', { class: 'batch-confirm-warning-high' }, [
-            h('div', { class: 'warning-icon' }, '⚠️'),
-            h('div', { class: 'warning-content' }, [
-                h('p', {}, `危险操作：即将${getOperationLabel()} ${totalItems} 个项目`),
-                imageCount > 0 && h('p', {}, `包含 ${imageCount} 张图片`),
-                h('p', { class: 'critical-warning' }, '此操作不可撤销！')
-            ])
-        ]);
-    };
+  const getConfirmationLevel = () => {
+    const imageCount = Array.isArray(items.images) ? items.images.length : items.images || 0;
+    const totalItems = (items.categories?.length || 0) + (items.artists?.length || 0) + imageCount;
 
-    const renderFooter = () => {
-        const level = getConfirmationLevel();
+    if (totalItems <= 5) return 'low';
+    if (totalItems <= 20) return 'medium';
+    return 'high';
+  };
 
-        return [
-            h(DialogButton, { onClick: onClose }, '取消'),
-            h(DialogButton, {
-                variant: 'danger',
-                onClick: onConfirm
-            }, `确认${getOperationLabel()}`)
-        ];
-    };
+  const renderWarning = () => {
+    const level = getConfirmationLevel();
+    const imageCount = Array.isArray(items.images) ? items.images.length : items.images || 0;
+    const totalItems = (items.categories?.length || 0) + (items.artists?.length || 0) + imageCount;
 
-    return h(Dialog, {
-        isOpen,
-        onClose,
-        title: `确认批量${getOperationLabel()}`,
-        titleIcon: h(Icon, { name: operation === 'delete' ? 'trash-2' : operation === 'move' ? 'move' : 'copy', size: 18 }),
-        maxWidth: '500px',
-        footer: renderFooter(),
-        closeOnOverlayClick: false // 防止误操作
-    }, [
-        h('div', { class: 'batch-confirm-content' }, [
-            h('div', { class: 'batch-confirm-summary' }, [
-                h('p', {}, `将${getOperationLabel()}以下内容：`),
-                h('ul', {},
-                    items.categories?.length > 0 && h('li', {},
-                        `• ${items.categories.length} 个分类`
-                    ),
-                    items.artists?.length > 0 && h('li', {},
-                        `• ${items.artists.length} 个画师`
-                    ),
-                    (Array.isArray(items.images) ? items.images.length : 0) > 0 && h('li', {},
-                        `• ${items.images.length} 张图片`
-                    )
-                )
-            ]),
+    if (level === 'low') {
+      return null; // 少量项目，无需特殊警告
+    }
 
-            renderWarning()
-        ])
+    if (level === 'medium') {
+      return h('div', { class: 'batch-confirm-warning-medium' }, [
+        h('span', { class: 'warning-icon' }, '⚠️'),
+        h('span', {}, `您即将${getOperationLabel()} ${totalItems} 个项目`),
+      ]);
+    }
+
+    // high level - 需要二次确认
+    return h('div', { class: 'batch-confirm-warning-high' }, [
+      h('div', { class: 'warning-icon' }, '⚠️'),
+      h('div', { class: 'warning-content' }, [
+        h('p', {}, `危险操作：即将${getOperationLabel()} ${totalItems} 个项目`),
+        imageCount > 0 && h('p', {}, `包含 ${imageCount} 张图片`),
+        h('p', { class: 'critical-warning' }, '此操作不可撤销！'),
+      ]),
     ]);
+  };
+
+  const renderFooter = () => {
+    const level = getConfirmationLevel();
+
+    return [
+      h(DialogButton, { onClick: onClose }, '取消'),
+      h(
+        DialogButton,
+        {
+          variant: 'danger',
+          onClick: onConfirm,
+        },
+        `确认${getOperationLabel()}`,
+      ),
+    ];
+  };
+
+  return h(
+    Dialog,
+    {
+      isOpen,
+      onClose,
+      title: `确认批量${getOperationLabel()}`,
+      titleIcon: h(Icon, {
+        name: operation === 'delete' ? 'trash-2' : operation === 'move' ? 'move' : 'copy',
+        size: 18,
+      }),
+      maxWidth: '500px',
+      footer: renderFooter(),
+      closeOnOverlayClick: false, // 防止误操作
+    },
+    [
+      h('div', { class: 'batch-confirm-content' }, [
+        h('div', { class: 'batch-confirm-summary' }, [
+          h('p', {}, `将${getOperationLabel()}以下内容：`),
+          h(
+            'ul',
+            {},
+            items.categories?.length > 0 && h('li', {}, `• ${items.categories.length} 个分类`),
+            items.artists?.length > 0 && h('li', {}, `• ${items.artists.length} 个Prompt`),
+            (Array.isArray(items.images) ? items.images.length : 0) > 0 &&
+              h('li', {}, `• ${items.images.length} 张图片`),
+          ),
+        ]),
+
+        renderWarning(),
+      ]),
+    ],
+  );
 }

@@ -13,10 +13,12 @@
     opacity: 0;
     transition: opacity 0.3s;
     backdrop-filter: blur(4px);
+    pointer-events: none;
 }
 
 .gallery-modal-overlay.open {
     opacity: 1;
+    pointer-events: auto;
 }
 
 /* 模态框内容 */

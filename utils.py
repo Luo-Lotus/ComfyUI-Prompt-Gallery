@@ -5,7 +5,7 @@ Artist Gallery 工具函数
 import re
 from pathlib import Path
 
-# 画师名称解析正则
+# Prompt名称解析正则
 ARTIST_REGEX = re.compile(r'^@([^,]+?)(?:,+\s*)?(?:_\d+)?\.(png|jpg|jpeg|webp)$', re.IGNORECASE)
 
 
@@ -34,13 +34,13 @@ def decode_filename(filename):
 
 
 def parse_artist_name(filename):
-    """解析文件名获取画师名称
+    """解析文件名获取Prompt名称
 
     Args:
         filename: 图片文件名
 
     Returns:
-        画师名称，如果不匹配模式则返回 None
+        Prompt名称，如果不匹配模式则返回 None
     """
     decoded_filename = decode_filename(filename)
     match = ARTIST_REGEX.match(decoded_filename)
@@ -48,13 +48,13 @@ def parse_artist_name(filename):
 
 
 def scan_output_directory(output_dir):
-    """扫描 output 目录获取画师数据
+    """扫描 output 目录获取Prompt数据
 
     Args:
         output_dir: ComfyUI 输出目录路径
 
     Returns:
-        包含画师列表和统计信息的字典
+        包含Prompt列表和统计信息的字典
     """
     output_path = Path(output_dir)
 

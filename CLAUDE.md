@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Artist Gallery is a ComfyUI custom node plugin that provides:
+
 - **Floating gallery UI**: Draggable button (🎨) with modal interface for browsing artist reference images
 - **Storage system**: JSON-based persistence for artists, categories, combinations, and image-artist mappings
 - **Custom nodes**: ArtistGallery (UI), ArtistSelector (workflow integration), SaveToGallery (saving images)
@@ -19,53 +20,56 @@ Artist Gallery is a ComfyUI custom node plugin that provides:
 ### Backend (Python)
 
 **`__init__.py`**: Plugin entry point
+
 - Registers three node classes via `NODE_CLASS_MAPPINGS` and `NODE_DISPLAY_NAME_MAPPINGS`
 - Sets `WEB_DIRECTORY = "./web"` for frontend assets
 
 **`nodes.py`**: Node classes and output processing logic
+
 - **ArtistGallery**: Output node for UI (no workflow output)
 - **ArtistSelector**: Workflow node that provides artist selection widget
-  - Processes partitions, resolves artists from `artistKeys` and `categoryIds`
-  - Handles random/cycle mode, format templates, auto-create combination
-  - Tracks `partition_used_artists` (actual artists after random/cycle filtering)
-  - Tracks `partition_formats` (per-partition format string)
+    - Processes partitions, resolves artists from `artistKeys` and `categoryIds`
+    - Handles random/cycle mode, format templates, auto-create combination
+    - Tracks `partition_used_artists` (actual artists after random/cycle filtering)
+    - Tracks `partition_formats` (per-partition format string)
 - **SaveToGallery**: Saves generated images to the gallery system
-  - Supports two input sources (priority: `metadata_json` > `prompt_string`):
-    - `metadata_json`: from `ArtistSelector`, contains explicit artist selections
-    - `prompt_string`: auto-matches known artist names via regex substring matching
-  - Validates at least one input source is provided
-  - `_match_artists_from_prompt()`: Regex alternation-based matching with module-level cache
-  - Uses `collect_artist()` to register artist associations for saved images
+    - Supports two input sources (priority: `metadata_json` > `prompt_string`):
+        - `metadata_json`: from `ArtistSelector`, contains explicit artist selections
+        - `prompt_string`: auto-matches known artist names via regex substring matching
+    - Validates at least one input source is provided
+    - `_match_artists_from_prompt()`: Regex alternation-based matching with module-level cache
+    - Uses `collect_artist()` to register artist associations for saved images
 - **`_apply_format()`**: Applies format template (e.g., `@{content}`) to artist names
 
 **`storage/`**: Data persistence layer (split into modules)
 
-| Module | Class | Storage File | Purpose |
-|--------|-------|-------------|---------|
-| `artist.py` | `ArtistStorage` | `artists.json` | Artist CRUD, batch operations |
-| `category.py` | `CategoryStorage` | `categories.json` | Hierarchical category tree |
-| `combination.py` | `CombinationStorage` | `combinations.json` | Combination CRUD, duplicate, move |
+| Module             | Class                 | Storage File         | Purpose                                        |
+| ------------------ | --------------------- | -------------------- | ---------------------------------------------- |
+| `artist.py`        | `ArtistStorage`       | `artists.json`       | Artist CRUD, batch operations                  |
+| `category.py`      | `CategoryStorage`     | `categories.json`    | Hierarchical category tree                     |
+| `combination.py`   | `CombinationStorage`  | `combinations.json`  | Combination CRUD, duplicate, move              |
 | `image_mapping.py` | `ImageMappingStorage` | `image_artists.json` | Image-artist relationships, cover image lookup |
-| `migration.py` | — | — | Data migration utilities |
-| `_resolve.py` | — | — | Storage directory resolution |
+| `migration.py`     | —                     | —                    | Data migration utilities                       |
+| `_resolve.py`      | —                     | —                    | Storage directory resolution                   |
 
 All storage classes are thread-safe with locking mechanism. Access via `get_storage()` from `storage/__init__.py`.
 
 **`routes/`**: HTTP API endpoints (split into modules)
 
-| Module | Endpoints |
-|--------|-----------|
-| `gallery.py` | `GET /data` — returns artists + combinations with `coverImagePath` (no full `images` array) |
-| `artists.py` | Artist CRUD, batch operations, `GET /artist_images` (lazy-load artist images), `PUT /{id}/cover` |
-| `categories.py` | Category CRUD, move |
-| `combinations.py` | Combination CRUD, duplicate, move, images (intersection of member artists), batch delete |
-| `images.py` | Image file serving, import |
-| `batch.py` | Batch delete operations |
-| `import_export.py` | Artist/category data import/export |
-| `cycle_state.py` | Cycle mode state persistence |
-| `migration.py` | Data migration endpoints |
+| Module             | Endpoints                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `gallery.py`       | `GET /data` — returns artists + combinations with `coverImagePath` (no full `images` array)      |
+| `artists.py`       | Artist CRUD, batch operations, `GET /artist_images` (lazy-load artist images), `PUT /{id}/cover` |
+| `categories.py`    | Category CRUD, move                                                                              |
+| `combinations.py`  | Combination CRUD, duplicate, move, images (intersection of member artists), batch delete         |
+| `images.py`        | Image file serving, import                                                                       |
+| `batch.py`         | Batch delete operations                                                                          |
+| `import_export.py` | Artist/category data import/export                                                               |
+| `cycle_state.py`   | Cycle mode state persistence                                                                     |
+| `migration.py`     | Data migration endpoints                                                                         |
 
 **Key design decisions**:
+
 - Gallery list API (`/data`) returns `coverImagePath` only (no `images` array) for performance
 - Artist images are lazy-loaded via `/artist_images?name=` when entering detail view
 - `coverImageId` is the internal storage field; API responses compute and expose only `coverImagePath`
@@ -74,6 +78,7 @@ All storage classes are thread-safe with locking mechanism. Access via `get_stor
 ### Frontend (JavaScript/Preact)
 
 **Architecture**:
+
 - **Standard ES6 modules**: Uses `import/export`
 - **Component-based**: Modular, reusable components
 - **Custom Hooks**: Business logic extracted into hooks
@@ -145,15 +150,18 @@ web/
 #### Key Components
 
 **Dialog System**:
+
 - `Dialog.js`: Reusable modal with title, content, footer
 - `DialogButton`: Styled button (default/primary/danger variants)
 
 **Toast Notifications**:
+
 - Replaces `alert()` calls
 - Types: success, error, warning, info
 - Auto-dismiss after 3 seconds
 
 **Custom Hooks**:
+
 - `useGalleryData`: Fetches and caches gallery data
 - `useFilteredArtists`: Filters and sorts artist list with `useMemo`
 - `useArtistSelector`: Core selection state, loads data from `/data` endpoint (artists + combinations in one call)
@@ -161,21 +169,24 @@ web/
 - `usePartitionState`: Partition CRUD, artist/category/combination mapping, persistence
 
 **Cover Image System**:
+
 - Storage field: `coverImageId` (path stored in JSON)
 - API response field: `coverImagePath` (computed: `coverImageId || first_mapping_image`)
 - Frontend uses only `coverImagePath` — `coverImageId` is not exposed in API responses
 - Set via right-click menu → "设为封面", calls `setArtistCover()` or `updateCombinationApi()`
 
 **Combination System**:
+
 - `CombinationStorage`: CRUD in `combinations.json`
 - Fields: `id`, `name`, `categoryId`, `artistKeys[]`, `outputContent`, `coverImageId`
 - Auto-create: When partition has `autoCreateCombination` enabled, `SaveToGallery` creates a combination with:
-  - `name` = comma-joined artist names
-  - `outputContent` = formatted content (e.g., `@artist_one,@artist_two` if format is `@{content}`)
-  - `artistKeys` = actually used artists (after random/cycle filtering)
+    - `name` = comma-joined artist names
+    - `outputContent` = formatted content (e.g., `@artist_one,@artist_two` if format is `@{content}`)
+    - `artistKeys` = actually used artists (after random/cycle filtering)
 - Auto-create requires `saveToGallery` enabled on the partition
 
 **Partition System**:
+
 - Each partition has independent config: `format`, `randomMode`, `randomCount`, `cycleMode`, `saveToGallery`, `autoCreateCombination`
 - `autoCreateCombination` is disabled when `saveToGallery` is off
 - Partition header shows link icon badge when auto-create is enabled
@@ -183,11 +194,13 @@ web/
 ## Development Workflow
 
 ### Testing Changes
+
 1. **Python files**: Requires **ComfyUI restart**
 2. **JavaScript/Preact files**: Requires **browser refresh** (hard refresh: Ctrl+Shift+R)
 3. **CSS files**: Requires **browser refresh**
 
 ### Code Style
+
 - Use standard ES6 `import/export` for modules
 - Import Preact from `'../lib/preact.mjs'` and hooks from `'../lib/hooks.mjs'`
 - Components should be small (<200 lines) and focused
@@ -196,6 +209,7 @@ web/
 - Use Toast instead of `alert()` for user feedback
 
 ### Styling
+
 - **Style Guide**: See [`STYLE_GUIDE.md`](STYLE_GUIDE.md) for the complete design system (colors, typography, spacing, component patterns)
 - **Gallery UI**: Uses pink/light theme (`#ff6b9d` / `#ffb6c1` / `#fff5f8`)
 - **Node Widgets**: Uses dark theme (`#1e1e1e` / `#6c5ce7`) matching ComfyUI editor
@@ -204,6 +218,7 @@ web/
 - CSS class naming: `gallery-` prefix for gallery UI, `artist-selector-` for node widgets
 
 ### Debugging
+
 - **Backend errors**: Check ComfyUI console/terminal output
 - **Frontend errors**: Open browser DevTools (F12) → Console tab
 - **Network issues**: DevTools → Network tab, filter by `/artist_gallery/`
@@ -218,20 +233,28 @@ Use the reusable Dialog component:
 import { Dialog, DialogButton } from './components/Dialog.js';
 
 export function MyDialog({ isOpen, onClose, onConfirm }) {
-    return h(Dialog, {
-        isOpen,
-        onClose,
-        title: 'Dialog Title',
-        titleIcon: '📝',
-        maxWidth: '500px',
-        footer: [
-            h(DialogButton, { onClick: onClose }, '取消'),
-            h(DialogButton, {
-                variant: 'primary',
-                onClick: onConfirm
-            }, '确定'),
-        ],
-    }, 'Dialog content here');
+    return h(
+        Dialog,
+        {
+            isOpen,
+            onClose,
+            title: 'Dialog Title',
+            titleIcon: '📝',
+            maxWidth: '500px',
+            footer: [
+                h(DialogButton, { onClick: onClose }, '取消'),
+                h(
+                    DialogButton,
+                    {
+                        variant: 'primary',
+                        onClick: onConfirm,
+                    },
+                    '确定',
+                ),
+            ],
+        },
+        'Dialog content here',
+    );
 }
 ```
 
@@ -256,6 +279,7 @@ export function useMyHook() {
 ### Adding API Endpoints
 
 **Backend** (`routes/`):
+
 ```python
 @server.PromptServer.instance.routes.get("/artist_gallery/your-endpoint")
 async def your_handler(request):
@@ -267,6 +291,7 @@ async def your_handler(request):
 ```
 
 **Frontend** (`utils.js` or `services/`):
+
 ```javascript
 export async function yourApiCall(data) {
     const response = await fetch('/artist_gallery/your-endpoint', {
@@ -286,7 +311,7 @@ export async function yourApiCall(data) {
 ```javascript
 import { h } from '../lib/preact.mjs';
 import { useState, useEffect } from '../lib/hooks.mjs';
-import { Icon } from '../lib/icons.mjs';  // For SVG icons — see Icon System section
+import { Icon } from '../lib/icons.mjs'; // For SVG icons — see Icon System section
 ```
 
 3. Use render functions for complex JSX:
@@ -299,9 +324,7 @@ export function MyComponent({ prop1, prop2 }) {
         return h('div', { class: 'my-section' }, 'Content');
     };
 
-    return h('div', { class: 'my-component' }, [
-        renderSection(),
-    ]);
+    return h('div', { class: 'my-component' }, [renderSection()]);
 }
 ```
 
@@ -330,20 +353,25 @@ showToast('数据已更新', 'info');
 The plugin maintains JSON files in the plugin storage directory:
 
 **`artists.json`**: Artist metadata (ArtistStorage)
+
 - Fields: id, name, displayName, categoryId, coverImageId, createdAt
 
 **`categories.json`**: Category tree (CategoryStorage)
+
 - Fields: id, name, parentId, children[]
 
 **`combinations.json`**: Combination data (CombinationStorage)
+
 - Fields: id, name, categoryId, artistKeys[], outputContent, coverImageId, createdAt
 
 **`image_artists.json`**: Image-to-artist mappings (ImageMappingStorage)
+
 - Fields: imagePath, artistNames[], dimensions, saveTimestamp
 
 ## Image Filename Pattern
 
 Images are automatically detected by filename pattern:
+
 ```
 @artist_name,_number.extension
 ```
@@ -368,9 +396,9 @@ All UI icons use SVG via the self-built icon library at `web/lib/icons.mjs`. **N
 ```javascript
 // Preact component context
 import { Icon } from '../lib/icons.mjs';
-h(Icon, { name: 'search', size: 16 })              // basic usage
-h(Icon, { name: 'trash-2', size: 14, color: '#f44' })  // with color
-h(Icon, { name: 'loader', size: 14, class: 'spin' })   // with CSS class (spinning animation)
+h(Icon, { name: 'search', size: 16 }); // basic usage
+h(Icon, { name: 'trash-2', size: 14, color: '#f44' }); // with color
+h(Icon, { name: 'loader', size: 14, class: 'spin' }); // with CSS class (spinning animation)
 
 // Native DOM context (ContextMenu, vanilla JS)
 import { iconToSvg } from '../lib/icons.mjs';
@@ -379,49 +407,49 @@ element.innerHTML = iconToSvg('trash-2', 16);
 
 ### Available Icons
 
-| Icon Name | Use Case |
-|-----------|----------|
-| `search` | Search input |
-| `x` | Close / dismiss buttons |
-| `plus` | Add actions |
-| `minus` | Remove actions |
-| `star` | Favorites |
-| `image` | Image-related actions |
-| `trash-2` | Delete actions |
-| `copy` | Copy / duplicate actions |
-| `edit` | Edit actions |
-| `move` | Move actions |
-| `link` | Combinations / link-related |
-| `folder` | Category / folder display |
-| `folder-plus` | Create new category |
-| `settings` | Configuration / settings |
-| `power` | Enable / disable toggle |
-| `ban` | Disabled / prohibited state |
-| `repeat` | Cycle mode indicator |
-| `shuffle` | Random mode indicator |
-| `download` | Import / download actions |
-| `upload` | Export / upload actions |
-| `refresh-cw` | Refresh / reload |
-| `loader` | Loading spinner (use with `class: 'spin'`) |
-| `check-circle` | Success state |
-| `x-circle` | Error state |
-| `alert-triangle` | Warning / orphaned items |
-| `info-circle` | Info / help |
-| `lightbulb` | Hints / tips |
-| `package` | Move / batch operations |
-| `clipboard-list` | Batch / selection mode |
-| `palette` | Empty gallery placeholder |
-| `arrow-left` | Back / navigation |
-| `arrow-up` / `arrow-down` | Sort order |
-| `chevron-left` / `chevron-right` | Navigation arrows |
-| `minus` | Collapse / reduce |
+| Icon Name                        | Use Case                                   |
+| -------------------------------- | ------------------------------------------ |
+| `search`                         | Search input                               |
+| `x`                              | Close / dismiss buttons                    |
+| `plus`                           | Add actions                                |
+| `minus`                          | Remove actions                             |
+| `star`                           | Favorites                                  |
+| `image`                          | Image-related actions                      |
+| `trash-2`                        | Delete actions                             |
+| `copy`                           | Copy / duplicate actions                   |
+| `edit`                           | Edit actions                               |
+| `move`                           | Move actions                               |
+| `link`                           | Combinations / link-related                |
+| `folder`                         | Category / folder display                  |
+| `folder-plus`                    | Create new category                        |
+| `settings`                       | Configuration / settings                   |
+| `power`                          | Enable / disable toggle                    |
+| `ban`                            | Disabled / prohibited state                |
+| `repeat`                         | Cycle mode indicator                       |
+| `shuffle`                        | Random mode indicator                      |
+| `download`                       | Import / download actions                  |
+| `upload`                         | Export / upload actions                    |
+| `refresh-cw`                     | Refresh / reload                           |
+| `loader`                         | Loading spinner (use with `class: 'spin'`) |
+| `check-circle`                   | Success state                              |
+| `x-circle`                       | Error state                                |
+| `alert-triangle`                 | Warning / orphaned items                   |
+| `info-circle`                    | Info / help                                |
+| `lightbulb`                      | Hints / tips                               |
+| `package`                        | Move / batch operations                    |
+| `clipboard-list`                 | Batch / selection mode                     |
+| `palette`                        | Empty gallery placeholder                  |
+| `arrow-left`                     | Back / navigation                          |
+| `arrow-up` / `arrow-down`        | Sort order                                 |
+| `chevron-left` / `chevron-right` | Navigation arrows                          |
+| `minus`                          | Collapse / reduce                          |
 
 ### Adding New Icons
 
 1. Find the Lucide icon SVG path data (MIT license): https://lucide.dev/icons/
 2. Add to the `ICONS` object in `web/lib/icons.mjs`:
-   - Single path: `'icon-name': ['M...path data...']`
-   - Multiple paths: `'icon-name': ['M...path1...', 'M...path2...']`
+    - Single path: `'icon-name': ['M...path data...']`
+    - Multiple paths: `'icon-name': ['M...path1...', 'M...path2...']`
 3. Use immediately via `h(Icon, { name: 'icon-name' })` or `iconToSvg('icon-name')`
 
 ### CSS Alignment for SVG Icons
@@ -453,7 +481,9 @@ Buttons and containers with SVG icons must use flex alignment:
 
 /* Spinning animation for loading */
 @keyframes icon-spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 svg.spin {
     animation: icon-spin 1s linear infinite;
@@ -463,28 +493,32 @@ svg.spin {
 ### Exceptions (Emoji Allowed)
 
 - **Floating button label**: `'🎨'` in `artist_gallery.js` entry point
-- **Modal title**: `'🎨 画师图库'` in `GalleryModal.js` header
+- **Modal title**: `'🎨 Prompt图库'` in `GalleryModal.js` header
 
 ## Component Guidelines
 
 ### When to Create Files
 
 **New Component** (`components/MyComponent.js`):
+
 - Reusable UI with its own state
 - Complex rendering logic
 - Used in multiple places
 
 **New Hook** (`components/hooks/useMyHook.js`):
+
 - Reusable stateful logic
 - Data fetching or synchronization
 - Used by multiple components
 
 **New Service** (`services/myApi.js`):
+
 - API calls to backend
 - External service integrations
 - Data transformation logic
 
 **New Dialog** (using `Dialog.js`):
+
 - Simple modal with confirm/cancel
 - Form input dialogs
 - Confirmation messages
@@ -522,7 +556,7 @@ svg.spin {
 ### Toast Notifications
 
 ```javascript
-showToast(message, type, duration)
+showToast(message, type, duration);
 // message: string
 // type: 'success' | 'error' | 'warning' | 'info'
 // duration: number (ms), default 3000

@@ -10,134 +10,132 @@ import { BaseCard } from './BaseCard.js';
 import { useContextMenu } from './ContextMenu.js';
 
 export function CombinationCard({
-    combination,
-    artists = [],
-    onClick,
-    onEdit,
-    onDuplicate,
-    onMove,
-    onDelete,
-    // 多选相关
-    selectionMode = false,
-    selected = false,
-    onSelect,
+  combination,
+  artists = [],
+  onClick,
+  onEdit,
+  onDuplicate,
+  onMove,
+  onDelete,
+  // 多选相关
+  selectionMode = false,
+  selected = false,
+  onSelect,
 }) {
-    const [copied, setCopied] = useState(false);
-    const { showContextMenu } = useContextMenu();
+  const [copied, setCopied] = useState(false);
+  const { showContextMenu } = useContextMenu();
 
-    const selectionKey = `combination:${combination.id}`;
-    const memberCount = (combination.artistKeys || []).length;
+  const selectionKey = `combination:${combination.id}`;
+  const memberCount = (combination.artistKeys || []).length;
 
-    // 封面图：使用后端提供的 coverImagePath
-    const coverImage = combination.coverImagePath
-        ? { path: combination.coverImagePath }
-        : null;
+  // 封面图：使用后端提供的 coverImagePath
+  const coverImage = combination.coverImagePath ? { path: combination.coverImagePath } : null;
 
-    const handleCopyText = () => {
-        const text = combination.outputContent || combination.artistKeys?.join(',');
-        navigator.clipboard.writeText(text).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-        });
-    };
+  const handleCopyText = () => {
+    const text = combination.outputContent || combination.artistKeys?.join(',');
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
 
-    const handleContextMenu = (e) => {
-        if (selectionMode) return;
+  const handleContextMenu = (e) => {
+    if (selectionMode) return;
 
-        const menuItems = [
-            {
-                icon: 'clipboard-list',
-                label: copied ? '已复制' : '复制文本',
-                action: handleCopyText,
-            },
-            {
-                icon: 'edit',
-                label: '编辑',
-                action: () => onEdit && onEdit(combination),
-            },
-            {
-                icon: 'copy',
-                label: '复制',
-                action: () => onDuplicate && onDuplicate(combination),
-            },
-            {
-                icon: 'move',
-                label: '移动',
-                action: () => onMove && onMove(combination, 'combination'),
-            },
-            {
-                icon: 'trash-2',
-                label: '删除',
-                action: () => onDelete && onDelete(combination),
-            },
-        ];
+    const menuItems = [
+      {
+        icon: 'clipboard-list',
+        label: copied ? '已复制' : '复制文本',
+        action: handleCopyText,
+      },
+      {
+        icon: 'edit',
+        label: '编辑',
+        action: () => onEdit && onEdit(combination),
+      },
+      {
+        icon: 'copy',
+        label: '复制',
+        action: () => onDuplicate && onDuplicate(combination),
+      },
+      {
+        icon: 'move',
+        label: '移动',
+        action: () => onMove && onMove(combination, 'combination'),
+      },
+      {
+        icon: 'trash-2',
+        label: '删除',
+        action: () => onDelete && onDelete(combination),
+      },
+    ];
 
-        showContextMenu(e, menuItems);
-    };
+    showContextMenu(e, menuItems);
+  };
 
-    // ============ 渲染 ============
+  // ============ 渲染 ============
 
-    const renderHeader = () => {
-        return h('div', { class: 'gallery-card-header' }, [
-            h(
-                'span',
-                {
-                    class: 'gallery-artist-name',
-                    title: combination.name,
-                },
-                `${combination.name}`,
-            ),
-            h(
-                'span',
-                { class: 'gallery-artist-count' },
-                `${memberCount}人`,
-            ),
-        ]);
-    };
+  const renderHeader = () => {
+    return h('div', { class: 'gallery-card-header' }, [
+      h(
+        'span',
+        {
+          class: 'gallery-artist-name',
+          title: combination.name,
+        },
+        `${combination.name}`,
+      ),
+      h('span', { class: 'gallery-artist-count' }, `${memberCount}人`),
+    ]);
+  };
 
-    const renderCover = () => {
-        if (coverImage) {
-            return h(
-                'div',
-                {
-                    class: 'gallery-image-cover',
-                    onClick: (e) => {
-                        if (!selectionMode) {
-                            onClick && onClick(combination);
-                        }
-                    },
-                },
-                h('img', {
-                    src: buildImageUrl(coverImage.path),
-                    alt: combination.name,
-                    loading: 'lazy',
-                }),
-            );
-        }
-
-        return h('div', {
-            class: 'gallery-card-empty',
-            onClick: (e) => {
-                if (!selectionMode) {
-                    onClick && onClick(combination);
-                }
-            },
-        }, [
-            h('div', { class: 'gallery-card-empty-icon' }, h(Icon, { name: 'link', size: 32 })),
-            h('div', { class: 'gallery-card-empty-text' }, `${memberCount} 个画师`),
-        ]);
-    };
+  const renderCover = () => {
+    if (coverImage) {
+      return h(
+        'div',
+        {
+          class: 'gallery-image-cover',
+          onClick: (e) => {
+            if (!selectionMode) {
+              onClick && onClick(combination);
+            }
+          },
+        },
+        h('img', {
+          src: buildImageUrl(coverImage.path),
+          alt: combination.name,
+          loading: 'lazy',
+        }),
+      );
+    }
 
     return h(
-        BaseCard,
-        {
-            cardType: 'gallery',
-            selectionMode,
-            selected,
-            selectionKey,
-            onSelect,
-            onContextMenu: handleContextMenu,
+      'div',
+      {
+        class: 'gallery-card-empty',
+        onClick: (e) => {
+          if (!selectionMode) {
+            onClick && onClick(combination);
+          }
         },
-        [renderHeader(), renderCover()],
+      },
+      [
+        h('div', { class: 'gallery-card-empty-icon' }, h(Icon, { name: 'link', size: 32 })),
+        h('div', { class: 'gallery-card-empty-text' }, `${memberCount} 个Prompt`),
+      ],
     );
+  };
+
+  return h(
+    BaseCard,
+    {
+      cardType: 'gallery',
+      selectionMode,
+      selected,
+      selectionKey,
+      onSelect,
+      onContextMenu: handleContextMenu,
+    },
+    [renderHeader(), renderCover()],
+  );
 }

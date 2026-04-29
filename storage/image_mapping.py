@@ -5,7 +5,7 @@ import threading
 
 
 class ImageMappingStorage:
-    """图片-画师映射关系管理"""
+    """图片-Prompt映射关系管理"""
 
     def __init__(self, storage_dir: Path):
         self.storage_dir = storage_dir
@@ -54,9 +54,9 @@ class ImageMappingStorage:
 
     def add_mapping(self, image_path: str, artist_names: List[str], metadata: Optional[dict] = None):
         """
-        添加图片-画师映射
+        添加图片-Prompt映射
         :param image_path: 图片相对路径（如 "artist_gallery/1719123456789.png"）
-        :param artist_names: 关联的画师名称列表
+        :param artist_names: 关联的Prompt名称列表
         :param metadata: 图片元数据（宽高等）
         """
         import time
@@ -77,8 +77,8 @@ class ImageMappingStorage:
 
     def get_mappings_by_artist(self, artist_name: str) -> List[dict]:
         """
-        获取指定画师的所有图片映射（使用画师名称）
-        :param artist_name: 画师名称
+        获取指定Prompt的所有图片映射（使用Prompt名称）
+        :param artist_name: Prompt名称
         :return: 图片映射列表
         """
         mappings = self.get_all_mappings()
@@ -88,7 +88,7 @@ class ImageMappingStorage:
         ]
 
     def get_first_mapping_by_artist(self, artist_name: str) -> Optional[dict]:
-        """获取画师的第一张图片映射（用于封面图）"""
+        """获取Prompt的第一张图片映射（用于封面图）"""
         with self._lock:
             data = self._read_data()
             for m in data.get("mappings", []):
@@ -98,7 +98,7 @@ class ImageMappingStorage:
 
     def get_mappings_by_artist_id(self, artist_id: str) -> List[dict]:
         """
-        获取指定画师的所有图片映射（使用 ID，兼容旧版本）
+        获取指定Prompt的所有图片映射（使用 ID，兼容旧版本）
         注意：此方法仅用于迁移期间的兼容性
         """
         mappings = self.get_all_mappings()
@@ -117,29 +117,29 @@ class ImageMappingStorage:
 
     def remove_artist_from_mappings(self, artist_name: str) -> List[str]:
         """
-        从所有映射中移除指定画师（使用画师名称）
-        :param artist_name: 画师名称
-        :return: 被完全移除的图片路径列表（没有其他画师关联的图片）
+        从所有映射中移除指定Prompt（使用Prompt名称）
+        :param artist_name: Prompt名称
+        :return: 被完全移除的图片路径列表（没有其他Prompt关联的图片）
         """
         with self._lock:
             data = self._read_data()
             orphan_images = []
 
-            # 过滤掉包含该画师的映射，或从映射中移除该画师
+            # 过滤掉包含该Prompt的映射，或从映射中移除该Prompt
             new_mappings = []
             for mapping in data["mappings"]:
                 artist_names = mapping.get("artistNames", [])
 
                 if artist_name in artist_names:
-                    # 移除该画师
+                    # 移除该Prompt
                     artist_names.remove(artist_name)
 
                     if artist_names:
-                        # 还有其他画师，保留映射
+                        # 还有其他Prompt，保留映射
                         mapping["artistNames"] = artist_names
                         new_mappings.append(mapping)
                     else:
-                        # 没有其他画师，记录为孤儿图片
+                        # 没有其他Prompt，记录为孤儿图片
                         orphan_images.append(mapping.get("imagePath"))
                 else:
                     new_mappings.append(mapping)
@@ -166,9 +166,9 @@ class ImageMappingStorage:
 
     def update_mapping(self, image_path: str, artist_names: List[str], metadata: Optional[dict] = None) -> bool:
         """
-        更新图片映射的画师列表
+        更新图片映射的Prompt列表
         :param image_path: 图片路径
-        :param artist_names: 新的画师名称列表
+        :param artist_names: 新的Prompt名称列表
         :param metadata: 可选的元数据更新
         :return: 是否更新成功
         """
@@ -188,7 +188,7 @@ class ImageMappingStorage:
 
     def rename_artist_in_mappings(self, old_name: str, new_name: str) -> int:
         """
-        在所有映射中重命名画师
+        在所有映射中重命名Prompt
         :param old_name: 旧名称
         :param new_name: 新名称
         :return: 更新的映射数量
@@ -200,7 +200,7 @@ class ImageMappingStorage:
             for mapping in data["mappings"]:
                 artist_names = mapping.get("artistNames", [])
                 if old_name in artist_names:
-                    # 替换画师名称
+                    # 替换Prompt名称
                     new_artist_names = [new_name if name == old_name else name for name in artist_names]
                     mapping["artistNames"] = new_artist_names
                     updated_count += 1
@@ -212,8 +212,8 @@ class ImageMappingStorage:
 
     def get_all_mappings_for_artist(self, artist_name: str) -> List[dict]:
         """
-        获取指定画师的所有映射（用于重命名时显示预览）
-        :param artist_name: 画师名称
+        获取指定Prompt的所有映射（用于重命名时显示预览）
+        :param artist_name: Prompt名称
         :return: 映射列表
         """
         mappings = self.get_all_mappings()

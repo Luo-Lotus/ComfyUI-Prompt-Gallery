@@ -1,4 +1,4 @@
-/* ============ 画师详情模态框样式 ============ */
+/* ============ Prompt详情模态框样式 ============ */
 .artist-detail-overlay {
     position: fixed;
     top: 0;
@@ -62,7 +62,10 @@
     padding: 24px;
     overflow-y: auto;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--card-grid-min-width), 1fr));
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(var(--card-grid-min-width), 1fr)
+    );
     gap: var(--card-grid-gap);
 }
 
@@ -95,7 +98,7 @@
     color: #888;
 }
 
-/* ============ 画师详情视图（内嵌） ============ */
+/* ============ Prompt详情视图（内嵌） ============ */
 .artist-detail-view {
     display: flex;
     flex-direction: column;
@@ -104,7 +107,10 @@
 
 .artist-detail-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--card-grid-min-width), 1fr));
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(var(--card-grid-min-width), 1fr)
+    );
     gap: var(--card-grid-gap);
     padding: 20px;
 }

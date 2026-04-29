@@ -76,7 +76,7 @@ def get_storage() -> Tuple[ArtistStorage, ImageMappingStorage, CategoryStorage, 
     category_storage = CategoryStorage(storage_dir)
     combination_storage = CombinationStorage(storage_dir)
 
-    # 自动迁移现有画师数据（旧版本兼容）
+    # 自动迁移现有Prompt数据（旧版本兼容）
     try:
         migrate_artist_data(artist_storage)
     except Exception as e:

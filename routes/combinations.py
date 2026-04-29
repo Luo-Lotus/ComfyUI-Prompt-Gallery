@@ -30,7 +30,7 @@ async def get_combinations(request):
         result_combinations = []
         for comb in raw_combinations:
             comb_data = dict(comb)
-            # 优先使用设置的封面，否则取第一个成员画师的第一张图
+            # 优先使用设置的封面，否则取第一个成员Prompt的第一张图
             cover_path = comb.get("coverImageId")
             if not cover_path:
                 for artist_name in comb.get("artistKeys", []):
@@ -69,7 +69,7 @@ async def get_all_combinations(request):
         result_combinations = []
         for comb in raw_combinations:
             comb_data = dict(comb)
-            # 优先使用设置的封面，否则取第一个成员画师的第一张图
+            # 优先使用设置的封面，否则取第一个成员Prompt的第一张图
             cover_path = comb.get("coverImageId")
             if not cover_path:
                 for artist_name in comb.get("artistKeys", []):
@@ -125,7 +125,7 @@ async def create_combination(request):
         if not name:
             return web.json_response({"success": False, "error": "组合名称不能为空"}, status=400)
         if not artist_keys:
-            return web.json_response({"success": False, "error": "请选择至少一个画师"}, status=400)
+            return web.json_response({"success": False, "error": "请选择至少一个Prompt"}, status=400)
 
         _, _, _, combination_storage = get_storage()
         combination = combination_storage.add_combination(
@@ -228,7 +228,7 @@ async def move_combination(request):
 @server.PromptServer.instance.routes.get("/artist_gallery/combinations/{id}/images")
 async def get_combination_images(request):
     """
-    获取组合的合并图片（交集：只返回同时属于所有成员画师的图片）
+    获取组合的合并图片（交集：只返回同时属于所有成员Prompt的图片）
     """
     try:
         import folder_paths
@@ -251,7 +251,7 @@ async def get_combination_images(request):
                 "totalCount": 0,
             })
 
-        # 获取每个画师的图片路径集合
+        # 获取每个Prompt的图片路径集合
         artist_image_sets = []
         for artist_name in artist_keys:
             mappings = mapping_storage.get_mappings_by_artist(artist_name)
@@ -270,7 +270,7 @@ async def get_combination_images(request):
                 "totalCount": 0,
             })
 
-        # 交集：只保留属于所有画师的图片
+        # 交集：只保留属于所有Prompt的图片
         common_paths = artist_image_sets[0]
         for s in artist_image_sets[1:]:
             common_paths = common_paths & s

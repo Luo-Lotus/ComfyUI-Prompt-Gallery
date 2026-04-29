@@ -25,7 +25,7 @@ class FilenameParser:
 
         :param filename: 文件名（不含路径）
         :param pattern: 正则表达式模式
-        :return: 解析出的画师名称，或None
+        :return: 解析出的Prompt名称，或None
         """
         try:
             # 尝试从文件名中匹配（不包含扩展名）
@@ -70,12 +70,12 @@ class FilenameParser:
     @staticmethod
     def parse_auto_create(filename: str) -> Optional[str]:
         """
-        策略2: 自动创建画师
-        从文件名提取画师名，移除扩展名、数字后缀、特殊字符
+        策略2: 自动创建Prompt
+        从文件名提取Prompt名，移除扩展名、数字后缀、特殊字符
         例: "artist-name_001.png" → "artist-name"
 
         :param filename: 文件名（不含路径）
-        :return: 清理后的画师名称，或None
+        :return: 清理后的Prompt名称，或None
         """
         try:
             print(f"[FilenameParser] 自动创建解析调试:")
@@ -104,7 +104,7 @@ class FilenameParser:
         例: "%40artist%20name.png" → "@artist name"
 
         :param filename: 文件名（不含路径）
-        :return: 解码并提取的画师名称，或None
+        :return: 解码并提取的Prompt名称，或None
         """
         try:
             from urllib.parse import unquote
@@ -146,10 +146,10 @@ def embed_image_metadata(
     100%复用SaveToGallery的嵌入逻辑，确保数据一致性
 
     :param image_path: 图片文件路径
-    :param artist_names: 画师名称列表
+    :param artist_names: Prompt名称列表
     :param display_names: 显示名称列表
     :param categories: 分类ID列表
-    :param selected_artists: 选中的画师信息列表
+    :param selected_artists: 选中的Prompt信息列表
     :param prompt: ComfyUI工作流（可选）
     :param extra_pnginfo: 额外的PNG元数据（可选）
     :return: 是否成功
@@ -164,7 +164,7 @@ def embed_image_metadata(
             if prompt is not None:
                 pnginfo.add_text("prompt", json.dumps(prompt))
 
-            # 嵌入画师metadata（核心逻辑，与SaveToGallery完全一致）
+            # 嵌入Promptmetadata（核心逻辑，与SaveToGallery完全一致）
             pnginfo.add_text("artist_gallery", json.dumps({
                 "artist_names": artist_names,
                 "display_names": display_names,
@@ -214,10 +214,10 @@ def save_image_with_metadata(
 
     :param image_bytes: 图片字节数据
     :param save_path: 保存路径
-    :param artist_names: 画师名称列表
+    :param artist_names: Prompt名称列表
     :param display_names: 显示名称列表
     :param categories: 分类ID列表
-    :param selected_artists: 选中的画师信息列表
+    :param selected_artists: 选中的Prompt信息列表
     :param prompt: ComfyUI工作流（可选）
     :param extra_pnginfo: 额外的PNG元数据（可选）
     :return: (是否成功, 图片元数据{"width", "height"})
@@ -233,7 +233,7 @@ def save_image_with_metadata(
         if prompt is not None:
             pnginfo.add_text("prompt", json.dumps(prompt))
 
-        # 添加画师元数据（核心逻辑，与SaveToGallery完全一致）
+        # 添加Prompt元数据（核心逻辑，与SaveToGallery完全一致）
         pnginfo.add_text("artist_gallery", json.dumps({
             "artist_names": artist_names,
             "display_names": display_names,
@@ -267,17 +267,17 @@ def parse_artist_info_from_filename(
     config: Dict
 ) -> Tuple[Optional[str], Optional[str], Optional[str], bool]:
     """
-    根据配置从文件名解析画师信息
+    根据配置从文件名解析Prompt信息
 
     :param filename: 文件名
     :param config: 配置字典，包含:
         - parseStrategy: "regex" | "auto_create"
         - regexPattern: 正则模式（仅regex策略）
-        - autoCreateArtist: 是否自动创建画师
+        - autoCreateArtist: 是否自动创建Prompt
         - urlDecode: 是否URL解码（适用于所有策略）
     :return: (artist_name, display_name, error_message, will_create_artist)
     """
-    print(f"[ParseArtist] 开始解析画师信息")
+    print(f"[ParseArtist] 开始解析Prompt信息")
     print(f"  原始文件名: {filename}")
     print(f"  配置: {config}")
 
@@ -303,7 +303,7 @@ def parse_artist_info_from_filename(
         except Exception as e:
             print(f"[ParseArtist] URL解码失败: {e}")
 
-    # 解析画师名称
+    # 解析Prompt名称
     if strategy == "regex":
         pattern = config.get("regexPattern", r"@([^,]+),")
         print(f"  使用正则策略，模式: {pattern}")
@@ -317,11 +317,11 @@ def parse_artist_info_from_filename(
         return None, None, error_msg, False
 
     if not artist_name:
-        error_msg = f"无法从文件名解析画师: {filename}"
+        error_msg = f"无法从文件名解析Prompt: {filename}"
         print(f"  {error_msg}")
         return None, None, error_msg, False
 
-    print(f"  解析出的画师名: {artist_name}")
+    print(f"  解析出的Prompt名: {artist_name}")
 
     # 不自动添加@符号，严格使用正则的返回值
     # 如果名称不以@开头，也不自动添加
@@ -330,7 +330,7 @@ def parse_artist_info_from_filename(
     # display_name默认与artist_name相同
     display_name = artist_name
 
-    # 是否需要创建画师
+    # 是否需要创建Prompt
     will_create = config.get("autoCreateArtist", True)
 
     print(f"[ParseArtist] 解析成功: {artist_name}, will_create={will_create}")

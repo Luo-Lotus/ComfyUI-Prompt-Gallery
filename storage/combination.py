@@ -72,7 +72,7 @@ class CombinationStorage:
         添加组合
         :param name: 组合名称
         :param category_id: 所属分类
-        :param artist_keys: 成员画师名称列表（仅名称）
+        :param artist_keys: 成员Prompt名称列表（仅名称）
         :param output_content: 自定义输出内容，为空时自动生成为逗号连接
         """
         if not output_content:
@@ -161,7 +161,7 @@ class CombinationStorage:
 
     def remove_artist_from_all(self, artist_name: str) -> int:
         """
-        从所有组合中移除指定画师名称
+        从所有组合中移除指定Prompt名称
         :return: 受影响的组合数量
         """
         with self._lock:

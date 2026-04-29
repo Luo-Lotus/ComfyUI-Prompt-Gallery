@@ -1,6 +1,6 @@
 """
 初始化数据接口
-一次性返回分类树 + 所有画师 + 所有组合，减少前端请求数量
+一次性返回分类树 + 所有Prompt + 所有组合，减少前端请求数量
 """
 from pathlib import Path
 from aiohttp import web
@@ -10,7 +10,7 @@ from ..storage import get_storage
 
 @server.PromptServer.instance.routes.get("/artist_gallery/init")
 async def get_init_data(request):
-    """初始化数据接口：返回分类树、所有画师、所有组合（含封面图路径）"""
+    """初始化数据接口：返回分类树、所有Prompt、所有组合（含封面图路径）"""
     try:
         import folder_paths
         output_dir = folder_paths.get_output_directory()
@@ -20,7 +20,7 @@ async def get_init_data(request):
         # 1. 分类（扁平列表，前端无需再拍平）
         categories = category_storage.get_all_categories()
 
-        # 2. 所有画师（轻量，无图片列表）
+        # 2. 所有Prompt（轻量，无图片列表）
         artists = artist_storage.get_all_artists()
 
         # 3. 所有组合（计算 coverImagePath，复用索引消除 N+1）

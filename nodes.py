@@ -553,7 +553,7 @@ class SaveToGallery:
                     if category_id and name:
                         artist_storage.update_image_count(category_id, name, 1)
 
-                print(f"[SaveToGallery] 已保存: {filename} -> 画师: {', '.join(saveable_names)}")
+                print(f"[SaveToGallery] 已保存: {filename} -> Prompt: {', '.join(saveable_names)}")
 
             except Exception as e:
                 print(f"[SaveToGallery] 保存图片失败: {e}")

@@ -1,4 +1,4 @@
-/* 画师网格容器 */
+/* Prompt网格容器 */
 .gallery-container * {
     box-sizing: border-box;
     margin: 0;
@@ -82,7 +82,10 @@
 
 .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--card-grid-min-width), 1fr));
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(var(--card-grid-min-width), 1fr)
+    );
     gap: var(--card-grid-gap);
 }
 

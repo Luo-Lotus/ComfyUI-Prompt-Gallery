@@ -14,7 +14,7 @@ from ..storage import get_storage
 async def import_images_batch(request):
     """
     批量导入图片到画廊
-    支持单个画师导入和自定义规则批量导入
+    支持单个Prompt导入和自定义规则批量导入
     """
     import asyncio
     import base64
@@ -63,9 +63,9 @@ async def import_images_batch(request):
                     image_bytes = base64.b64decode(image_data['data'])
                     filename = image_data['filename']
 
-                    # 2. 解析画师信息
+                    # 2. 解析Prompt信息
                     if mode == "single":
-                        # 单个画师模式：直接使用配置中的画师信息
+                        # 单个Prompt模式：直接使用配置中的Prompt信息
                         artist_name = config.get("artistName", "").strip()
                         display_name = config.get("displayName", artist_name)
                         category_id = config.get("categoryId", "root")
@@ -81,10 +81,10 @@ async def import_images_batch(request):
                         return {
                             'filename': filename,
                             'success': False,
-                            'error': error_msg or '无法解析画师名称'
+                            'error': error_msg or '无法解析Prompt名称'
                         }
 
-                    # 3. 确保画师存在
+                    # 3. 确保Prompt存在
                     artist = artist_storage.get_artist(category_id, artist_name)
                     if not artist and will_create_artist:
                         try:
@@ -94,14 +94,14 @@ async def import_images_batch(request):
                                 category_id=category_id
                             )
                         except ValueError:
-                            # 画师已存在（并发情况）
+                            # Prompt已存在（并发情况）
                             artist = artist_storage.get_artist(category_id, artist_name)
 
                     if not artist:
                         return {
                             'filename': filename,
                             'success': False,
-                            'error': '画师不存在且未启用自动创建'
+                            'error': 'Prompt不存在且未启用自动创建'
                         }
 
                     # 4. 生成唯一文件名
@@ -144,7 +144,7 @@ async def import_images_batch(request):
                         metadata or {"width": 0, "height": 0}
                     )
 
-                    # 7. 更新画师计数
+                    # 7. 更新Prompt计数
                     artist_storage.update_image_count(category_id, artist_name, 1)
 
                     return {
@@ -173,7 +173,7 @@ async def import_images_batch(request):
         imported = sum(1 for r in results if r['success'])
         failed = len(results) - imported
 
-        # 收集创建的画师
+        # 收集创建的Prompt
         created_artists = [
             r for r in results
             if r['success'] and r.get('artistName')
@@ -222,7 +222,7 @@ async def import_preview(request):
             category = category_storage.get_category_by_id(category_id)
             category_name = category.get("name", "unknown") if category else "unknown"
 
-            # 检查画师是否存在
+            # 检查Prompt是否存在
             artist_storage, _, _, _ = get_storage()
             artist_exists = artist_storage.get_artist(category_id, artist_name) is not None if artist_name else False
 
@@ -233,7 +233,7 @@ async def import_preview(request):
                 'category': category_name,
                 'categoryId': category_id,
                 'willCreate': will_create and not artist_exists,
-                'warnings': [] if artist_name else ['无法解析画师名称']
+                'warnings': [] if artist_name else ['无法解析Prompt名称']
             })
 
         # 统计
@@ -257,7 +257,7 @@ async def import_preview(request):
 
 @server.PromptServer.instance.routes.post("/artist_gallery/export")
 async def export_artists(request):
-    """导出画师（含图片）为 ZIP 文件"""
+    """导出Prompt（含图片）为 ZIP 文件"""
     import folder_paths
     import zipfile
     import io
@@ -341,7 +341,7 @@ async def export_artists(request):
 
 @server.PromptServer.instance.routes.post("/artist_gallery/export-category")
 async def export_category(request):
-    """导出分类（递归包含子分类、画师、组合）为 ZIP 文件"""
+    """导出分类（递归包含子分类、Prompt、组合）为 ZIP 文件"""
     import folder_paths
     import zipfile
     import io
@@ -366,7 +366,7 @@ async def export_category(request):
         all_categories = category_storage.get_all_categories()
         export_categories = [c for c in all_categories if c["id"] in set(all_cat_ids)]
 
-        # 收集这些分类下的所有画师
+        # 收集这些分类下的所有Prompt
         all_artists = artist_storage.get_all_artists()
         export_artists_list = [a for a in all_artists if a.get("categoryId") in set(all_cat_ids)]
 
@@ -374,7 +374,7 @@ async def export_category(request):
         all_combinations = combination_storage.get_all_combinations()
         export_combinations = [c for c in all_combinations if c.get("categoryId") in set(all_cat_ids)]
 
-        # 批量构建画师 → 图片映射索引
+        # 批量构建Prompt → 图片映射索引
         artist_mapping_index = mapping_storage.build_artist_index()
 
         # 收集所有相关图片
@@ -487,7 +487,7 @@ async def export_category(request):
 
 @server.PromptServer.instance.routes.post("/artist_gallery/import")
 async def import_unified(request):
-    """统一导入（支持 v1 画师格式 和 v2 分类格式）"""
+    """统一导入（支持 v1 Prompt格式 和 v2 分类格式）"""
     import folder_paths
     import zipfile
     import io
@@ -515,14 +515,14 @@ async def import_unified(request):
             version = manifest_data.get("version", 1)
 
             if version >= 2:
-                # v2: 分类+画师+组合+图片
+                # v2: 分类+Prompt+组合+图片
                 return await _import_v2(
                     zf, manifest_data, target_category_id,
                     artist_storage, mapping_storage, category_storage, combination_storage,
                     output_dir,
                 )
             else:
-                # v1: 仅画师+图片
+                # v1: 仅Prompt+图片
                 return await _import_v1(
                     zf, manifest_data, target_category_id,
                     artist_storage, mapping_storage, output_dir,
@@ -535,7 +535,7 @@ async def import_unified(request):
 
 
 async def _import_v1(zf, manifest_data, target_category_id, artist_storage, mapping_storage, output_dir):
-    """v1 导入：仅画师 + 图片"""
+    """v1 导入：仅Prompt + 图片"""
     import time
     import random
 
@@ -591,7 +591,7 @@ async def _import_v1(zf, manifest_data, target_category_id, artist_storage, mapp
 
 async def _import_v2(zf, manifest_data, target_category_id,
                      artist_storage, mapping_storage, category_storage, combination_storage, output_dir):
-    """v2 导入：分类树 + 画师 + 组合 + 图片"""
+    """v2 导入：分类树 + Prompt + 组合 + 图片"""
     import time
     import random
 
@@ -644,7 +644,7 @@ async def _import_v2(zf, manifest_data, target_category_id,
         old_to_new_cat[old_id] = new_cat["id"]
         added_categories += 1
 
-    # B. 导入画师
+    # B. 导入Prompt
     added_artists = []
     for artist_info in manifest_data.get("artists", []):
         name = artist_info.get("name", "").strip()

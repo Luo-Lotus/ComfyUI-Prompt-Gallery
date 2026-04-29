@@ -1,6 +1,6 @@
-/* 组合对话框样式 - 画师选择已使用 FlatSelector 组件 */
+/* 组合对话框样式 - Prompt选择已使用 FlatSelector 组件 */
 
-/* 组合详情视图（复用画师详情样式） */
+/* 组合详情视图（复用Prompt详情样式） */
 .combination-detail-header {
     display: flex;
     align-items: center;

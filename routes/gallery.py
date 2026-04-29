@@ -12,7 +12,7 @@ from ..utils import decode_filename
 
 @server.PromptServer.instance.routes.get("/artist_gallery/data")
 async def get_gallery_data(request):
-    """获取画师图库数据 API（支持分类筛选）"""
+    """获取Prompt图库数据 API（支持分类筛选）"""
     import folder_paths
     output_dir = folder_paths.get_output_directory()
 
@@ -27,7 +27,7 @@ async def get_gallery_data(request):
         if not category:
             return web.json_response({"error": "分类不存在"}, status=400)
 
-        # 只获取该分类下的画师（不包含子分类）
+        # 只获取该分类下的Prompt（不包含子分类）
         artists_data = [
             a for a in artist_storage.get_all_artists()
             if a.get("categoryId") == category_id
@@ -61,7 +61,7 @@ async def get_gallery_data(request):
                         cover_path = image_path
                         break
 
-            # 构建画师对象（不包含 images 数组）
+            # 构建Prompt对象（不包含 images 数组）
             result_artist = {
                 "name": artist.get("name"),
                 "displayName": artist.get("displayName"),
@@ -73,7 +73,7 @@ async def get_gallery_data(request):
 
             result_artists.append(result_artist)
 
-        # 排序画师
+        # 排序Prompt
         result_artists.sort(key=lambda x: x["name"].lower())
 
         # 获取当前分类下的组合，并添加封面图片路径（复用同一个索引）
@@ -81,7 +81,7 @@ async def get_gallery_data(request):
         result_combinations = []
         for comb in raw_combinations:
             comb_data = dict(comb)
-            # 优先使用设置的封面，否则取第一个成员画师的第一张图
+            # 优先使用设置的封面，否则取第一个成员Prompt的第一张图
             cover_path = comb.get("coverImageId")
             if not cover_path:
                 for artist_name in comb.get("artistKeys", []):

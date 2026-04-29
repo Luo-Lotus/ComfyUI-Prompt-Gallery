@@ -134,7 +134,7 @@
     font-size: 14px;
 }
 
-.import-config input[type="text"],
+.import-config input[type='text'],
 .import-config select {
     width: 100%;
     padding: 8px 12px;
@@ -145,7 +145,7 @@
     box-sizing: border-box;
 }
 
-.import-config input[type="text"]:focus,
+.import-config input[type='text']:focus,
 .import-config select:focus {
     outline: none;
     border-color: #ff6b9d;
@@ -158,7 +158,7 @@
     margin-top: 10px;
 }
 
-.import-config .form-checkbox input[type="checkbox"] {
+.import-config .form-checkbox input[type='checkbox'] {
     width: 18px;
     height: 18px;
     cursor: pointer;
@@ -169,7 +169,7 @@
     cursor: pointer;
 }
 
-/* 单个画师导入提示 */
+/* 单个Prompt导入提示 */
 .import-single-artist-hint {
     margin-top: 20px;
     padding: 15px;

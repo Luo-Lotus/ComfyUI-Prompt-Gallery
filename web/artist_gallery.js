@@ -9,13 +9,7 @@ import { Storage } from './utils.js';
 
 // ============ 加载 Preact 库（使用标准 ES6 import）============
 import { h, render } from './lib/preact.mjs';
-import {
-    useState,
-    useEffect,
-    useCallback,
-    useMemo,
-    useRef,
-} from './lib/hooks.mjs';
+import { useState, useEffect, useCallback, useMemo, useRef } from './lib/hooks.mjs';
 
 // 将 hooks 和核心函数挂载到全局以便兼容旧代码
 self.preactHooks = { useState, useEffect, useCallback, useMemo, useRef };
@@ -33,88 +27,85 @@ const { ToastContainer } = await import('./components/Toast.js');
 
 // ============ 注册扩展 ============
 app.registerExtension({
-    name: 'ArtistGallery.GalleryButton',
+  name: 'ArtistGallery.GalleryButton',
 
-    async setup() {
-        // 创建悬浮按钮
-        const floatingButton = document.createElement('div');
-        floatingButton.id = 'artist-gallery-floating-btn';
-        floatingButton.innerHTML = '🎨';
-        document.body.appendChild(floatingButton);
+  async setup() {
+    // 创建悬浮按钮
+    const floatingButton = document.createElement('div');
+    floatingButton.id = 'artist-gallery-floating-btn';
+    floatingButton.innerHTML = '🎨';
+    document.body.appendChild(floatingButton);
 
-        // 加载保存的位置
-        function loadButtonPosition() {
-            const pos = Storage.getButtonPosition();
-            if (pos) {
-                floatingButton.style.left = pos.left + 'px';
-                floatingButton.style.top = pos.top + 'px';
-                floatingButton.style.right = 'auto';
-                floatingButton.style.bottom = 'auto';
-            }
-        }
-        loadButtonPosition();
+    // 加载保存的位置
+    function loadButtonPosition() {
+      const pos = Storage.getButtonPosition();
+      if (pos) {
+        floatingButton.style.left = pos.left + 'px';
+        floatingButton.style.top = pos.top + 'px';
+        floatingButton.style.right = 'auto';
+        floatingButton.style.bottom = 'auto';
+      }
+    }
+    loadButtonPosition();
 
-        // 创建模态框容器
-        const modalContainer = document.createElement('div');
-        modalContainer.id = 'artist-gallery-modal-container';
-        document.body.appendChild(modalContainer);
+    // 创建模态框容器
+    const modalContainer = document.createElement('div');
+    modalContainer.id = 'artist-gallery-modal-container';
+    document.body.appendChild(modalContainer);
 
-        // 创建 Toast 容器
-        const toastContainer = document.createElement('div');
-        toastContainer.id = 'artist-gallery-toast-container';
-        document.body.appendChild(toastContainer);
+    // 创建 Toast 容器
+    const toastContainer = document.createElement('div');
+    toastContainer.id = 'artist-gallery-toast-container';
+    document.body.appendChild(toastContainer);
 
-        // 应用状态
-        let isModalOpen = false;
-        let pendingNavigation = null;
+    // 应用状态
+    let isModalOpen = false;
+    let pendingNavigation = null;
 
-        // 渲染模态框
-        function renderModal() {
-            render(
-                h(GalleryModal, {
-                    isOpen: isModalOpen,
-                    onClose: () => {
-                        isModalOpen = false;
-                        pendingNavigation = null;
-                        renderModal();
-                    },
-                    initialNavigation: pendingNavigation,
-                }),
-                modalContainer,
-            );
-        }
-
-        // 渲染 Toast 容器（只渲染一次）
-        render(h(ToastContainer), toastContainer);
-
-        // 初始化渲染
-        renderModal();
-
-        // 全局导航函数：从画师选择器打开画廊到指定视图
-        window.__openArtistGalleryTo = (navigation) => {
-            pendingNavigation = { ...navigation, _ts: Date.now() };
-            isModalOpen = true;
+    // 渲染模态框
+    function renderModal() {
+      render(
+        h(GalleryModal, {
+          isOpen: isModalOpen,
+          onClose: () => {
+            isModalOpen = false;
+            pendingNavigation = null;
             renderModal();
-        };
+          },
+          initialNavigation: pendingNavigation,
+        }),
+        modalContainer,
+      );
+    }
 
-        // 创建拖动功能
-        const draggable = new Draggable(floatingButton, (hasMoved) => {
-            Storage.saveButtonPosition(
-                floatingButton.offsetLeft,
-                floatingButton.offsetTop,
-            );
-            if (!hasMoved) {
-                isModalOpen = true;
-                renderModal();
-            }
-        });
+    // 渲染 Toast 容器（只渲染一次）
+    render(h(ToastContainer), toastContainer);
 
-        // ESC 键关闭模态框
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && isModalOpen) {
-                isModalOpen = false;
-                renderModal();
-            }
-        });
-    },
+    // 初始化渲染
+    renderModal();
+
+    // 全局导航函数：从Prompt选择器打开画廊到指定视图
+    window.__openArtistGalleryTo = (navigation) => {
+      pendingNavigation = { ...navigation, _ts: Date.now() };
+      isModalOpen = true;
+      renderModal();
+    };
+
+    // 创建拖动功能
+    const draggable = new Draggable(floatingButton, (hasMoved) => {
+      Storage.saveButtonPosition(floatingButton.offsetLeft, floatingButton.offsetTop);
+      if (!hasMoved) {
+        isModalOpen = true;
+        renderModal();
+      }
+    });
+
+    // ESC 键关闭模态框
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isModalOpen) {
+        isModalOpen = false;
+        renderModal();
+      }
+    });
+  },
 });

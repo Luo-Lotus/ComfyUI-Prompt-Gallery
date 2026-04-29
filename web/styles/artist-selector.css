@@ -284,7 +284,7 @@
     padding: 0 4px;
 }
 
-/* 画师列表改为 flex-wrap */
+/* Prompt列表改为 flex-wrap */
 .artist-selector-list {
     display: flex;
     flex-wrap: wrap;
@@ -295,7 +295,7 @@
     align-content: flex-start;
 }
 
-/* 画师项改为 inline-flex */
+/* Prompt项改为 inline-flex */
 .artist-selector-item {
     display: inline-flex;
     align-items: center;
@@ -320,7 +320,7 @@
     border-color: #3b82f6;
 }
 
-/* 分类卡片样式（与画师项统一高度） */
+/* 分类卡片样式（与Prompt项统一高度） */
 .artist-selector-category-card {
     display: inline-flex;
     align-items: center;
@@ -991,7 +991,7 @@
     background: rgba(244, 67, 54, 0.2);
 }
 
-/* 分区画师区域 */
+/* 分区Prompt区域 */
 .partition-artists {
     display: flex;
     flex-wrap: wrap;
@@ -1011,7 +1011,7 @@
     border-radius: 4px;
 }
 
-/* 画师标签 */
+/* Prompt标签 */
 .artist-selector-tag {
     background: #3a3a3a;
     border: 1px solid #4a4a4a;
@@ -1301,7 +1301,7 @@
     background: rgba(244, 67, 54, 0.2);
 }
 
-/* 分区画师区域 */
+/* 分区Prompt区域 */
 .partition-artists {
     display: flex;
     flex-wrap: wrap;
@@ -1358,7 +1358,7 @@
     margin-bottom: 8px;
 }
 
-/* 画师项优化 */
+/* Prompt项优化 */
 .artist-selector-item {
     background: rgba(45, 45, 45, 0.8);
     border: 1px solid rgba(60, 60, 60, 0.6);
@@ -1398,7 +1398,7 @@
     border-color: rgba(156, 89, 182, 0.6);
 }
 
-/* 画师标签优化 */
+/* Prompt标签优化 */
 .artist-selector-tag {
     background: #3b82f6;
     color: white;
@@ -1509,7 +1509,9 @@
 
 /* SVG 图标旋转动画 */
 @keyframes icon-spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 svg.spin {
@@ -1641,7 +1643,7 @@ svg.spin {
     text-align: center;
 }
 
-/* 权重聚焦状态（画师标签被选中调整权重） */
+/* 权重聚焦状态（Prompt标签被选中调整权重） */
 .artist-selector-tag.weight-focused {
     outline: 2px solid rgba(255, 255, 255, 0.6);
     outline-offset: 1px;

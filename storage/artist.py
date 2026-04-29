@@ -6,7 +6,7 @@ import threading
 
 
 class ArtistStorage:
-    """画师数据存储管理"""
+    """Prompt数据存储管理"""
 
     def __init__(self, storage_dir: Path):
         self.storage_dir = storage_dir
@@ -48,13 +48,13 @@ class ArtistStorage:
             raise
 
     def get_all_artists(self) -> List[dict]:
-        """获取所有画师"""
+        """获取所有Prompt"""
         with self._lock:
             data = self._read_data()
             return data.get("artists", [])
 
     def get_artist_by_id(self, artist_id: str) -> Optional[dict]:
-        """根据 ID 获取画师（兼容旧版本，建议使用 get_artist）"""
+        """根据 ID 获取Prompt（兼容旧版本，建议使用 get_artist）"""
         artists = self.get_all_artists()
         for artist in artists:
             if artist.get("id") == artist_id:
@@ -63,10 +63,10 @@ class ArtistStorage:
 
     def get_artist(self, category_id: str, name: str) -> Optional[dict]:
         """
-        根据分类ID和名称获取画师（组合键）
+        根据分类ID和名称获取Prompt（组合键）
         :param category_id: 分类 ID
-        :param name: 画师名称
-        :return: 画师对象或 None
+        :param name: Prompt名称
+        :return: Prompt对象或 None
         """
         artists = self.get_all_artists()
         for artist in artists:
@@ -76,8 +76,8 @@ class ArtistStorage:
 
     def get_artist_by_name(self, name: str) -> Optional[dict]:
         """
-        根据名称获取画师（返回第一个匹配的画师）
-        注意：如果存在多个同名画师（不同分类），只返回第一个
+        根据名称获取Prompt（返回第一个匹配的Prompt）
+        注意：如果存在多个同名Prompt（不同分类），只返回第一个
         建议使用 get_artist(category_id, name) 精确查询
         """
         artists = self.get_all_artists()
@@ -88,11 +88,11 @@ class ArtistStorage:
 
     def add_artist(self, name: str, display_name: Optional[str] = None, category_id: str = "root") -> dict:
         """
-        添加画师
-        :param name: 画师名称（同一分类下唯一）
+        添加Prompt
+        :param name: Prompt名称（同一分类下唯一）
         :param display_name: 显示名称（可选）
         :param category_id: 所属分类ID（默认为root）
-        :return: 新创建的画师对象
+        :return: 新创建的Prompt对象
         :raises ValueError: 如果同一分类下 name 已存在
         """
         # 先检查同一分类下 name 是否已存在（不持有锁）
@@ -102,7 +102,7 @@ class ArtistStorage:
             if a.get("categoryId") == category_id
         }
         if name in existing_names_in_category:
-            raise ValueError(f"分类 '{category_id}' 下画师名称 '{name}' 已存在")
+            raise ValueError(f"分类 '{category_id}' 下Prompt名称 '{name}' 已存在")
 
         # 如果未提供 display_name，使用 name
         if not display_name:
@@ -132,10 +132,10 @@ class ArtistStorage:
 
     def add_artists_batch(self, artists_data: List[dict], category_id: str = "root") -> Tuple[List[dict], List[str]]:
         """
-        批量添加画师
-        :param artists_data: 画师数据列表，每个元素包含 {"name": str, "displayName": str(可选)}
+        批量添加Prompt
+        :param artists_data: Prompt数据列表，每个元素包含 {"name": str, "displayName": str(可选)}
         :param category_id: 所属分类ID，默认为root
-        :return: (成功添加的画师列表, 失败的名称列表)
+        :return: (成功添加的Prompt列表, 失败的名称列表)
         """
         with self._lock:
             success_artists = []
@@ -175,17 +175,17 @@ class ArtistStorage:
 
     def update_artist(self, category_id: str, old_name: str, **kwargs) -> bool:
         """
-        更新画师信息（使用组合键）
+        更新Prompt信息（使用组合键）
         :param category_id: 分类 ID
-        :param name: 画师名称
+        :param name: Prompt名称
         :param kwargs: 要更新的字段（displayName, imageCount, categoryId, coverImageId 等）
         :return: 是否更新成功
-        :raises ValueError: 如果新名称与同分类下其他画师重名
+        :raises ValueError: 如果新名称与同分类下其他Prompt重名
         """
         with self._lock:
             data = self._read_data()
 
-            # 查找目标画师
+            # 查找目标Prompt
             target_artist = None
             target_index = -1
             for i, artist in enumerate(data["artists"]):
@@ -204,7 +204,7 @@ class ArtistStorage:
                     if (i != target_index and
                         artist.get("categoryId") == category_id and
                         artist.get("name") == new_name):
-                        raise ValueError(f"分类 '{category_id}' 下画师名称 '{new_name}' 已存在")
+                        raise ValueError(f"分类 '{category_id}' 下Prompt名称 '{new_name}' 已存在")
 
             # 更新字段
             for key, value in kwargs.items():
@@ -216,8 +216,8 @@ class ArtistStorage:
 
     def update_artist_by_id(self, artist_id: str, **kwargs) -> bool:
         """
-        更新画师信息（使用 ID，兼容旧版本）
-        :param artist_id: 画师 ID
+        更新Prompt信息（使用 ID，兼容旧版本）
+        :param artist_id: Prompt ID
         :param kwargs: 要更新的字段
         :return: 是否更新成功
         """
@@ -229,7 +229,7 @@ class ArtistStorage:
                 new_name = kwargs["name"]
                 for artist in data["artists"]:
                     if artist.get("id") != artist_id and artist.get("name") == new_name:
-                        raise ValueError(f"画师名称 '{new_name}' 已存在")
+                        raise ValueError(f"Prompt名称 '{new_name}' 已存在")
 
             for artist in data["artists"]:
                 if artist.get("id") == artist_id:
@@ -242,9 +242,9 @@ class ArtistStorage:
 
     def delete_artist(self, category_id: str, name: str) -> bool:
         """
-        删除画师（使用组合键）
+        删除Prompt（使用组合键）
         :param category_id: 分类 ID
-        :param name: 画师名称
+        :param name: Prompt名称
         :return: 是否删除成功
         """
         with self._lock:
@@ -262,8 +262,8 @@ class ArtistStorage:
 
     def delete_artist_by_id(self, artist_id: str) -> bool:
         """
-        删除画师（使用 ID，兼容旧版本）
-        :param artist_id: 画师 ID
+        删除Prompt（使用 ID，兼容旧版本）
+        :param artist_id: Prompt ID
         :return: 是否删除成功
         """
         with self._lock:
@@ -278,9 +278,9 @@ class ArtistStorage:
 
     def update_image_count(self, category_id: str, name: str, delta: int = 1):
         """
-        更新画师的图片数量（使用组合键）
+        更新Prompt的图片数量（使用组合键）
         :param category_id: 分类 ID
-        :param name: 画师名称
+        :param name: Prompt名称
         :param delta: 增量（正数增加，负数减少）
         """
         with self._lock:
@@ -294,8 +294,8 @@ class ArtistStorage:
 
     def update_image_count_by_id(self, artist_id: str, delta: int = 1):
         """
-        更新画师的图片数量（使用 ID，兼容旧版本）
-        :param artist_id: 画师 ID
+        更新Prompt的图片数量（使用 ID，兼容旧版本）
+        :param artist_id: Prompt ID
         :param delta: 增量（正数增加，负数减少）
         """
         with self._lock:

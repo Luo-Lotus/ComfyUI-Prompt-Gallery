@@ -8,8 +8,8 @@ from .artist import ArtistStorage
 
 def migrate_artist_data(artist_storage: ArtistStorage) -> bool:
     """
-    迁移现有画师数据，添加新字段
-    :param artist_storage: 画师存储实例
+    迁移现有Prompt数据，添加新字段
+    :param artist_storage: Prompt存储实例
     :return: 是否进行了迁移
     """
     import time
@@ -94,7 +94,7 @@ def migrate_to_composite_key(storage_dir: Path) -> dict:
             with open(artists_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
 
-            print(f"[Migration] artists.json 迁移完成，处理了 {len(data.get('artists', []))} 个画师")
+            print(f"[Migration] artists.json 迁移完成，处理了 {len(data.get('artists', []))} 个Prompt")
         else:
             id_to_name = {}
             print("[Migration] artists.json 不存在，跳过")
@@ -115,7 +115,7 @@ def migrate_to_composite_key(storage_dir: Path) -> dict:
                         if name:
                             artist_names.append(name)
                         else:
-                            print(f"[Migration] 警告: 找不到 ID {artist_id} 对应的画师名称")
+                            print(f"[Migration] 警告: 找不到 ID {artist_id} 对应的Prompt名称")
 
                     # 移除 artistIds，添加 artistNames
                     del mapping["artistIds"]
@@ -177,18 +177,18 @@ def validate_migration(storage_dir: Path) -> dict:
             with open(artists_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-            # 检查是否有画师包含 id 字段
+            # 检查是否有Prompt包含 id 字段
             for artist in data.get("artists", []):
                 if "id" in artist:
-                    errors.append(f"画师 {artist.get('name')} 仍然包含 id 字段")
+                    errors.append(f"Prompt {artist.get('name')} 仍然包含 id 字段")
 
                 # 检查必需字段
                 if "name" not in artist:
-                    errors.append("发现缺少 name 字段的画师")
+                    errors.append("发现缺少 name 字段的Prompt")
                 if "categoryId" not in artist:
-                    errors.append(f"画师 {artist.get('name')} 缺少 categoryId 字段")
+                    errors.append(f"Prompt {artist.get('name')} 缺少 categoryId 字段")
                 if "metadata" not in artist:
-                    errors.append(f"画师 {artist.get('name')} 缺少 metadata 字段")
+                    errors.append(f"Prompt {artist.get('name')} 缺少 metadata 字段")
 
             # 检查同分类下是否有重名
             category_artists = {}
@@ -197,7 +197,7 @@ def validate_migration(storage_dir: Path) -> dict:
                 name = artist.get("name")
                 key = f"{cat_id}:{name}"
                 if key in category_artists:
-                    errors.append(f"分类 {cat_id} 下存在重名画师: {name}")
+                    errors.append(f"分类 {cat_id} 下存在重名Prompt: {name}")
                 else:
                     category_artists[key] = True
 
