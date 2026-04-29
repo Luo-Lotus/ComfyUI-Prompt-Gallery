@@ -3,22 +3,19 @@
  * 显示组合成员Prompt的图片交集，支持搜索过滤、右键菜单、多选
  */
 import { h } from '../lib/preact.mjs';
-import { useEffect } from '../lib/hooks.mjs';
+import { useMemo } from '../lib/hooks.mjs';
 import { useContextMenu } from './ContextMenu.js';
 import { LazyList } from './LazyList.js';
 import { buildImageUrl, updateCombination as updateCombinationApi } from '../utils.js';
 import { showToast } from './Toast.js';
 import { useGallery } from './GalleryContext.js';
-import { applySizeStyles } from './SizePresets.js';
+import { computeSizeVars } from './SizePresets.js';
 
 export function CombinationDetailView() {
   const ctx = useGallery();
   const { showContextMenu } = useContextMenu();
 
-  useEffect(() => {
-    const gridEl = document.querySelector('.artist-detail-grid');
-    if (gridEl) applySizeStyles(gridEl, ctx.cardSize);
-  }, [ctx.cardSize, ctx.filteredCombinationImages]);
+  const gridStyle = useMemo(() => computeSizeVars(ctx.cardSize), [ctx.cardSize]);
 
   const comb = ctx.viewModeCombination;
   const combImages = ctx.filteredCombinationImages;
@@ -117,6 +114,7 @@ export function CombinationDetailView() {
           },
           layout: 'grid',
           className: 'artist-detail-grid',
+          style: gridStyle,
         })
       : h('div', { class: 'artist-detail-empty' }, '暂无交集图片'),
   ]);

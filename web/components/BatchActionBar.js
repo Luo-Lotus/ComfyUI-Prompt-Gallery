@@ -80,6 +80,24 @@ export function BatchActionBar() {
       h(
         'button',
         {
+          class: 'batch-op-btn export-btn',
+          onClick: ctx.handleBatchExport,
+          title: '导出选中Prompt',
+        },
+        [h(Icon, { name: 'upload', size: 14 }), ' 导出 (仅Prompt)'],
+      ),
+      h(
+        'button',
+        {
+          class: 'batch-op-btn copy-btn',
+          onClick: ctx.handleBatchCopyAction,
+          title: '复制选中Prompt',
+        },
+        [h(Icon, { name: 'copy', size: 14 }), ' 复制 (仅Prompt)'],
+      ),
+      h(
+        'button',
+        {
           class: 'batch-op-btn exit-btn',
           onClick: ctx.handleToggleSelectionMode,
           title: '退出多选模式',

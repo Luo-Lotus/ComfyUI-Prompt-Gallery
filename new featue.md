@@ -1,5 +1,29 @@
-我想给Prompt选择节点添加新功能 web\nodes\ArtistSelector.js
+对项目的搜索系统进行优化：1.目前只能搜索当前目录下prompt，包括两部分，画廊里的搜索，与prompt选择节点里的搜索2.改为两种模式，一种当前目录搜索，一种全局搜索
 
-1.再已选择的区域，增加一个配置按钮，可以配置: 1.单Prompt格式，可以给Prompt增加前缀和后缀，配置方式是输入框配置 "({content}:1.5)" 最终在输出时， 会把{content} 替换为 Prompt名称，随机数设置：可以通过 {random(1,1.5,0.1)} 来生成随机数，该示例代表 1 到 1.5 之间的随机数，步长为 0.1, 完整示例 : "({content}:{random(1,1.5,0.1)})" 最终输出 (artist:1.1)，默认给是 "{content}" 2.多Prompt随机规则，可以配置随机从已选择的Prompt中选出n个Prompt 3.循环模式，可以循环使用已选择的Prompt，每次输出一个Prompt，当前循环到哪里了可能需要存到本地，下次继续时，从上次存的位置继续，本地的循环可以是一只递增的，然后通过 artists.length % current_index 来判断当前循环到的Prompt, 2.每个选择的分类给一个可以单独定义这个配置
+- 当前目录搜索：只能搜索当前目录下prompt、分类
+- 全局搜索： 可以搜索所有的prompt、分类3.可以搜索的信息
 
-给我UI的设计，需要改动哪些代码，需要对代码有合理的拆分
+3.
+
+帮我对创建prompt功能进行优化：
+
+- 对数据存储结构进行优化，
+    - artist.json 改名为prompt.json，
+        - displayName 修改为 name
+        - name 修改为 value
+        - 增加 alias 字段，
+    - image_artists.json 改名为image_prompts.json，
+        - artistNames 修改为 prompts
+    - combinations.json 改名为combinations.json，
+        - artistKeys 修改为 prompts, 2.单个创建字段优化
+          名称：输入框，对应displayName字段
+    - 增加迁移逻辑，每次打开时进行检测，如果发现当前数据为老数据 自动执行迁移操作
+    - 对系统内所有使用老字段的字符都要进行修改
+- 对prompt创建弹窗进行优化，修改如下
+    - 创建单个
+        - 输入框：名称（可选如果不填以value为名称）
+        - textArea：值,value
+        - 输入框：别名，多个别名用逗号隔开,alias
+    - 创建多个
+        - 输入框：分隔符，默认为"+"
+        - textArea：多个prompt，每个prompt占一行，以如下形式填写：[值][分隔符][名称][分隔符][别名]，如分割符是"+"，则填写为：1girl+一个女孩+one girl+solo girl，如果 只给value 自动填充name,

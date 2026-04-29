@@ -4,22 +4,18 @@
  * 使用 LazyList 实现懒加载
  */
 import { h } from '../lib/preact.mjs';
-import { useMemo, useCallback, useEffect } from '../lib/hooks.mjs';
+import { useMemo, useCallback } from '../lib/hooks.mjs';
 import { GalleryCard } from './GalleryCard.js';
 import { CategoryCard } from './CategoryCard.js';
 import { CombinationCard } from './CombinationCard.js';
 import { LazyList } from './LazyList.js';
 import { useGallery } from './GalleryContext.js';
-import { applySizeStyles } from './SizePresets.js';
+import { computeSizeVars } from './SizePresets.js';
 
 export function GalleryGrid() {
   const ctx = useGallery();
 
-  // Apply card size CSS variables to the grid container
-  useEffect(() => {
-    const gridEl = document.querySelector('.gallery-grid');
-    if (gridEl) applySizeStyles(gridEl, ctx.cardSize);
-  }, [ctx.cardSize]);
+  const gridStyle = useMemo(() => computeSizeVars(ctx.cardSize), [ctx.cardSize]);
 
   const categories = ctx.currentCategoryChildren;
   const combinations = ctx.currentCombinations;
@@ -130,6 +126,7 @@ export function GalleryGrid() {
     renderItem,
     layout: 'grid',
     className: 'gallery-grid',
+    style: gridStyle,
     emptyMessage: h('div', { class: 'gallery-empty' }, '没有找到匹配的内容'),
   });
 }

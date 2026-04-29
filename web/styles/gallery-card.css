@@ -4,7 +4,7 @@
     border-radius: 16px;
     padding: var(--card-padding);
     box-shadow: 0 2px 12px rgba(255, 182, 159, 0.15);
-    transition: all 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .gallery-card:hover {

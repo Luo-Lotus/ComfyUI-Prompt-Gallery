@@ -97,6 +97,12 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   // 过滤排序
   const filteredArtists = useFilteredArtists(data, searchQuery, sortBy, sortOrder, showFavoritesOnly, favorites);
 
+  // 打开批量导出对话框
+  const handleOpenBatchExportDialog = useCallback(() => {
+    setExportPayload({ type: 'batch' });
+    setShowExportDialog(true);
+  }, []);
+
   // 多选管理
   const selection = useSelection({
     categories: categoryMgr.categories,
@@ -106,6 +112,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     loadData,
     setCurrentArtist,
     refreshCategories: categoryMgr.refreshCategories,
+    openBatchExportDialog: handleOpenBatchExportDialog,
   });
 
   // 移动/复制操作
@@ -361,12 +368,24 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
             opts,
           );
           showToast(`已导出Prompt: ${exportPayload.artist.displayName || exportPayload.artist.name}`, 'success');
+        } else if (exportPayload.type === 'batch') {
+          const details = selection.getSelectedDetails();
+          const artistKeys = details.artists.map((a) => ({
+            categoryId: a.categoryId,
+            name: a.name,
+          }));
+          if (artistKeys.length === 0) {
+            showToast('请选择Prompt后导出', 'warning');
+            return;
+          }
+          await exportArtists(artistKeys, opts);
+          showToast(`已导出 ${artistKeys.length} 个Prompt`, 'success');
         }
       } catch (error) {
         showToast('导出失败: ' + error.message, 'error');
       }
     },
-    [exportPayload],
+    [exportPayload, selection],
   );
 
   // 导入Prompt
@@ -479,6 +498,14 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       setMoveItem: itemOps.setMoveItem,
       setMoveItemType: itemOps.setMoveItemType,
       setShowMoveDialog: itemOps.setShowMoveDialog,
+    });
+  }, [selection, itemOps]);
+
+  const handleBatchCopyAction = useCallback(() => {
+    selection.handleBatchCopy({
+      setCopyItem: itemOps.setCopyItem,
+      setCopyItemType: itemOps.setCopyItemType,
+      setShowCopyDialog: itemOps.setShowCopyDialog,
     });
   }, [selection, itemOps]);
 
@@ -641,6 +668,8 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       batchOperation: selection.batchOperation,
       handleBatchDelete: selection.handleBatchDelete,
       handleBatchMoveAction,
+      handleBatchCopyAction,
+      handleBatchExport: selection.handleBatchExport,
       handleBatchConfirm: selection.handleBatchConfirm,
       setShowBatchConfirm: selection.setShowBatchConfirm,
 
@@ -700,6 +729,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       handleCombinationDialogSave,
       handleExportArtist,
       handleOpenExportDialog,
+      handleOpenBatchExportDialog,
       handleExportConfirm,
       handleImportArtists,
       handleArtistDeleteImageSuccess,

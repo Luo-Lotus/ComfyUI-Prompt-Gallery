@@ -3,22 +3,19 @@
  * 显示Prompt的图片网格，支持搜索过滤、右键菜单、多选
  */
 import { h } from '../lib/preact.mjs';
-import { useEffect } from '../lib/hooks.mjs';
+import { useMemo } from '../lib/hooks.mjs';
 import { useContextMenu } from './ContextMenu.js';
 import { LazyList } from './LazyList.js';
 import { buildImageUrl, setArtistCover } from '../utils.js';
 import { showToast } from './Toast.js';
 import { useGallery } from './GalleryContext.js';
-import { applySizeStyles } from './SizePresets.js';
+import { computeSizeVars } from './SizePresets.js';
 
 export function ArtistDetailView() {
   const ctx = useGallery();
   const { showContextMenu } = useContextMenu();
 
-  useEffect(() => {
-    const gridEl = document.querySelector('.artist-detail-grid');
-    if (gridEl) applySizeStyles(gridEl, ctx.cardSize);
-  }, [ctx.cardSize, ctx.filteredArtistImages]);
+  const gridStyle = useMemo(() => computeSizeVars(ctx.cardSize), [ctx.cardSize]);
 
   const artist = ctx.currentArtist;
   const images = ctx.filteredArtistImages;
@@ -118,6 +115,7 @@ export function ArtistDetailView() {
           },
           layout: 'grid',
           className: 'artist-detail-grid',
+          style: gridStyle,
         })
       : h('div', { class: 'artist-detail-empty' }, '暂无图片'),
   ]);

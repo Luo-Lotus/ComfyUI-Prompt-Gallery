@@ -7,7 +7,7 @@
     align-items: center;
     gap: 16px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     box-shadow: 0 2px 8px rgba(255, 107, 157, 0.1);
     border: 2px solid transparent;
     position: relative;

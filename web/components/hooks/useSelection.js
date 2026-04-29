@@ -13,6 +13,7 @@ export function useSelection({
   loadData,
   setCurrentArtist,
   refreshCategories,
+  openBatchExportDialog,
 }) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState(new Set());
@@ -162,6 +163,33 @@ export function useSelection({
     setShowMoveDialog(true);
   };
 
+  const handleBatchCopy = ({ setCopyItem, setCopyItemType, setShowCopyDialog }) => {
+    const details = getSelectedDetails();
+    if (details.artists.length === 0 && details.images.length === 0) {
+      showToast('请选择Prompt后复制', 'warning');
+      return;
+    }
+
+    setBatchOperation('copy');
+    if (details.images.length > 0) {
+      setCopyItemType('image');
+      setCopyItem(details.images[0]);
+    } else {
+      setCopyItemType('artist');
+      setCopyItem(details.artists[0]);
+    }
+    setShowCopyDialog(true);
+  };
+
+  const handleBatchExport = () => {
+    const details = getSelectedDetails();
+    if (details.artists.length === 0) {
+      showToast('请选择Prompt后导出', 'warning');
+      return;
+    }
+    openBatchExportDialog();
+  };
+
   const handleBatchConfirm = async () => {
     const details = getSelectedDetails();
     const operation = batchOperation;
@@ -250,6 +278,8 @@ export function useSelection({
     getSelectedDetails,
     handleBatchDelete,
     handleBatchMove,
+    handleBatchCopy,
+    handleBatchExport,
     handleBatchConfirm,
     resetSelection,
     setBatchOperation,

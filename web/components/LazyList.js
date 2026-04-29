@@ -11,6 +11,7 @@ export function LazyList({
   renderItem,
   layout = 'grid',
   className = '',
+  style = null,
   scrollContainer = null, // null=viewport, 'self'=组件自身
   threshold = 200, // 超过此数量才启用懒加载
   initialCount = 50,
@@ -77,7 +78,7 @@ export function LazyList({
   if (items.length <= threshold) {
     return h(
       'div',
-      { class: className, ref: wrapperRef },
+      { class: className, style, ref: wrapperRef },
       items.map((item, i) => renderItem(item, i)),
     );
   }
@@ -86,7 +87,7 @@ export function LazyList({
   const visibleItems = items.slice(0, visibleCount);
   const hasMore = visibleCount < items.length;
 
-  return h('div', { class: className, ref: wrapperRef }, [
+  return h('div', { class: className, style, ref: wrapperRef }, [
     ...visibleItems.map((item, i) => renderItem(item, i)),
     hasMore &&
       h('div', {
