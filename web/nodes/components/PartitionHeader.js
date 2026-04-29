@@ -41,7 +41,17 @@ export function PartitionHeader({ partition, onAction }) {
         return indicators;
     };
 
-    return h('div', { class: 'partition-header' }, [
+    return h('div', {
+        class: 'partition-header',
+        draggable: true,
+        onDragStart: (e) => {
+            e.dataTransfer.setData('text/plain', JSON.stringify({
+                type: 'partition',
+                partitionId: partition.id,
+            }));
+            e.dataTransfer.effectAllowed = 'move';
+        },
+    }, [
         h('div', {
             class: 'partition-info',
             onClick: () => onAction('setDefault', partition.id),

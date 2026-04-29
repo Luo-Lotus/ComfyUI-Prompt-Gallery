@@ -80,6 +80,16 @@ export function PartitionItem({
     // body 级渲染（不受节点 transform 影响）
     const { renderToBody, clear: clearSlider } = useBodyRender();
 
+    // 当标签被删除时清除悬浮状态
+    const allKeys = new Set([
+        ...artists.map(a => a._orphaned ? a._orphanedKey : `${a.categoryId}:${a.name}`),
+        ...(partitionCategories || []).map(c => c.id),
+        ...(partitionCombinations || []).map(c => `combination:${c.id}`),
+    ]);
+    if (hoveredKey && !allKeys.has(hoveredKey)) {
+        setHoveredKey(null);
+    }
+
     const totalCount = artists.length + partitionCategories.length + (partitionCombinations || []).length;
     const partitionClass = `partition-item ${partition.isDefault ? 'is-default' : ''} ${!partition.enabled ? 'disabled' : ''} ${isDragOver ? 'drag-over' : ''}`;
 
@@ -148,6 +158,9 @@ export function PartitionItem({
             if (!data) return;
 
             const draggedData = JSON.parse(data);
+
+            // 分区拖拽由 PartitionList 处理
+            if (draggedData.type === 'partition') return;
 
             if (draggedData.type === 'artist') {
                 onArtistMove && onArtistMove(draggedData.key, partition.id);

@@ -20,7 +20,7 @@
 │                        后端 (Python)                             │
 │                                                                  │
 │  ArtistSelector.select_artists()                                │
-│      → 解析 metadata → 解析画师/分类/组合 → 格式化输出           │
+│      → 解析 metadata → 解析画师/分类/组合 → 格式化+权重包裹      │
 │      → 自动创建组合 → 返回 (result_string, enriched_metadata)    │
 │                               │                                  │
 │                               ▼                                  │
@@ -121,6 +121,7 @@ partitionData = {
 #### 关键设计
 
 - **映射表模式**：使用三个扁平映射表记录归属关系，而非在每个分区内部嵌套数组
+- **权重存储**：`artistWeights` 扁平字典（`artistKey → number`），权重为 1.0 时删除 key，仅限画师标签
 - **持久化方式**：不使用独立的 JSON 文件存储，而是通过 `useNodeSync` 序列化到 ComfyUI 节点的 widget 值中，随工作流一起保存
 - **状态恢复**：组件初始化时，从 `metadataInput.value`（ComfyUI 恢复的 widget 值）解析分区数据
 
@@ -174,6 +175,10 @@ v1 metadata（传输格式）
                "combinationKeys": ["combination:uuid-xxx"]
            }
        ],
+       "artistWeights": {
+           "root:artist_a": 1.5,
+           "cat1:artist_b": 0.8
+       },
        "globalConfig": { ... }
    }
    ```
@@ -241,7 +246,7 @@ useNodeSync useEffect 触发
     ↓                                       │
 处理循环/随机模式                            │
     ↓                                       │
-格式化输出 + 收集画师                        │
+格式化输出 + 权重包裹 + 收集画师              │
     ↓                                       │
 └────────────────────────────────────────────┘
     ↓
@@ -327,7 +332,14 @@ working_items = [
 
 3. **组合条目特殊处理**：组合不经过格式化，直接使用其 `outputContent`
 
-最终所有分区的格式化结果用逗号拼接：`"mike,sarah,@a,@b"`
+4. **权重包裹**：画师格式化后，通过 `_apply_weight(formatted_str, weight)` 处理：
+   - 权重为 1.0 或 None → 返回原字符串
+   - 其他权重 → 包裹为 `(formatted_str:weight)`
+   - 权重与格式模板独立，始终包裹在格式化结果外层
+   - 示例：`@mike` + weight=1.5 → `(@mike:1.5)`
+   - 组合和分类解析出的画师不应用权重
+
+最终所有分区的格式化结果用逗号拼接：`"(@mike:1.5),sarah,@a,@b"`
 
 ### 3.5 画师收集（collect_artist）
 
@@ -523,7 +535,7 @@ saveable_names = [a["name"] for a in saveable_artists]
 ## 五、数据流完整示例
 
 假设用户操作如下：
-- 默认分区：选择了画师 `mike`（root 分类）、画师 `sarah`（cat1 分类）、分类 `cat2`（包含画师 `alice`、`bob`）
+- 默认分区：选择了画师 `mike`（root 分类，权重 1.5）、画师 `sarah`（cat1 分类，权重 1.0）、分类 `cat2`（包含画师 `alice`、`bob`，权重均为 1.0）
 - 分区配置：格式 `@{content}`，随机模式抽取 2 个，开启保存到画廊，开启自动创建组合
 - 额外分区：选择了组合 `combination:uuid-123`（包含画师 `tom`, `jerry`，输出内容 `@tom,@jerry`）
 
@@ -557,7 +569,10 @@ saveable_names = [a["name"] for a in saveable_artists]
             "categoryIds": [],
             "combinationKeys": ["combination:uuid-123"]
         }
-    ]
+    ],
+    "artistWeights": {
+        "root:mike": 1.5
+    }
 }
 ```
 
@@ -570,6 +585,7 @@ saveable_names = [a["name"] for a in saveable_artists]
 **随机模式处理**（默认分区）：
 - 从 [mike, sarah, alice, bob] 中随机抽取 2 个，假设得到 [bob, mike]
 - 格式化：`@bob`, `@mike`
+- 权重包裹：mike 权重 1.5 → `(@mike:1.5)`，bob 权重 1.0 → `@bob`
 
 **组合处理**（分区2）：
 - 直接使用组合的 outputContent：`@tom,@jerry`
@@ -577,12 +593,12 @@ saveable_names = [a["name"] for a in saveable_artists]
 
 **自动创建组合**（默认分区）：
 - 使用实际选中的画师：bob, mike
-- 格式化内容：`@bob,@mike`
+- 格式化内容：`@bob,@mike`（自动创建时不包含权重包裹）
 - 组合名：`bob,mike`
 - 检查 `@bob,@mike` 是否已存在，不存在则创建
 
 **最终输出**：
-- `artists_string` = `"@bob,@mike,@tom,@jerry"`
+- `artists_string` = `"@bob,(@mike:1.5),@tom,@jerry"`
 - `metadata_json` = `{ "artist_names": ["bob", "mike", "tom", "jerry"], ... }`
 
 ### SaveToGallery 处理
@@ -603,6 +619,7 @@ partitionData = {
     artistPartitionMap: { [artistKey]: partitionId } // 画师归属
     categoryPartitionMap: { [catId]: partitionId }   // 分类归属
     combinationPartitionMap: { [combKey]: partitionId } // 组合归属
+    artistWeights: { [artistKey]: number }           // 画师权重 (0~2, 默认 1.0)
 }
 ```
 
@@ -618,6 +635,7 @@ partitionData = {
         "categoryIds": ["catId", ...],
         "combinationKeys": ["combination:uuid", ...]
     }],
+    "artistWeights": { "categoryId:name": 1.5, ... },
     "globalConfig": { ... }
 }
 ```

@@ -323,6 +323,19 @@ export function usePartitionState({ selectedArtistsCache, categories, combinatio
         });
     }, []);
 
+    // 重排分区顺序
+    const reorderPartitions = useCallback((fromIndex, toIndex) => {
+        setPartitionData((prev) => {
+            const sorted = [...prev.partitions].sort((a, b) => a.order - b.order);
+            const [moved] = sorted.splice(fromIndex, 1);
+            sorted.splice(toIndex, 0, moved);
+            return {
+                ...prev,
+                partitions: sorted.map((p, i) => ({ ...p, order: i })),
+            };
+        });
+    }, []);
+
     return {
         partitionData,
         setPartitionData,
@@ -338,5 +351,6 @@ export function usePartitionState({ selectedArtistsCache, categories, combinatio
         moveCombinationToPartition,
         togglePartition,
         setAsDefaultPartition,
+        reorderPartitions,
     };
 }

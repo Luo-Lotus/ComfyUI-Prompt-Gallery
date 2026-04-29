@@ -1231,6 +1231,24 @@
     background: rgba(76, 175, 80, 0.1);
 }
 
+/* 分区拖拽排序 */
+.partition-header {
+    cursor: grab;
+}
+.partition-header:active {
+    cursor: grabbing;
+}
+.partition-wrapper.partition-dragging {
+    opacity: 0.4;
+}
+.partition-drop-indicator {
+    height: 2px;
+    background: #4a9eff;
+    border-radius: 1px;
+    margin: 2px 0;
+    pointer-events: none;
+}
+
 /* 分区头部信息区域 */
 .partition-info {
     display: flex;

@@ -49,6 +49,7 @@ export function ArtistSelectorWidget({
         moveCombinationToPartition,
         togglePartition,
         setAsDefaultPartition,
+        reorderPartitions,
         setSearchQuery,
         setSortBy,
         setSortOrder,
@@ -145,6 +146,7 @@ export function ArtistSelectorWidget({
                     setAsDefaultPartition(data);
                 }
             },
+            onPartitionReorder: reorderPartitions,
             onArtistMove: (artistKey, partitionId) => {
                 moveArtistToPartition(artistKey, partitionId);
             },

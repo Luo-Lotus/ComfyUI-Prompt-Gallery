@@ -67,6 +67,7 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
         moveCombinationToPartition,
         togglePartition,
         setAsDefaultPartition,
+        reorderPartitions,
     } = usePartitionState({
         selectedArtistsCache,
         categories,
@@ -398,6 +399,7 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
         moveCombinationToPartition,
         togglePartition,
         setAsDefaultPartition,
+        reorderPartitions,
 
         // 操作
         setSearchQuery,

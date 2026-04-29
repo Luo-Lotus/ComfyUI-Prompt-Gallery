@@ -133,8 +133,7 @@ class ArtistSelector:
 
     def _process_v1_metadata(self, metadata_dict, raw_metadata):
         """处理新版 v1 格式的 metadata，返回 (格式化结果, 富化后的 metadata JSON)"""
-        print(f"[ArtistSelector] Raw metadata: {raw_metadata[:500] if raw_metadata else 'None'}")
-        print(f"[ArtistSelector] globalConfig from metadata: {metadata_dict.get('globalConfig', {})}")
+
         try:
             artist_storage, _, category_storage, combination_storage = get_storage()
             all_artists = artist_storage.get_all_artists()
@@ -297,7 +296,6 @@ class ArtistSelector:
                 partition_config = partition.get('config', {})
                 enabled = partition.get('enabled', True)
                 auto_create = partition_config.get('autoCreateCombination', False)
-                print(f"[ArtistSelector] Partition '{partition_name}': enabled={enabled}, autoCreateCombination={auto_create}")
                 if not enabled or not auto_create:
                     continue
 
@@ -305,14 +303,12 @@ class ArtistSelector:
                 pid = partition.get('id', 'default')
                 artist_names = partition_used_artists.get(pid, [])
                 if not artist_names:
-                    print(f"[ArtistSelector] Partition '{partition_name}': no artists used in output, skipping")
                     continue
 
                 p_format = partition_formats.get(pid, '{content}')
                 formatted_parts = [self._apply_format(name, p_format) for name in artist_names]
                 output_content = ','.join(formatted_parts)
                 comb_name = ','.join(artist_names)
-                print(f"[ArtistSelector] Partition '{partition_name}': output_content='{output_content}', formatted_parts={formatted_parts}")
 
                 # 查重
                 existing = combination_storage.find_by_content(output_content)
@@ -325,7 +321,7 @@ class ArtistSelector:
                         artist_keys=artist_names,
                         output_content=output_content,
                     )
-                    print(f"[ArtistSelector] Partition '{partition_name}': created combination id={new_comb.get('id')}")
+                    
         except Exception as e:
             print(f"[ArtistSelector] Auto-create combination error: {e}")
             import traceback
