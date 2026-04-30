@@ -3,7 +3,7 @@
  * Prompt选择器的 UI 渲染部分
  */
 import { h } from '../../lib/preact.mjs';
-import { useState, useMemo, useCallback } from '../../lib/hooks.mjs';
+import { useState, useMemo, useCallback, useRef, useEffect } from '../../lib/hooks.mjs';
 import { Icon } from '../../lib/icons.mjs';
 import { usePromptSelector } from './hooks/usePromptSelector.js';
 import { useImagePreview } from './hooks/useImagePreview.js';
@@ -57,6 +57,7 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
     makePromptKey,
     parsePromptKey,
     updateNodeValue,
+    allPrompts,
   } = usePromptSelector(nodeInstance, selectedInput, metadataInput);
 
   // 使用图片预览 hook
@@ -68,6 +69,42 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   // 分区配置面板状态
   const [showPartitionConfig, setShowPartitionConfig] = useState(false);
   const [editingPartitionId, setEditingPartitionId] = useState(null);
+
+  // 拖拽分隔条状态
+  const [splitPercent, setSplitPercent] = useState(35);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef(null);
+  const draggingRef = useRef(false);
+
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    setIsDragging(true);
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!draggingRef.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const rawPercent = ((e.clientY - rect.top) / rect.height) * 100;
+      setSplitPercent(Math.min(70, Math.max(15, rawPercent)));
+    };
+    const handleMouseUp = () => {
+      if (!draggingRef.current) return;
+      draggingRef.current = false;
+      setIsDragging(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // ============ 子组件渲染函数 ============
 
@@ -296,7 +333,7 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         onMouseLeave: () => handleMouseLeave(),
         onContextMenu: (e) => {
           e.preventDefault();
-          const text = prompt.name || prompt.value;
+          const text = prompt.value;
           showContextMenu(e, [
             {
               icon: 'copy',
@@ -347,7 +384,7 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
               icon: 'copy',
               label: '复制文本',
               action: () => {
-                navigator.clipboard.writeText(combination.name);
+                navigator.clipboard.writeText(combination.outputContent);
                 showToast('已复制', 'success');
               },
             },
@@ -362,6 +399,26 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
                     combinationId: combination.id,
                   });
                 }
+              },
+            },
+            {
+              icon: 'unlink',
+              label: '拆分选择',
+              action: () => {
+                const promptMap = partitionData.promptPartitionMap || {};
+                (combination.prompts || []).forEach((promptValue) => {
+                  const promptInfo = (allPrompts || []).find((p) => p.value === promptValue);
+                  const categoryId = promptInfo ? promptInfo.categoryId : combination.categoryId;
+                  const key = makePromptKey(categoryId, promptValue);
+                  if (!(key in promptMap)) {
+                    toggleSelection(categoryId, promptValue);
+                  }
+                });
+                const comboKey = `combination:${combination.id}`;
+                if (comboKey in (partitionData.combinationPartitionMap || {})) {
+                  toggleCombinationSelection(combination.id);
+                }
+                showToast(`已拆分组合「${combination.name}」`, 'success');
               },
             },
           ]);
@@ -421,7 +478,7 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   // ============ 主渲染 ============
 
   // 处理全局配置保存
-  return h('div', { class: 'prompt-selector-container' }, [
+  return h('div', { class: 'prompt-selector-container', ref: containerRef }, [
     // 分区配置面板（覆盖在内容之上）
     showPartitionConfig &&
       h('div', { class: 'prompt-selector-config-overlay' }, [
@@ -436,10 +493,22 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
     // 主内容
     !showPartitionConfig && [
       // 已选择区域（分区列表）
-      h('div', { class: 'prompt-selector-section' }, [renderSelectedPrompts()]),
+      h('div', {
+        class: 'prompt-selector-section',
+        style: { flex: `${splitPercent} 1 0%` },
+      }, [renderSelectedPrompts()]),
+
+      // 拖拽分隔条
+      h('div', {
+        class: `prompt-selector-resize-handle${isDragging ? ' active' : ''}`,
+        onMouseDown: handleResizeStart,
+      }),
 
       // 浏览区域
-      h('div', { class: 'prompt-selector-section' }, [
+      h('div', {
+        class: 'prompt-selector-section',
+        style: { flex: `${100 - splitPercent} 1 0%` },
+      }, [
         // 面包屑导航
         renderBreadcrumb(),
 

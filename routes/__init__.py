@@ -11,4 +11,5 @@ from . import batch
 from . import cycle_state
 from . import migration
 from . import combinations
+from . import history
 from . import init

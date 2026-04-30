@@ -1,121 +1,87 @@
 /**
  * 组合详情视图组件
- * 显示组合成员Prompt的图片交集，支持搜索过滤、右键菜单、多选
+ * 薄壳层：传入组合的 promptFilters 给 ImageGroupView
  */
 import { h } from '../lib/preact.mjs';
-import { useMemo } from '../lib/hooks.mjs';
+import { useCallback } from '../lib/hooks.mjs';
 import { useContextMenu } from './ContextMenu.js';
-import { LazyList } from './LazyList.js';
-import { buildImageUrl, updateCombination as updateCombinationApi } from '../utils.js';
+import { ImageGroupView } from './ImageGroupView.js';
+import { updateCombination as updateCombinationApi } from '../utils.js';
 import { showToast } from './Toast.js';
 import { useGallery } from './GalleryContext.js';
-import { computeSizeVars } from './SizePresets.js';
 
 export function CombinationDetailView() {
   const ctx = useGallery();
   const { showContextMenu } = useContextMenu();
-
-  const gridStyle = useMemo(() => computeSizeVars(ctx.cardSize), [ctx.cardSize]);
-
   const comb = ctx.viewModeCombination;
-  const combImages = ctx.filteredCombinationImages;
 
-  const handleCombImageContextMenu = (e, image) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const menuItems = [
-      {
-        icon: 'search',
-        label: '查看大图',
-        action: () => {
-          const imgIndex = combImages.indexOf(image);
-          ctx.openLightbox({ ...comb, name: comb.name, images: combImages }, imgIndex >= 0 ? imgIndex : 0);
+  const getContextMenuItems = useCallback(
+    (img, { flatIndex, allVisibleImages, onDeleteSuccess }) => {
+      const items = [
+        {
+          icon: 'search',
+          label: '查看大图',
+          action: () => ctx.openLightbox({ ...comb, name: comb.name, images: allVisibleImages }, flatIndex),
         },
-      },
-      {
-        icon: 'image',
-        label: '设为封面',
-        action: async () => {
-          try {
-            await updateCombinationApi(comb.id, {
-              coverImageId: image.path,
-            });
-            showToast('已设为封面', 'success');
-            ctx.handleCombinationSetCoverSuccess(image.path);
-            await ctx.loadData();
-          } catch (err) {
-            showToast('设置封面失败: ' + err.message, 'error');
-          }
+        {
+          icon: 'image',
+          label: '设为封面',
+          action: async () => {
+            try {
+              await updateCombinationApi(comb.id, { coverImageId: img.path });
+              showToast('已设为封面', 'success');
+              ctx.handleCombinationSetCoverSuccess(img.path);
+              await ctx.loadData();
+            } catch (err) {
+              showToast('设置封面失败: ' + err.message, 'error');
+            }
+          },
         },
-      },
-      {
-        icon: 'trash-2',
-        label: '删除图片',
-        action: async () => {
-          if (!confirm('确定要删除这张图片吗？删除将从组合中所有成员Prompt移除。')) return;
-          try {
-            for (const promptName of comb.prompts || []) {
-              await fetch('/prompt_gallery/image', {
+        {
+          icon: 'trash-2',
+          label: '删除图片',
+          action: async () => {
+            if (!confirm('确定要删除这张图片吗？删除将从组合中所有成员Prompt移除。')) return;
+            try {
+              const response = await fetch('/prompt_gallery/image', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imagePath: image.path }),
+                body: JSON.stringify({ imagePath: img.path }),
               });
+              if (response.ok) {
+                showToast('图片已删除', 'success');
+                await onDeleteSuccess();
+              } else {
+                const error = await response.json();
+                showToast('删除失败: ' + (error.error || '未知错误'), 'error');
+              }
+            } catch (error) {
+              showToast('删除失败: ' + error.message, 'error');
             }
-            showToast('图片已删除', 'success');
-            await ctx.handleCombinationDeleteImageSuccess();
-            await ctx.loadData();
-          } catch (err) {
-            showToast('删除失败: ' + err.message, 'error');
-          }
+          },
         },
-      },
-    ];
+      ];
+      return items;
+    },
+    [comb, ctx],
+  );
 
-    showContextMenu(e, menuItems);
-  };
+  const handleDeleteSuccess = useCallback(async () => {
+    await ctx.handleCombinationDeleteImageSuccess();
+    await ctx.loadData();
+  }, [ctx.handleCombinationDeleteImageSuccess, ctx.loadData]);
 
   return h('div', { class: 'combination-detail-view' }, [
-    combImages.length > 0
-      ? h(LazyList, {
-          items: combImages,
-          renderItem: (img, index) => {
-            const imgKey = `image:${img.path}`;
-            const isSelected = ctx.selectedItems.has(imgKey);
-            return h(
-              'div',
-              {
-                key: img.path,
-                class: `prompt-detail-image-item ${ctx.selectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`,
-                onClick: (e) => {
-                  if (ctx.selectionMode) {
-                    ctx.handleCombinationSelect(imgKey, e.shiftKey);
-                  } else {
-                    ctx.openLightbox(
-                      {
-                        ...comb,
-                        name: comb.name,
-                        images: combImages,
-                      },
-                      index,
-                    );
-                  }
-                },
-                onContextMenu: (e) => handleCombImageContextMenu(e, img),
-              },
-              [
-                h('img', {
-                  src: buildImageUrl(img.path),
-                  alt: `${comb.name} - ${index + 1}`,
-                  loading: 'lazy',
-                }),
-              ],
-            );
-          },
-          layout: 'grid',
-          className: 'prompt-detail-grid',
-          style: gridStyle,
-        })
-      : h('div', { class: 'prompt-detail-empty' }, '暂无交集图片'),
+    h(ImageGroupView, {
+      promptFilters: comb?.prompts || [],
+      lightboxName: comb?.name || '组合图片',
+      searchQuery: ctx.imageSearchQuery,
+      onDataLoaded: ctx.setImageTotalCount,
+      getContextMenuItems,
+      showContextMenu,
+      onDeleteSuccess: handleDeleteSuccess,
+      cardSize: ctx.cardSize,
+      openLightbox: ctx.openLightbox,
+    }),
   ]);
 }

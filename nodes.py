@@ -443,16 +443,22 @@ class SaveToGallery:
         # 去重保序，查找每个匹配名对应的所有画师
         result = []
         seen = set()
+        seen_names = set()
         for name in matches:
             matched_key = lower_to_canonical.get(name.lower())
-            if matched_key and matched_key not in seen:
-                seen.add(matched_key)
+            if matched_key and matched_key not in seen_names:
+                seen_names.add(matched_key)
                 for prompt in name_to_prompts[matched_key]:
-                    result.append({
-                        "categoryId": prompt.get("categoryId", "root"),
-                        "value": prompt.get("value"),
-                        "saveToGallery": True,
-                    })
+                    value = prompt.get("value")
+                    cat_id = prompt.get("categoryId", "root")
+                    entry_key = f"{cat_id}:{value}"
+                    if entry_key not in seen:
+                        seen.add(entry_key)
+                        result.append({
+                            "categoryId": cat_id,
+                            "value": value,
+                            "saveToGallery": True,
+                        })
 
         return result
 
@@ -476,9 +482,9 @@ class SaveToGallery:
     def save_image(self, images, metadata_json="{}", filename_prefix="AG", prompt_string="", prompt=None, extra_pnginfo=None):
         """
         保存图片到 output/prompt_gallery/ 并创建映射关系
-        支持两种输入源（优先级：metadata_json > prompt_string）：
-        :param metadata_json: 由 PromptSelector 输出的 JSON（优先）
-        :param prompt_string: 提示词字符串，自动匹配已知画师名（备选）
+        支持两种输入源（合并使用，结果去重）：
+        :param metadata_json: 由 PromptSelector 输出的 JSON
+        :param prompt_string: 提示词字符串，自动匹配已知画师名（含别名）
         """
         import folder_paths
         import numpy as np
@@ -492,26 +498,39 @@ class SaveToGallery:
         except:
             metadata = {}
 
-        # 三路优先级：metadata_json（有效）> prompt_string > 报错
+        # 收集画师来源：metadata_json + prompt_string，合并去重
         prompt_names_from_meta = metadata.get("prompt_names", [])
         selected_prompts = metadata.get("selected_prompts", [])
 
+        all_saveable_prompts = []
+
+        # 来源 A: metadata_json
         if prompt_names_from_meta and selected_prompts:
-            # Path A: metadata_json 有效，使用现有逻辑
-            saveable_prompts = [a for a in selected_prompts if a.get("saveToGallery", True)]
-            saveable_names = [a["value"] for a in saveable_prompts]
-        elif prompt_string and prompt_string.strip():
-            # Path B: 从 prompt_string 匹配画师
-            saveable_prompts = self._match_prompts_from_prompt(prompt_string)
-            saveable_names = [a["value"] for a in saveable_prompts]
-            if not saveable_names:
-                print("[SaveToGallery] 错误: prompt_string 中未匹配到已知画师")
-                return ()
-            print(f"[SaveToGallery] 从 prompt_string 匹配到画师: {', '.join(saveable_names)}")
-        else:
-            # Path C: 都没有有效内容
-            print("[SaveToGallery] 错误: 请提供 metadata_json 或 prompt_string")
+            saveable_from_meta = [a for a in selected_prompts if a.get("saveToGallery", True)]
+            all_saveable_prompts.extend(saveable_from_meta)
+
+        # 来源 B: prompt_string（含别名匹配）
+        if prompt_string and prompt_string.strip():
+            saveable_from_string = self._match_prompts_from_prompt(prompt_string)
+            if saveable_from_string:
+                all_saveable_prompts.extend(saveable_from_string)
+                print(f"[SaveToGallery] 从 prompt_string 匹配到画师: {', '.join(a['value'] for a in saveable_from_string)}")
+
+        if not all_saveable_prompts:
+            print("[SaveToGallery] 错误: 请提供 metadata_json 或 prompt_string，且需匹配到已知画师")
             return ()
+
+        # 去重（按 categoryId:value）用于图片计数更新
+        seen = set()
+        saveable_prompts = []
+        for p in all_saveable_prompts:
+            key = f"{p.get('categoryId', 'root')}:{p.get('value', '')}"
+            if key not in seen:
+                seen.add(key)
+                saveable_prompts.append(p)
+
+        # 去重（按 value）用于映射和日志
+        saveable_names = list(dict.fromkeys(a["value"] for a in saveable_prompts))
 
         output_dir = Path(folder_paths.get_output_directory())
         save_dir = output_dir / "prompt_gallery"

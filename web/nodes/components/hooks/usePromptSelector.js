@@ -352,6 +352,9 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
     refreshing,
     breadcrumbPath,
 
+    // 全量数据（用于跨分类查找）
+    allPrompts,
+
     // 组合系统
     combinations,
     selectedCombinationKeys,

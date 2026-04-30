@@ -13,11 +13,16 @@ export function GalleryFilterBar() {
   const isGallery = ctx.viewMode === 'gallery';
   const isPrompt = ctx.viewMode === 'prompt';
   const isCombination = ctx.viewMode === 'combination';
+  const isHistory = ctx.viewMode === 'history';
 
   // 返回按钮逻辑
-  const canGoBack = !isGallery || ctx.currentCategory !== 'root';
+  const canGoBack = !isGallery || ctx.currentCategory !== 'root' || isHistory;
 
   const handleBack = () => {
+    if (isHistory) {
+      ctx.navigateToGallery();
+      return;
+    }
     if (!isGallery) {
       ctx.navigateToGallery();
     } else if (ctx.currentCategory !== 'root') {
@@ -31,7 +36,7 @@ export function GalleryFilterBar() {
   };
 
   return h('div', { class: 'gallery-merged-header' }, [
-    // 左侧：返回按钮 + 面包屑导航
+    // 左侧：返回按钮 + 面包屑/标题
     h('div', { class: 'gallery-breadcrumb-section' }, [
       canGoBack &&
         h(
@@ -39,14 +44,16 @@ export function GalleryFilterBar() {
           {
             class: 'gallery-back-btn',
             onClick: handleBack,
-            title: isGallery ? '返回上级分类' : '返回画廊',
+            title: isHistory ? '返回画廊' : isGallery ? '返回上级分类' : '返回画廊',
           },
           h(Icon, { name: 'arrow-left', size: 16 }),
         ),
-      h(Breadcrumb, {
-        path: ctx.categoryPath,
-        onNavigate: ctx.handleBreadcrumbNavigate,
-      }),
+      isHistory
+        ? h('span', { class: 'gallery-history-title' }, '历史图片')
+        : h(Breadcrumb, {
+            path: ctx.categoryPath,
+            onNavigate: ctx.handleBreadcrumbNavigate,
+          }),
     ]),
 
     // 右侧：筛选和排序控件（仅画廊视图显示）
@@ -115,45 +122,17 @@ export function GalleryFilterBar() {
         ]),
       ]),
 
-    // Prompt/组合详情视图：图片搜索 + 排序
-    (isPrompt || isCombination) &&
+    // Prompt / 组合 / 历史视图：搜索 + 计数 + 卡片大小
+    (isPrompt || isCombination || isHistory) &&
       h('div', { class: 'gallery-filter-section' }, [
         h('input', {
           class: 'gallery-search-input',
           type: 'text',
-          placeholder: '搜索图片...',
+          placeholder: '搜索 Prompt 内容...',
           value: ctx.imageSearchQuery,
           onInput: (e) => ctx.setImageSearchQuery(e.target.value),
         }),
-
-        h(
-          'select',
-          {
-            class: 'gallery-filter-select',
-            value: ctx.imageSortBy,
-            onChange: (e) => ctx.setImageSortBy(e.target.value),
-          },
-          [h('option', { value: 'name' }, '名称'), h('option', { value: 'time' }, '时间')],
-        ),
-
-        h(
-          'button',
-          {
-            class: 'gallery-filter-btn',
-            onClick: () => ctx.setImageSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc')),
-            title: ctx.imageSortOrder === 'asc' ? '升序' : '降序',
-          },
-          ctx.imageSortOrder === 'asc'
-            ? h(Icon, { name: 'arrow-up', size: 16 })
-            : h(Icon, { name: 'arrow-down', size: 16 }),
-        ),
-
-        h(
-          'span',
-          { class: 'gallery-count-badge' },
-          `${isPrompt ? ctx.filteredPromptImages.length : ctx.filteredCombinationImages.length}/${isPrompt ? ctx.currentPrompt?.images?.length || 0 : ctx.viewModeCombination?.images?.length || 0}`,
-        ),
-
+        h('span', { class: 'gallery-count-badge' }, `${ctx.imageTotalCount} 张`),
         h('div', { class: 'gallery-size-slider' }, [
           h('span', { class: 'gallery-size-label' }, '◡'),
           h('input', {

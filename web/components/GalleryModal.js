@@ -20,6 +20,7 @@ import { GalleryHeader } from './GalleryHeader.js';
 import { GalleryFilterBar } from './GalleryFilterBar.js';
 import { PromptDetailView } from './PromptDetailView.js';
 import { CombinationDetailView } from './CombinationDetailView.js';
+import { HistoryView } from './HistoryView.js';
 
 import { Icon } from '../lib/icons.mjs';
 
@@ -42,6 +43,15 @@ function GalleryModalContent() {
       h('div', { class: 'gallery-modal-content' }, [
         h(GalleryHeader),
         h('div', { class: 'gallery-modal-body' }, h(GalleryBody)),
+        ctx.viewMode !== 'history' &&
+          h('button', {
+            class: 'history-floating-btn',
+            onClick: () => ctx.navigateToHistory(),
+            title: '查看历史图片',
+          }, [
+            h(Icon, { name: 'image', size: 14 }),
+            ' 查看历史图片',
+          ]),
       ]),
 
       // Dialog 层
@@ -96,7 +106,7 @@ function GalleryBody() {
         {
           key: `prompt-${ctx.currentPrompt.name}`,
           class: 'view-stack-page',
-          style: { display: ctx.viewMode === 'prompt' ? '' : 'none' },
+          style: { display: ctx.viewMode === 'prompt' ? '' : 'none', overflow: 'hidden', padding: 0 },
         },
         [h(PromptDetailView)],
       ),
@@ -110,9 +120,23 @@ function GalleryBody() {
           class: 'view-stack-page',
           style: {
             display: ctx.viewMode === 'combination' ? '' : 'none',
+            overflow: 'hidden',
+            padding: 0,
           },
         },
         [h(CombinationDetailView)],
+      ),
+
+    // 历史视图
+    ctx.viewMode === 'history' &&
+      h(
+        'div',
+        {
+          key: 'history-view',
+          class: 'view-stack-page',
+          style: { display: ctx.viewMode === 'history' ? '' : 'none', overflow: 'hidden', padding: 0 },
+        },
+        [h(HistoryView)],
       ),
   ]);
 }

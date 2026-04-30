@@ -43,6 +43,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   const [imageSearchQuery, setImageSearchQuery] = useState('');
   const [imageSortBy, setImageSortBy] = useState('name');
   const [imageSortOrder, setImageSortOrder] = useState('asc');
+  const [imageTotalCount, setImageTotalCount] = useState(0);
   const [lightbox, setLightbox] = useState({
     open: false,
     prompt: null,
@@ -74,6 +75,16 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     setCurrentPrompt(null);
     setViewModeCombination(null);
     setImageSearchQuery('');
+    setImageTotalCount(0);
+  }, []);
+
+  // 导航到历史视图
+  const navigateToHistory = useCallback(() => {
+    setViewMode('history');
+    setCurrentPrompt(null);
+    setViewModeCombination(null);
+    setImageSearchQuery('');
+    setImageTotalCount(0);
   }, []);
 
   // 分类管理
@@ -89,10 +100,19 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   // 数据获取
   const { data, loading, error, loadData, setData } = useGalleryData(currentCategory);
 
-  // 自动加载数据（仅在打开时）
+  // 首次打开时加载数据
+  const hasOpenedRef = useRef(false);
   useEffect(() => {
-    if (isOpen) loadData();
-  }, [currentCategory, isOpen]);
+    if (isOpen && !hasOpenedRef.current) {
+      hasOpenedRef.current = true;
+      loadData();
+    }
+  }, [isOpen]);
+
+  // 分类切换时重新加载
+  useEffect(() => {
+    if (isOpen && hasOpenedRef.current) loadData();
+  }, [currentCategory]);
 
   // 过滤排序
   const filteredPrompts = useFilteredPrompts(data, searchQuery, sortBy, sortOrder, showFavoritesOnly, favorites);
@@ -601,6 +621,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       setViewModeCombination,
       currentCategory,
       navigateToGallery,
+      navigateToHistory,
 
       // Data
       data,
@@ -645,6 +666,8 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       setImageSortBy,
       imageSortOrder,
       setImageSortOrder,
+      imageTotalCount,
+      setImageTotalCount,
       filteredPromptImages,
       filteredCombinationImages,
       currentCombinations,
@@ -767,6 +790,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       imageSearchQuery,
       imageSortBy,
       imageSortOrder,
+      imageTotalCount,
       filteredPromptImages,
       filteredCombinationImages,
       currentCombinations,

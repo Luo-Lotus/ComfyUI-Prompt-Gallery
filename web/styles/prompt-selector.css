@@ -1101,6 +1101,9 @@
   display: flex;
   flex-direction: column;
   gap: 6px; /* 减少间距 */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* ==================== 分区规则指示器 ==================== */
@@ -1150,6 +1153,48 @@
   display: flex;
   flex-direction: column;
   gap: 8px; /* 减少间距 */
+  min-height: 0;
+}
+
+/* 顶部已选择区域：按比例分配高度，随节点缩放 */
+.prompt-selector-section:first-child {
+  overflow: hidden;
+}
+
+/* 底部浏览区域：按比例分配高度 */
+.prompt-selector-section:last-child {
+  overflow: hidden;
+}
+
+/* 拖拽分隔条 */
+.prompt-selector-resize-handle {
+  flex-shrink: 0;
+  height: 6px;
+  margin: 1px 0;
+  cursor: row-resize;
+  border-radius: 3px;
+  background: rgba(108, 92, 231, 0.15);
+  transition: background 0.15s;
+  position: relative;
+}
+.prompt-selector-resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.prompt-selector-resize-handle:hover,
+.prompt-selector-resize-handle.active {
+  background: rgba(108, 92, 231, 0.5);
+}
+.prompt-selector-resize-handle:hover::after,
+.prompt-selector-resize-handle.active::after {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 /* 区域标题 */
@@ -1176,6 +1221,8 @@
   background: rgba(42, 42, 42, 0.3);
   border-radius: 6px; /* 减少圆角 */
   border: 1px solid rgba(58, 58, 58, 0.5);
+  height: 100%;
+  overflow: hidden;
 }
 
 /* 分区列表头部优化 */
@@ -1186,6 +1233,7 @@
   padding: 6px 4px; /* 减少内边距 */
   border-bottom: 1px solid #3a3a3a;
   margin-bottom: 2px; /* 减少底部间距 */
+  flex-shrink: 0;
 }
 
 .partition-list-title {
@@ -1332,14 +1380,16 @@
   background: rgba(30, 30, 30, 0.4);
   border-radius: 8px;
   border: 1px solid rgba(58, 58, 58, 0.4);
-  min-height: 200px;
-  max-height: 400px;
+  flex: 1;
+  min-height: 80px;
+  max-height: none;
   overflow-y: auto;
   align-content: flex-start;
 }
 
 /* 面包屑导航优化 */
 .prompt-selector-breadcrumb {
+  flex-shrink: 0;
   padding: 8px 12px;
   background: rgba(40, 40, 40, 0.6);
   border-radius: 6px;
@@ -1348,6 +1398,7 @@
 
 /* 控制区域优化 */
 .prompt-selector-controls-row {
+  flex-shrink: 0;
   padding: 8px 12px;
   background: rgba(40, 40, 40, 0.5);
   border-radius: 6px;

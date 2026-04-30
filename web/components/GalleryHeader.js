@@ -10,6 +10,7 @@ export function GalleryHeader() {
   const ctx = useGallery();
   const isGallery = ctx.viewMode === 'gallery';
   const isPrompt = ctx.viewMode === 'prompt';
+  const isHistory = ctx.viewMode === 'history';
 
   const buttons = [];
 
@@ -71,37 +72,40 @@ export function GalleryHeader() {
     );
   }
 
-  // 通用按钮：刷新
-  buttons.push(
-    h('button', { class: 'gallery-modal-btn', onClick: ctx.loadData }, [
-      h(Icon, { name: 'refresh-cw', size: 14 }),
-      ' 刷新',
-    ]),
-  );
+  // 通用按钮：刷新（历史视图不显示）
+  !isHistory &&
+    buttons.push(
+      h('button', { class: 'gallery-modal-btn', onClick: ctx.loadData }, [
+        h(Icon, { name: 'refresh-cw', size: 14 }),
+        ' 刷新',
+      ]),
+    );
 
-  // 批量操作按钮
-  buttons.push(
-    h(
-      'button',
-      {
-        class: 'gallery-modal-btn',
-        onClick: ctx.handleToggleSelectionMode,
-        title: ctx.selectionMode ? '退出多选模式' : '批量操作',
-      },
-      [h(Icon, { name: 'clipboard-list', size: 14 }), ctx.selectionMode ? ' 已选' : ' 批量操作'],
-    ),
-  );
+  // 批量操作按钮（历史视图不显示）
+  !isHistory &&
+    buttons.push(
+      h(
+        'button',
+        {
+          class: 'gallery-modal-btn',
+          onClick: ctx.handleToggleSelectionMode,
+          title: ctx.selectionMode ? '退出多选模式' : '批量操作',
+        },
+        [h(Icon, { name: 'clipboard-list', size: 14 }), ctx.selectionMode ? ' 已选' : ' 批量操作'],
+      ),
+    );
 
-  // 隐藏的文件选择 input
-  buttons.push(
-    h('input', {
-      id: 'prompt-import-file-input',
-      type: 'file',
-      accept: '.zip',
-      style: { display: 'none' },
-      onChange: ctx.handleImportPrompts,
-    }),
-  );
+  // 隐藏的文件选择 input（历史视图不需要）
+  !isHistory &&
+    buttons.push(
+      h('input', {
+        id: 'prompt-import-file-input',
+        type: 'file',
+        accept: '.zip',
+        style: { display: 'none' },
+        onChange: ctx.handleImportPrompts,
+      }),
+    );
 
   buttons.push(
     h('button', { class: 'gallery-modal-btn primary', onClick: ctx.onClose }, [

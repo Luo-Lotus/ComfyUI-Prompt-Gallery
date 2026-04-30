@@ -396,6 +396,23 @@ export async function fetchCombinationImages(id) {
   return await response.json();
 }
 
+// ============ Grouped Images ============
+
+export async function fetchGroupedImages({ prompt, prompts, search } = {}) {
+  const params = new URLSearchParams();
+  if (prompt) params.set('prompt', prompt);
+  if (prompts && prompts.length > 0) params.set('prompts', prompts.join(','));
+  if (search) params.set('search', search);
+  const qs = params.toString();
+  const url = `/prompt_gallery/images_grouped${qs ? '?' + qs : ''}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: '获取分组图片失败' }));
+    throw new Error(error.error || '获取分组图片失败');
+  }
+  return await response.json();
+}
+
 // ============ Export / Import ============
 
 async function _downloadZip(response) {
