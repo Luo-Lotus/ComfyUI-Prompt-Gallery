@@ -71,7 +71,7 @@ export function TreeSelector({
     const query = searchQuery.toLowerCase();
     return listData.filter((item) => {
       if (excludeIds.includes(item.id)) return false;
-      const name = (item.name || item.displayName || '').toLowerCase();
+      const name = (item.name || item.value || '').toLowerCase();
       return name.includes(query);
     });
   }, [listData, searchQuery, excludeIds]);
@@ -95,7 +95,7 @@ export function TreeSelector({
         h('span', { class: 'tree-item-icon' }, h(Icon, { name: isCategory ? 'folder' : 'user', size: 14 })),
 
         // 名称
-        h('span', { class: 'tree-item-label' }, item.name || item.displayName),
+        h('span', { class: 'tree-item-label' }, item.name || item.value),
 
         // 选择按钮
         h(

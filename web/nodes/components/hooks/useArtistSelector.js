@@ -137,7 +137,7 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
       selectedKeys.forEach((key) => {
         if (newCache[key]) return;
         const { categoryId, name } = parseArtistKey(key);
-        const artist = allArtists.find((a) => a.categoryId === categoryId && a.name === name);
+        const artist = allArtists.find((a) => a.categoryId === categoryId && a.value === name);
         if (artist) {
           newCache[key] = artist;
           changed = true;
@@ -183,14 +183,14 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
-        (a) => a.name.toLowerCase().includes(query) || a.displayName.toLowerCase().includes(query),
+        (a) => a.value.toLowerCase().includes(query) || a.name.toLowerCase().includes(query),
       );
     }
 
     result.sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'name') {
-        comparison = a.name.localeCompare(b.name, 'zh-CN');
+        comparison = a.value.localeCompare(b.value, 'zh-CN');
       } else if (sortBy === 'created_at') {
         comparison = a.createdAt - b.createdAt;
       } else if (sortBy === 'image_count') {
@@ -221,7 +221,7 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
       setSelectedArtistsCache((prev) => {
         const next = { ...prev };
         if (isAdding) {
-          const artist = artists.find((a) => a.categoryId === categoryId && a.name === name);
+          const artist = artists.find((a) => a.categoryId === categoryId && a.value === name);
           if (artist) next[key] = artist;
         } else {
           delete next[key];

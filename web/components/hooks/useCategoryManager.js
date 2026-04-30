@@ -46,7 +46,7 @@ export function useCategoryManager({ viewMode, currentArtist, viewModeCombinatio
           ...path,
           {
             id: currentArtist.id,
-            name: currentArtist.displayName || currentArtist.name,
+            name: currentArtist.name || currentArtist.value,
             type: 'artist',
           },
         ];

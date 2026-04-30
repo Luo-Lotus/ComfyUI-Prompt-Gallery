@@ -64,7 +64,7 @@ export function MoveDialog({
   const getTitle = () => {
     const titles = {
       category: `移动分类 "${item?.name}"`,
-      artist: `移动Prompt "${item?.displayName || item?.name}"`,
+      artist: `移动Prompt "${item?.name || item?.value}"`,
       image: '移动图片',
       combination: `移动组合 "${item?.name}"`,
     };
@@ -108,7 +108,7 @@ export function MoveDialog({
             { class: 'target-name' },
             selectedTarget.type === 'category'
               ? [h(Icon, { name: 'folder', size: 14 }), ' ', selectedTarget.name]
-              : [h(Icon, { name: 'user', size: 14 }), ' ', selectedTarget.displayName || selectedTarget.name],
+              : [h(Icon, { name: 'user', size: 14 }), ' ', selectedTarget.name || selectedTarget.value],
           ),
         ]),
       h(FlatSelector, {

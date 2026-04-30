@@ -28,7 +28,7 @@ export function CombinationDialog({
   useEffect(() => {
     if (isOpen && mode === 'edit' && combination) {
       setName(combination.name || '');
-      setSelectedArtistNames(new Set(combination.artistKeys || []));
+      setSelectedArtistNames(new Set(combination.prompts || []));
       setOutputContent(combination.outputContent || '');
     } else if (isOpen && mode === 'add') {
       setName('');
@@ -43,7 +43,7 @@ export function CombinationDialog({
   }, [selectedArtistNames]);
 
   const toggleArtist = (key, artist) => {
-    const artistName = artist.name;
+    const artistName = artist.value;
     setSelectedArtistNames((prev) => {
       const next = new Set(prev);
       if (next.has(artistName)) {
@@ -65,7 +65,7 @@ export function CombinationDialog({
       return;
     }
 
-    const artistKeys = Array.from(selectedArtistNames);
+    const prompts = Array.from(selectedArtistNames);
     const content = outputContent.trim() || autoOutput;
 
     setSaving(true);
@@ -74,14 +74,14 @@ export function CombinationDialog({
         await createCombination({
           name: name.trim(),
           categoryId: currentCategoryId,
-          artistKeys,
+          prompts,
           outputContent: content,
         });
         showToast('组合创建成功', 'success');
       } else {
         await updateCombination(combination.id, {
           name: name.trim(),
-          artistKeys,
+          prompts,
           outputContent: content,
         });
         showToast('组合更新成功', 'success');

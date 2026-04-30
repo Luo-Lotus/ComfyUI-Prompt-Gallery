@@ -58,14 +58,14 @@ export function FlatSelector({
     });
   }, [flattenedCategories, excludeIds, searchQuery]);
 
-  const getArtistKey = (artist) => artist.id || `${artist.categoryId}:${artist.name}`;
+  const getArtistKey = (artist) => artist.id || `${artist.categoryId}:${artist.value}`;
 
   const filteredArtists = useMemo(() => {
     if (!artists || artists.length === 0) return [];
     return artists.filter((artist) => {
       if (excludeIds.includes(getArtistKey(artist))) return false;
       if (searchQuery) {
-        const name = (artist.displayName || artist.name).toLowerCase();
+        const name = (artist.name || artist.value).toLowerCase();
         return name.includes(searchQuery.toLowerCase());
       }
       return true;
@@ -125,7 +125,7 @@ export function FlatSelector({
       ),
     );
     children.push(
-      h('span', { class: 'flat-selector-name' }, type === 'category' ? item.name : item.displayName || item.name),
+      h('span', { class: 'flat-selector-name' }, type === 'category' ? item.name : item.name || item.value),
     );
 
     if (type === 'artist') {

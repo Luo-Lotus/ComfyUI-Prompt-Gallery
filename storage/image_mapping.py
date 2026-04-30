@@ -9,7 +9,7 @@ class ImageMappingStorage:
 
     def __init__(self, storage_dir: Path):
         self.storage_dir = storage_dir
-        self.mappings_file = storage_dir / "image_artists.json"
+        self.mappings_file = storage_dir / "image_prompts.json"
         self._lock = threading.Lock()
         self._cache = None
         self._ensure_storage_dir()
@@ -18,7 +18,7 @@ class ImageMappingStorage:
         """确保存储目录存在"""
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
-        # 初始化 image_artists.json
+        # 初始化 image_prompts.json
         if not self.mappings_file.exists():
             self._write_data({"mappings": []})
 
@@ -52,11 +52,11 @@ class ImageMappingStorage:
             data = self._read_data()
             return data.get("mappings", [])
 
-    def add_mapping(self, image_path: str, artist_names: List[str], metadata: Optional[dict] = None):
+    def add_mapping(self, image_path: str, prompt_values: List[str], metadata: Optional[dict] = None):
         """
         添加图片-Prompt映射
         :param image_path: 图片相对路径（如 "artist_gallery/1719123456789.png"）
-        :param artist_names: 关联的Prompt名称列表
+        :param prompt_values: 关联的Prompt值列表
         :param metadata: 图片元数据（宽高等）
         """
         import time
@@ -64,7 +64,7 @@ class ImageMappingStorage:
         with self._lock:
             mapping = {
                 "imagePath": image_path,
-                "artistNames": artist_names,
+                "prompts": prompt_values,
                 "savedAt": int(time.time() * 1000),
                 "metadata": metadata or {}
             }
@@ -75,24 +75,24 @@ class ImageMappingStorage:
 
             return mapping
 
-    def get_mappings_by_artist(self, artist_name: str) -> List[dict]:
+    def get_mappings_by_artist(self, prompt_value: str) -> List[dict]:
         """
-        获取指定Prompt的所有图片映射（使用Prompt名称）
-        :param artist_name: Prompt名称
+        获取指定Prompt的所有图片映射
+        :param prompt_value: Prompt值
         :return: 图片映射列表
         """
         mappings = self.get_all_mappings()
         return [
             m for m in mappings
-            if artist_name in m.get("artistNames", [])
+            if prompt_value in m.get("prompts", [])
         ]
 
-    def get_first_mapping_by_artist(self, artist_name: str) -> Optional[dict]:
+    def get_first_mapping_by_artist(self, prompt_value: str) -> Optional[dict]:
         """获取Prompt的第一张图片映射（用于封面图）"""
         with self._lock:
             data = self._read_data()
             for m in data.get("mappings", []):
-                if artist_name in m.get("artistNames", []):
+                if prompt_value in m.get("prompts", []):
                     return m
             return None
 
@@ -115,31 +115,27 @@ class ImageMappingStorage:
                 return mapping
         return None
 
-    def remove_artist_from_mappings(self, artist_name: str) -> List[str]:
+    def remove_artist_from_mappings(self, prompt_value: str) -> List[str]:
         """
-        从所有映射中移除指定Prompt（使用Prompt名称）
-        :param artist_name: Prompt名称
+        从所有映射中移除指定Prompt
+        :param prompt_value: Prompt值
         :return: 被完全移除的图片路径列表（没有其他Prompt关联的图片）
         """
         with self._lock:
             data = self._read_data()
             orphan_images = []
 
-            # 过滤掉包含该Prompt的映射，或从映射中移除该Prompt
             new_mappings = []
             for mapping in data["mappings"]:
-                artist_names = mapping.get("artistNames", [])
+                prompts = mapping.get("prompts", [])
 
-                if artist_name in artist_names:
-                    # 移除该Prompt
-                    artist_names.remove(artist_name)
+                if prompt_value in prompts:
+                    prompts.remove(prompt_value)
 
-                    if artist_names:
-                        # 还有其他Prompt，保留映射
-                        mapping["artistNames"] = artist_names
+                    if prompts:
+                        mapping["prompts"] = prompts
                         new_mappings.append(mapping)
                     else:
-                        # 没有其他Prompt，记录为孤儿图片
                         orphan_images.append(mapping.get("imagePath"))
                 else:
                     new_mappings.append(mapping)
@@ -164,21 +160,20 @@ class ImageMappingStorage:
                 return True
             return False
 
-    def update_mapping(self, image_path: str, artist_names: List[str], metadata: Optional[dict] = None) -> bool:
+    def update_mapping(self, image_path: str, prompt_values: List[str], metadata: Optional[dict] = None) -> bool:
         """
         更新图片映射的Prompt列表
         :param image_path: 图片路径
-        :param artist_names: 新的Prompt名称列表
+        :param prompt_values: 新的Prompt值列表
         :param metadata: 可选的元数据更新
         :return: 是否更新成功
         """
         with self._lock:
             data = self._read_data()
 
-            # 查找并更新映射
             for mapping in data["mappings"]:
                 if mapping.get("imagePath") == image_path:
-                    mapping["artistNames"] = artist_names
+                    mapping["prompts"] = prompt_values
                     if metadata is not None:
                         mapping["metadata"] = {**mapping.get("metadata", {}), **metadata}
                     self._write_data(data)
@@ -186,11 +181,11 @@ class ImageMappingStorage:
 
             return False
 
-    def rename_artist_in_mappings(self, old_name: str, new_name: str) -> int:
+    def rename_artist_in_mappings(self, old_value: str, new_value: str) -> int:
         """
         在所有映射中重命名Prompt
-        :param old_name: 旧名称
-        :param new_name: 新名称
+        :param old_value: 旧值
+        :param new_value: 新值
         :return: 更新的映射数量
         """
         with self._lock:
@@ -198,11 +193,10 @@ class ImageMappingStorage:
             updated_count = 0
 
             for mapping in data["mappings"]:
-                artist_names = mapping.get("artistNames", [])
-                if old_name in artist_names:
-                    # 替换Prompt名称
-                    new_artist_names = [new_name if name == old_name else name for name in artist_names]
-                    mapping["artistNames"] = new_artist_names
+                prompts = mapping.get("prompts", [])
+                if old_value in prompts:
+                    new_prompts = [new_value if v == old_value else v for v in prompts]
+                    mapping["prompts"] = new_prompts
                     updated_count += 1
 
             if updated_count > 0:
@@ -210,28 +204,28 @@ class ImageMappingStorage:
 
             return updated_count
 
-    def get_all_mappings_for_artist(self, artist_name: str) -> List[dict]:
+    def get_all_mappings_for_artist(self, prompt_value: str) -> List[dict]:
         """
         获取指定Prompt的所有映射（用于重命名时显示预览）
-        :param artist_name: Prompt名称
+        :param prompt_value: Prompt值
         :return: 映射列表
         """
         mappings = self.get_all_mappings()
         return [
             {**m, "matched": True}
             for m in mappings
-            if artist_name in m.get("artistNames", [])
+            if prompt_value in m.get("prompts", [])
         ]
 
     def build_artist_index(self) -> Dict[str, List[dict]]:
         """
-        一次性构建 artist_name → [mapping, ...] 索引。
+        一次性构建 prompt_value → [mapping, ...] 索引。
         用于批量查询场景，消除 N+1 问题。
         """
         with self._lock:
             data = self._read_data()
             index: Dict[str, List[dict]] = {}
             for m in data.get("mappings", []):
-                for name in m.get("artistNames", []):
-                    index.setdefault(name, []).append(m)
+                for value in m.get("prompts", []):
+                    index.setdefault(value, []).append(m)
             return index

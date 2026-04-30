@@ -143,7 +143,7 @@ export function useItemOperations({
           body: JSON.stringify({
             name: newName || `${item.name} (副本)`,
             categoryId: target.id,
-            artistKeys: item.artistKeys || [],
+            artistKeys: item.prompts || [],
             outputContent: item.outputContent || '',
           }),
         });

@@ -84,7 +84,7 @@ export function useSelection({
       newSet.add(`category:${cat.id}`);
     });
     filteredArtists.forEach((artist) => {
-      newSet.add(`artist:${artist.categoryId}:${artist.name}`);
+      newSet.add(`artist:${artist.categoryId}:${artist.value}`);
     });
     setSelectedItems(newSet);
   };
@@ -122,7 +122,7 @@ export function useSelection({
         const cat = flatCategories.find((c) => c.id === id);
         if (cat) result.categories.push(cat);
       } else if (type === 'artist') {
-        const artist = filteredArtists.find((a) => `${a.categoryId}:${a.name}` === id);
+        const artist = filteredArtists.find((a) => `${a.categoryId}:${a.value}` === id);
         if (artist) {
           result.artists.push(artist);
         }
@@ -217,7 +217,7 @@ export function useSelection({
             const updatedData = await fetch(`/artist_gallery/data?category=${currentCategory}`);
             const result = await updatedData.json();
             const updatedArtist = result.artists?.find(
-              (a) => a.categoryId === currentArtist.categoryId && a.name === currentArtist.name,
+              (a) => a.categoryId === currentArtist.categoryId && a.value === currentArtist.value,
             );
             if (updatedArtist) {
               setCurrentArtist(updatedArtist);
@@ -232,7 +232,7 @@ export function useSelection({
             categories: details.categories.map((c) => c.id),
             artists: details.artists.map((a) => ({
               categoryId: a.categoryId,
-              name: a.name,
+              value: a.value,
             })),
           }),
         });

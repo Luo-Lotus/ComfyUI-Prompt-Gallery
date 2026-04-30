@@ -55,7 +55,7 @@ export function CombinationDetailView() {
         action: async () => {
           if (!confirm('确定要删除这张图片吗？删除将从组合中所有成员Prompt移除。')) return;
           try {
-            for (const artistName of comb.artistKeys || []) {
+            for (const artistName of comb.prompts || []) {
               await fetch('/artist_gallery/image', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },

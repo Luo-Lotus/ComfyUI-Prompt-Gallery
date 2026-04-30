@@ -41,8 +41,8 @@ export function ImportImagesDialog({
       return {
         mode: 'single',
         categoryId: currentArtist.categoryId,
-        artistName: currentArtist.name,
-        displayName: currentArtist.displayName || currentArtist.name,
+        artistName: currentArtist.value,
+        displayName: currentArtist.name || currentArtist.value,
       };
     } else {
       // 分类视图：使用解析配置
@@ -175,7 +175,7 @@ export function ImportImagesDialog({
 
   const getDialogTitle = () => {
     if (viewMode === 'artist') {
-      return `导入图片到 ${currentArtist.displayName || currentArtist.name}`;
+      return `导入图片到 ${currentArtist.name || currentArtist.value}`;
     } else {
       const category = categories.find((c) => c.id === currentCategory);
       const categoryName = category ? category.name : currentCategory;
@@ -282,7 +282,7 @@ export function ImportImagesDialog({
           {
             class: 'import-single-artist-hint',
           },
-          [h('p', {}, `所有图片将导入到: ${currentArtist.displayName || currentArtist.name}`)],
+          [h('p', {}, `所有图片将导入到: ${currentArtist.name || currentArtist.value}`)],
         ),
 
       // 分类视图的预览

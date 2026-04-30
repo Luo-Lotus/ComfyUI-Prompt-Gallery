@@ -16,7 +16,7 @@ export function DeleteConfirmDialog({ isOpen, artist, onConfirm, onCancel }) {
 
     try {
       // 使用组合键删除Prompt
-      const data = await deleteArtistByKey(artist.categoryId, artist.name);
+      const data = await deleteArtistByKey(artist.categoryId, artist.value);
 
       if (data.success) {
         showToast(data.message || '删除成功', 'success');
@@ -36,7 +36,7 @@ export function DeleteConfirmDialog({ isOpen, artist, onConfirm, onCancel }) {
     if (!artist) return null;
 
     return [
-      h('p', { class: 'gallery-delete-message' }, `确定要删除Prompt "${artist.displayName}" 吗？`),
+      h('p', { class: 'gallery-delete-message' }, `确定要删除Prompt "${artist.name || artist.value}" 吗？`),
       h('p', { class: 'gallery-delete-warning' }, `这将同时删除该Prompt关联的 ${artist.imageCount} 张图片。`),
     ];
   };

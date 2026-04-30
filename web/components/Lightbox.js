@@ -73,7 +73,7 @@ function parseImageInfo(info, imagePath) {
     workflowText = pnginfo.workflow || '';
   }
 
-  const artistNames = mapping?.artistNames || galleryData.artist_names || [];
+  const artistNames = mapping?.prompts || galleryData.artist_names || [];
   const artistJson = artistNames.length > 0 ? JSON.stringify(artistNames, null, 2) : '';
 
   return {
@@ -242,7 +242,7 @@ export function Lightbox({ isOpen, artist, imageIndex, onClose, onNavigate }) {
         h('img', {
           class: 'gallery-lightbox-img',
           src: buildImageUrl(img.path),
-          alt: artist.name,
+          alt: artist.name || artist.value,
         }),
 
         h(
@@ -264,7 +264,7 @@ export function Lightbox({ isOpen, artist, imageIndex, onClose, onNavigate }) {
         ),
 
         h('div', { class: 'gallery-lightbox-info' }, [
-          h('span', {}, `${artist.displayName || artist.name} · ${imageIndex + 1} / ${artist.images.length}`),
+          h('span', {}, `${artist.name || artist.value} · ${imageIndex + 1} / ${artist.images.length}`),
           h(
             'button',
             {

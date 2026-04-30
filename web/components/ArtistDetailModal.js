@@ -137,7 +137,7 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
         [
           // 头部
           h('div', { class: 'artist-detail-header' }, [
-            h('h2', {}, artist.displayName || artist.name),
+            h('h2', {}, artist.name || artist.value),
             h(
               'button',
               {
@@ -166,7 +166,7 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
                     [
                       h('img', {
                         src: buildImageUrl(img.path),
-                        alt: `${artist.name} - ${index + 1}`,
+                        alt: `${artist.name || artist.value} - ${index + 1}`,
                         loading: 'lazy',
                       }),
                     ],

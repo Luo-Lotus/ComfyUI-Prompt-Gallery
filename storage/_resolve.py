@@ -6,7 +6,7 @@ from .artist import ArtistStorage
 from .image_mapping import ImageMappingStorage
 from .category import CategoryStorage
 from .combination import CombinationStorage
-from .migration import migrate_artist_data
+from .migration import migrate_artist_data, migrate_to_prompt_schema
 
 
 def _resolve_storage_dir() -> Path:
@@ -33,19 +33,25 @@ def _resolve_storage_dir() -> Path:
 
     # 新目录已有数据，直接使用
     new_has_data = (
-        (new_storage_dir / "artists.json").exists()
-        or (new_storage_dir / "image_artists.json").exists()
+        (new_storage_dir / "prompts.json").exists()
+        or (new_storage_dir / "image_prompts.json").exists()
         or (new_storage_dir / "categories.json").exists()
+        # 兼容旧格式
+        or (new_storage_dir / "artists.json").exists()
+        or (new_storage_dir / "image_artists.json").exists()
     )
     if new_has_data:
         return new_storage_dir
 
     # 检查旧位置是否有数据文件
     old_files = [
-        plugin_dir / "artists.json",
-        plugin_dir / "image_artists.json",
+        plugin_dir / "prompts.json",
+        plugin_dir / "image_prompts.json",
         plugin_dir / "categories.json",
         plugin_dir / "combinations.json",
+        # 兼容旧格式
+        plugin_dir / "artists.json",
+        plugin_dir / "image_artists.json",
     ]
     old_has_data = any(f.exists() for f in old_files)
 
@@ -70,6 +76,12 @@ def _resolve_storage_dir() -> Path:
 def get_storage() -> Tuple[ArtistStorage, ImageMappingStorage, CategoryStorage, CombinationStorage]:
     """获取存储实例"""
     storage_dir = _resolve_storage_dir()
+
+    # 先执行迁移，再创建存储实例（避免实例缓存空数据）
+    try:
+        migrate_to_prompt_schema(storage_dir)
+    except Exception as e:
+        print(f"Warning: Failed to migrate to prompt schema: {e}")
 
     artist_storage = ArtistStorage(storage_dir)
     mapping_storage = ImageMappingStorage(storage_dir)

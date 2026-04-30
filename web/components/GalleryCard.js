@@ -27,12 +27,12 @@ export function GalleryCard({
   onSelect,
 }) {
   const [copied, setCopied] = useState(false);
-  const isFav = favorites.has(artist.name);
+  const isFav = favorites.has(artist.value);
   const hasImages = artist.imageCount > 0;
   const { showContextMenu } = useContextMenu();
 
   // 生成选择键（用于多选）
-  const selectionKey = `artist:${artist.categoryId}:${artist.name}`;
+  const selectionKey = `artist:${artist.categoryId}:${artist.value}`;
 
   // 封面图路径
   const coverPath = artist.coverImagePath;
@@ -41,7 +41,7 @@ export function GalleryCard({
   // ============ 事件处理 ============
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(artist.name).then(() => {
+    navigator.clipboard.writeText(artist.value).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
@@ -56,7 +56,7 @@ export function GalleryCard({
       {
         icon: 'star',
         label: '收藏',
-        action: () => onFavoriteToggle(artist.name),
+        action: () => onFavoriteToggle(artist.value),
       },
       {
         icon: 'edit',
@@ -100,9 +100,9 @@ export function GalleryCard({
         'span',
         {
           class: 'gallery-artist-name',
-          title: artist.name,
+          title: artist.name || artist.value,
         },
-        artist.displayName || artist.name,
+        artist.name || artist.value,
       ),
       h('span', { class: 'gallery-artist-count' }, `${artist.imageCount}张`),
 
@@ -140,7 +140,7 @@ export function GalleryCard({
       },
       h('img', {
         src: buildImageUrl(coverImage.path),
-        alt: artist.name,
+        alt: artist.name || artist.value,
         loading: 'lazy',
       }),
     );

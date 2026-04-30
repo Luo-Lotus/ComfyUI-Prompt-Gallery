@@ -35,7 +35,7 @@ export function ArtistDetailView() {
         label: '设为封面',
         action: async () => {
           try {
-            await setArtistCover(artist.categoryId, artist.name, image.path);
+            await setArtistCover(artist.categoryId, artist.value, image.path);
             showToast('已设为封面', 'success');
             ctx.handleArtistSetCoverSuccess(image.path);
           } catch (err) {
@@ -107,7 +107,7 @@ export function ArtistDetailView() {
               [
                 h('img', {
                   src: buildImageUrl(img.path),
-                  alt: `${artist.name} - ${index + 1}`,
+                  alt: `${artist.name || artist.value} - ${index + 1}`,
                   loading: 'lazy',
                 }),
               ],

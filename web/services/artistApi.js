@@ -30,9 +30,9 @@ export async function updateArtist(artistId, artistData) {
 /**
  * 更新Prompt（使用组合键）
  */
-export async function updateArtistByKey(categoryId, name, artistData) {
+export async function updateArtistByKey(categoryId, value, artistData) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(name)}`,
+    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -67,9 +67,9 @@ export async function deleteArtist(artistId) {
 /**
  * 删除Prompt（使用组合键）
  */
-export async function deleteArtistByKey(categoryId, name) {
+export async function deleteArtistByKey(categoryId, value) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(name)}`,
+    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
     {
       method: 'DELETE',
     },
@@ -80,15 +80,15 @@ export async function deleteArtistByKey(categoryId, name) {
 /**
  * 复制Prompt到其他分类
  */
-export async function copyArtist(categoryId, name, targetCategoryId, newName) {
+export async function copyArtist(categoryId, value, targetCategoryId, newValue) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(name)}/copy`,
+    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}/copy`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         targetCategoryId,
-        newName,
+        newValue,
       }),
     },
   );
@@ -98,13 +98,13 @@ export async function copyArtist(categoryId, name, targetCategoryId, newName) {
 /**
  * 复制图片到其他Prompt
  */
-export async function copyImage(imagePath, toArtistId) {
+export async function copyImage(imagePath, toPromptValue) {
   const response = await fetch('/artist_gallery/image/copy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       imagePath,
-      toArtistId,
+      toPromptValue,
     }),
   });
   return await response.json();

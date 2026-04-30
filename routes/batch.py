@@ -20,7 +20,7 @@ async def batch_delete(request):
 
     请求体: {
       "categories": ["cat1", "cat2"],
-      "artists": [{"categoryId": "xxx", "name": "yyy"}]
+      "artists": [{"categoryId": "xxx", "value": "yyy"}]
     }
     """
     try:
@@ -66,12 +66,12 @@ async def batch_delete(request):
 
                 # 只删除Prompt记录，不修改图片映射
                 for artist in all_artists:
-                    artist_name = artist.get("name")
+                    artist_value = artist.get("value")
                     artist_cat_id = artist.get("categoryId")
 
                     # 删除Prompt记录（不影响图片映射）
-                    artist_storage.delete_artist(artist_cat_id, artist_name)
-                    deleted_artists.append(artist.get("displayName", artist_name))
+                    artist_storage.delete_artist(artist_cat_id, artist_value)
+                    deleted_artists.append(artist.get("name", artist_value))
 
                 # 删除分类记录（从叶子节点开始）
                 for cid in reversed(all_cat_ids):
@@ -86,16 +86,16 @@ async def batch_delete(request):
         for artist_data in artists:
             try:
                 category_id = artist_data.get("categoryId")
-                name = artist_data.get("name")
+                value = artist_data.get("value")
 
                 # 获取Prompt
-                artist = artist_storage.get_artist(category_id, name)
+                artist = artist_storage.get_artist(category_id, value)
                 if not artist:
-                    errors.append(f"Prompt {name} 不存在")
+                    errors.append(f"Prompt {value} 不存在")
                     continue
 
                 # 移除图片映射，获取孤儿图片
-                orphan_images = mapping_storage.remove_artist_from_mappings(name)
+                orphan_images = mapping_storage.remove_artist_from_mappings(value)
 
                 # 删除孤儿图片文件
                 for image_path in orphan_images:
@@ -108,11 +108,11 @@ async def batch_delete(request):
                         errors.append(f"删除文件 {image_path} 失败: {e}")
 
                 # 删除Prompt记录
-                artist_storage.delete_artist(category_id, name)
-                deleted_artists.append(artist.get("displayName", name))
+                artist_storage.delete_artist(category_id, value)
+                deleted_artists.append(artist.get("name", value))
 
             except Exception as e:
-                errors.append(f"删除Prompt {artist_data.get('name')} 失败: {str(e)}")
+                errors.append(f"删除Prompt {artist_data.get('value')} 失败: {str(e)}")
 
         had_errors = len(errors) > 0
         had_deletions = len(deleted_categories) > 0 or len(deleted_artists) > 0 or len(deleted_images) > 0
@@ -137,7 +137,7 @@ async def batch_move(request):
     批量移动分类和Prompt
     请求体: {
       "categories": [{"id": "xxx", "newParentId": "yyy"}],
-      "artists": [{"categoryId": "xxx", "name": "yyy", "newCategoryId": "zzz"}]
+      "artists": [{"categoryId": "xxx", "value": "yyy", "newCategoryId": "zzz"}]
     }
     """
     try:
@@ -192,7 +192,7 @@ async def batch_move(request):
         for artist_data in artists:
             try:
                 category_id = artist_data.get("categoryId")
-                name = artist_data.get("name")
+                value = artist_data.get("value")
                 new_category_id = artist_data.get("newCategoryId", "root")
 
                 # 验证目标分类存在
@@ -202,15 +202,15 @@ async def batch_move(request):
                     continue
 
                 # 更新Prompt的分类
-                success = artist_storage.update_artist(category_id, name, categoryId=new_category_id)
+                success = artist_storage.update_artist(category_id, value, categoryId=new_category_id)
                 if success:
-                    artist = artist_storage.get_artist(new_category_id, name)
-                    moved_artists.append(artist.get("displayName", name))
+                    artist = artist_storage.get_artist(new_category_id, value)
+                    moved_artists.append(artist.get("name", value))
                 else:
-                    errors.append(f"Prompt {name} 不存在")
+                    errors.append(f"Prompt {value} 不存在")
 
             except Exception as e:
-                errors.append(f"移动Prompt {artist_data.get('name')} 失败: {str(e)}")
+                errors.append(f"移动Prompt {artist_data.get('value')} 失败: {str(e)}")
 
         return web.json_response({
             "success": True,
@@ -230,7 +230,7 @@ async def batch_copy(request):
     """
     批量复制Prompt到目标分类
     请求体: {
-      "artists": [{"categoryId": "xxx", "name": "yyy", "targetCategoryId": "zzz"}]
+      "artists": [{"categoryId": "xxx", "value": "yyy", "targetCategoryId": "zzz"}]
     }
     """
     try:
@@ -245,14 +245,14 @@ async def batch_copy(request):
         for artist_data in artists:
             try:
                 category_id = artist_data.get("categoryId")
-                name = artist_data.get("name")
+                value = artist_data.get("value")
                 target_category_id = artist_data.get("targetCategoryId")
-                new_name = artist_data.get("newName", name)
+                new_name = artist_data.get("newName", value)
 
                 # 验证源Prompt存在
-                source_artist = artist_storage.get_artist(category_id, name)
+                source_artist = artist_storage.get_artist(category_id, value)
                 if not source_artist:
-                    errors.append(f"源Prompt {name} 不存在")
+                    errors.append(f"源Prompt {value} 不存在")
                     continue
 
                 # 验证目标分类存在
@@ -264,16 +264,16 @@ async def batch_copy(request):
                 # 创建新Prompt（使用相同或新名称）
                 try:
                     new_artist = artist_storage.add_artist(
-                        name=new_name,
-                        display_name=source_artist.get("displayName"),
+                        value=new_name,
+                        name=source_artist.get("name"),
                         category_id=target_category_id
                     )
-                    copied_artists.append(new_artist.get("displayName", new_name))
+                    copied_artists.append(new_artist.get("name", new_name))
                 except ValueError as e:
-                    errors.append(f"复制Prompt {name} 失败: {str(e)}")
+                    errors.append(f"复制Prompt {value} 失败: {str(e)}")
 
             except Exception as e:
-                errors.append(f"复制Prompt {artist_data.get('name')} 失败: {str(e)}")
+                errors.append(f"复制Prompt {artist_data.get('value')} 失败: {str(e)}")
 
         return web.json_response({
             "success": True,

@@ -186,7 +186,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       keys.push(`combination:${comb.id}`);
     });
     filteredArtists.forEach((artist) => {
-      keys.push(`artist:${artist.categoryId}:${artist.name}`);
+      keys.push(`artist:${artist.categoryId}:${artist.value}`);
     });
     return keys;
   }, [categoryMgr.currentCategoryChildren, currentCombinations, filteredArtists]);
@@ -216,7 +216,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       setViewMode('artist');
       if (!artist.images || artist.images.length === 0) {
         try {
-          const res = await fetch(`/artist_gallery/artist_images?name=${encodeURIComponent(artist.name)}`);
+          const res = await fetch(`/artist_gallery/artist_images?value=${encodeURIComponent(artist.value)}`);
           const result = await res.json();
           if (result.success && result.images) {
             setCurrentArtist((prev) => (prev === artist ? { ...prev, images: result.images } : prev));
@@ -362,17 +362,17 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
             [
               {
                 categoryId: exportPayload.artist.categoryId,
-                name: exportPayload.artist.name,
+                value: exportPayload.artist.value,
               },
             ],
             opts,
           );
-          showToast(`已导出Prompt: ${exportPayload.artist.displayName || exportPayload.artist.name}`, 'success');
+          showToast(`已导出Prompt: ${exportPayload.artist.name || exportPayload.artist.value}`, 'success');
         } else if (exportPayload.type === 'batch') {
           const details = selection.getSelectedDetails();
           const artistKeys = details.artists.map((a) => ({
             categoryId: a.categoryId,
-            name: a.name,
+            value: a.value,
           }));
           if (artistKeys.length === 0) {
             showToast('请选择Prompt后导出', 'warning');
@@ -421,7 +421,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     const updatedData = await fetch(`/artist_gallery/data?category=${currentCategory}`);
     const result = await updatedData.json();
     const updatedArtist = result.artists?.find(
-      (a) => a.categoryId === currentArtist?.categoryId && a.name === currentArtist?.name,
+      (a) => a.categoryId === currentArtist?.categoryId && a.value === currentArtist?.value,
     );
     if (updatedArtist) {
       setCurrentArtist(updatedArtist);
@@ -556,17 +556,17 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       setData(result);
 
       if (nav.type === 'artist' && nav.artistName) {
-        const artist = result.artists?.find((a) => a.name === nav.artistName && a.categoryId === targetCategoryId);
+        const artist = result.artists?.find((a) => a.value === nav.artistName && a.categoryId === targetCategoryId);
         if (artist) {
           setCurrentArtist(artist);
           setViewMode('artist');
           if (!artist.images || artist.images.length === 0) {
-            fetch(`/artist_gallery/artist_images?name=${encodeURIComponent(artist.name)}`)
+            fetch(`/artist_gallery/artist_images?value=${encodeURIComponent(artist.value)}`)
               .then((res) => res.json())
               .then((imgResult) => {
                 if (imgResult.success && imgResult.images) {
                   setCurrentArtist((prev) =>
-                    prev?.name === artist.name
+                    prev?.value === artist.value
                       ? {
                           ...prev,
                           images: imgResult.images,

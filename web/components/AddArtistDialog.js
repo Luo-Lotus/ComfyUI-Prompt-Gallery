@@ -11,51 +11,55 @@ import { Dialog, DialogButton, DialogFormGroup, DialogFormItem } from './Dialog.
 export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryId, onClose, onSave }) {
   // ============ 表单状态 ============
   const [addArtistMode, setAddArtistMode] = useState('single');
-  const [newArtistName, setNewArtistName] = useState('');
-  const [newArtistDisplayName, setNewArtistDisplayName] = useState('');
-  const [batchArtistText, setBatchArtistText] = useState('');
-  const [batchDelimiter, setBatchDelimiter] = useState(',');
+  const [promptValue, setPromptValue] = useState('');
+  const [promptName, setPromptName] = useState('');
+  const [promptAlias, setPromptAlias] = useState('');
+  const [batchText, setBatchText] = useState('');
+  const [batchDelimiter, setBatchDelimiter] = useState('+');
 
   // ============ 工具函数 ============
 
   const resetForm = () => {
-    setNewArtistName('');
-    setNewArtistDisplayName('');
-    setBatchArtistText('');
-    setBatchDelimiter(',');
+    setPromptValue('');
+    setPromptName('');
+    setPromptAlias('');
+    setBatchText('');
+    setBatchDelimiter('+');
     setAddArtistMode('single');
   };
 
   const parseBatchText = (text, delimiter) => {
-    // 按换行分割，每行再用自定义分隔符分割出多个Prompt
     const lines = text
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line);
-    const artists = [];
+    const prompts = [];
     for (const line of lines) {
       const parts = line
         .split(delimiter)
         .map((s) => s.trim())
         .filter((s) => s);
-      for (const name of parts) {
-        artists.push({ name, displayName: name });
+      const value = parts[0] || '';
+      const name = parts[1] || value;
+      const alias = parts.slice(2).join(',');
+      if (value) {
+        prompts.push({ value, name, alias });
       }
     }
-    return artists;
+    return prompts;
   };
 
   const validateSingleForm = () => {
-    if (!newArtistName.trim()) {
-      showToast('请输入Prompt名称', 'warning');
+    if (!promptValue.trim()) {
+      showToast('请输入Prompt值', 'warning');
       return false;
     }
     return true;
   };
 
   const validateBatchForm = () => {
-    if (!batchArtistText.trim()) {
-      showToast('请输入Prompt名称列表', 'warning');
+    if (!batchText.trim()) {
+      showToast('请输入Prompt列表', 'warning');
       return false;
     }
     return true;
@@ -67,18 +71,17 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
     if (!validateSingleForm()) return;
 
     const artistData = {
-      name: newArtistName,
-      displayName: newArtistDisplayName,
+      value: promptValue,
+      name: promptName || promptValue,
+      alias: promptAlias,
       categoryId: editModeArtist ? editModeArtist.categoryId : currentCategoryId || 'root',
     };
 
     try {
       let data;
       if (editModeArtist) {
-        // 使用组合键更新Prompt（后端会自动处理映射更新）
-        data = await updateArtistByKey(editModeArtist.categoryId, editModeArtist.name, artistData);
+        data = await updateArtistByKey(editModeArtist.categoryId, editModeArtist.value, artistData);
       } else {
-        // 添加新Prompt
         data = await addArtist(artistData);
       }
 
@@ -97,10 +100,10 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
   const handleBatchSave = async () => {
     if (!validateBatchForm()) return;
 
-    const artistsData = parseBatchText(batchArtistText, batchDelimiter);
+    const promptsData = parseBatchText(batchText, batchDelimiter);
 
     try {
-      const data = await addArtistsBatch(artistsData, currentCategoryId || 'root');
+      const data = await addArtistsBatch(promptsData, currentCategoryId || 'root');
 
       if (data.success) {
         showToast(
@@ -131,17 +134,15 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
   };
 
   // ============ 编辑模式处理 ============
-  if (editModeArtist && mode === 'edit' && !newArtistName) {
-    setNewArtistName(editModeArtist.name);
-    setNewArtistDisplayName(editModeArtist.displayName || '');
+  if (editModeArtist && mode === 'edit' && !promptValue) {
+    setPromptValue(editModeArtist.value);
+    setPromptName(editModeArtist.name || '');
+    setPromptAlias(editModeArtist.alias || '');
     setAddArtistMode('single');
   }
 
   // ============ 渲染函数 ============
 
-  /**
-   * 渲染模式切换标签
-   */
   const renderTabs = () => {
     if (editModeArtist) return null;
 
@@ -165,43 +166,50 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
     ]);
   };
 
-  /**
-   * 渲染单个添加表单
-   */
   const renderSingleForm = () => {
     return h(DialogFormGroup, {}, [
       h(
         DialogFormItem,
         {
-          label: 'Prompt名称（唯一标识）',
+          label: '值 (value)',
+        },
+        h('textarea', {
+          value: promptValue,
+          onInput: (e) => setPromptValue(e.target.value),
+          placeholder: '如: 1girl, solo, long_hair',
+          class: 'gallery-form-textarea',
+          rows: 3,
+        }),
+      ),
+      h(
+        DialogFormItem,
+        {
+          label: '名称 (可选，不填则使用value)',
         },
         h('input', {
           type: 'text',
-          value: newArtistName,
-          onInput: (e) => setNewArtistName(e.target.value),
-          placeholder: '如: artist1',
+          value: promptName,
+          onInput: (e) => setPromptName(e.target.value),
+          placeholder: '如: 一个女孩',
           class: 'gallery-form-input',
         }),
       ),
       h(
         DialogFormItem,
         {
-          label: '显示名称（可选）',
+          label: '别名 (多个用逗号隔开)',
         },
         h('input', {
           type: 'text',
-          value: newArtistDisplayName,
-          onInput: (e) => setNewArtistDisplayName(e.target.value),
-          placeholder: '如: 艺术家一',
+          value: promptAlias,
+          onInput: (e) => setPromptAlias(e.target.value),
+          placeholder: '如: one girl, solo girl',
           class: 'gallery-form-input',
         }),
       ),
     ]);
   };
 
-  /**
-   * 渲染批量添加表单
-   */
   const renderBatchForm = () => {
     return [
       h(DialogFormGroup, {}, [
@@ -214,7 +222,7 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
             type: 'text',
             value: batchDelimiter,
             onInput: (e) => setBatchDelimiter(e.target.value),
-            placeholder: '默认: ,',
+            placeholder: '默认: +',
             class: 'gallery-form-input',
             style: { width: '80px' },
           }),
@@ -223,12 +231,12 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
       h(
         DialogFormItem,
         {
-          label: 'Prompt列表（每行可用分隔符分隔多个Prompt，name 与 displayName 相同）',
+          label: `Prompt列表（每行格式: [值][分隔符][名称][分隔符][别名]）`,
         },
         h('textarea', {
-          value: batchArtistText,
-          onInput: (e) => setBatchArtistText(e.target.value),
-          placeholder: `例如（分隔符 "${batchDelimiter || ','}"）:\n1girl${batchDelimiter || ','}set${batchDelimiter || ','}two\nartist1${batchDelimiter || ','}artist2`,
+          value: batchText,
+          onInput: (e) => setBatchText(e.target.value),
+          placeholder: `例如（分隔符 "${batchDelimiter || '+'}"）:\n1girl${batchDelimiter || '+'}一个女孩${batchDelimiter || '+'}one girl, solo girl\nsolo${batchDelimiter || '+'}单人`,
           rows: 8,
           class: 'gallery-form-textarea',
         }),
@@ -236,16 +244,10 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
     ];
   };
 
-  /**
-   * 渲染表单内容
-   */
   const renderForm = () => {
     return addArtistMode === 'single' ? renderSingleForm() : renderBatchForm();
   };
 
-  /**
-   * 渲染操作按钮
-   */
   const renderFooter = () => {
     return [
       h(

@@ -330,7 +330,7 @@ export function PartitionItem({
                 h(
                   'span',
                   { class: 'artist-name' },
-                  (artist.displayName || artist.name) + (artist._orphaned ? ' (未找到)' : ''),
+                  (artist.name || artist.value) + (artist._orphaned ? ' (未找到)' : ''),
                 ),
                 h(
                   'button',

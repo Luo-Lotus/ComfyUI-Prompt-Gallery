@@ -296,7 +296,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         onMouseLeave: () => handleMouseLeave(),
         onContextMenu: (e) => {
           e.preventDefault();
-          const text = artist.displayName || artist.name;
+          const text = artist.name || artist.value;
           showContextMenu(e, [
             {
               icon: 'copy',
@@ -322,7 +322,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
           ]);
         },
       },
-      [h('span', { class: 'artist-selector-item-name' }, artist.displayName || artist.name)],
+      [h('span', { class: 'artist-selector-item-name' }, artist.name || artist.value)],
     );
   };
 
@@ -370,7 +370,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
       [
         h('span', { class: 'artist-selector-item-icon' }, h(Icon, { name: 'link', size: 14 })),
         h('span', { class: 'artist-selector-item-name' }, combination.name),
-        h('span', { class: 'artist-selector-combination-count' }, `${(combination.artistKeys || []).length}人`),
+        h('span', { class: 'artist-selector-combination-count' }, `${(combination.prompts || []).length}人`),
       ],
     );
   };

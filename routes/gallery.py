@@ -33,15 +33,15 @@ async def get_gallery_data(request):
             if a.get("categoryId") == category_id
         ]
 
-        # 一次性构建 artist_name → [mapping, ...] 索引，消除 N+1 查询
+        # 一次性构建 artist_value → [mapping, ...] 索引，消除 N+1 查询
         artist_mapping_index = mapping_storage.build_artist_index()
 
         # 构建结果列表（只返回封面信息，不返回完整图片列表）
         result_artists = []
 
         for artist in artists_data:
-            artist_name = artist.get("name")
-            mappings = artist_mapping_index.get(artist_name, [])
+            artist_value = artist.get("value")
+            mappings = artist_mapping_index.get(artist_value, [])
 
             # 计数（只统计文件存在的映射）
             image_count = 0
@@ -63,8 +63,8 @@ async def get_gallery_data(request):
 
             # 构建Prompt对象（不包含 images 数组）
             result_artist = {
+                "value": artist.get("value"),
                 "name": artist.get("name"),
-                "displayName": artist.get("displayName"),
                 "categoryId": artist.get("categoryId", "root"),
                 "coverImagePath": cover_path,
                 "imageCount": image_count,
@@ -74,7 +74,7 @@ async def get_gallery_data(request):
             result_artists.append(result_artist)
 
         # 排序Prompt
-        result_artists.sort(key=lambda x: x["name"].lower())
+        result_artists.sort(key=lambda x: x["value"].lower())
 
         # 获取当前分类下的组合，并添加封面图片路径（复用同一个索引）
         raw_combinations = combination_storage.get_combinations_by_category(category_id)
@@ -84,8 +84,8 @@ async def get_gallery_data(request):
             # 优先使用设置的封面，否则取第一个成员Prompt的第一张图
             cover_path = comb.get("coverImageId")
             if not cover_path:
-                for artist_name in comb.get("artistKeys", []):
-                    for m in artist_mapping_index.get(artist_name, []):
+                for artist_value in comb.get("prompts", []):
+                    for m in artist_mapping_index.get(artist_value, []):
                         image_path = m.get("imagePath")
                         full_path = Path(output_dir) / image_path
                         if full_path.exists():

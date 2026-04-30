@@ -223,7 +223,7 @@ function DialogLayer() {
           : ctx.exportPayload?.type === 'batch'
             ? '批量导出Prompt'
             : ctx.exportPayload?.type === 'artist'
-              ? `导出Prompt: ${ctx.exportPayload.artist.displayName || ctx.exportPayload.artist.name}`
+              ? `导出Prompt: ${ctx.exportPayload.artist.name || ctx.exportPayload.artist.value}`
               : '导出',
       onClose: () => {
         ctx.setShowExportDialog(false);

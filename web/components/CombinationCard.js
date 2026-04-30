@@ -26,13 +26,13 @@ export function CombinationCard({
   const { showContextMenu } = useContextMenu();
 
   const selectionKey = `combination:${combination.id}`;
-  const memberCount = (combination.artistKeys || []).length;
+  const memberCount = (combination.prompts || []).length;
 
   // 封面图：使用后端提供的 coverImagePath
   const coverImage = combination.coverImagePath ? { path: combination.coverImagePath } : null;
 
   const handleCopyText = () => {
-    const text = combination.outputContent || combination.artistKeys?.join(',');
+    const text = combination.outputContent || combination.prompts?.join(',');
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);

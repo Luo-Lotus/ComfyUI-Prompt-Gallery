@@ -32,7 +32,7 @@ async def get_init_data(request):
             comb_data = dict(comb)
             cover_path = comb.get("coverImageId")
             if not cover_path:
-                for artist_name in comb.get("artistKeys", []):
+                for artist_name in comb.get("prompts", []):
                     for m in artist_mapping_index.get(artist_name, []):
                         image_path = m.get("imagePath")
                         full_path = Path(output_dir) / image_path

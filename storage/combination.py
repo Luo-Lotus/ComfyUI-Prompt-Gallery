@@ -66,23 +66,23 @@ class CombinationStorage:
                 return c
         return None
 
-    def add_combination(self, name: str, category_id: str, artist_keys: List[str],
+    def add_combination(self, name: str, category_id: str, prompts: List[str],
                         output_content: str = "") -> dict:
         """
         添加组合
         :param name: 组合名称
         :param category_id: 所属分类
-        :param artist_keys: 成员Prompt名称列表（仅名称）
+        :param prompts: 成员Prompt值列表
         :param output_content: 自定义输出内容，为空时自动生成为逗号连接
         """
         if not output_content:
-            output_content = ",".join(artist_keys)
+            output_content = ",".join(prompts)
 
         new_combination = {
             "id": str(uuid.uuid4()),
             "name": name,
             "categoryId": category_id,
-            "artistKeys": artist_keys,
+            "prompts": prompts,
             "outputContent": output_content,
             "createdAt": int(time.time() * 1000),
         }
@@ -101,7 +101,7 @@ class CombinationStorage:
             for c in data["combinations"]:
                 if c.get("id") == combination_id:
                     for key, value in kwargs.items():
-                        if key in ("name", "artistKeys", "outputContent", "categoryId", "coverImageId"):
+                        if key in ("name", "prompts", "outputContent", "categoryId", "coverImageId"):
                             c[key] = value
                     self._write_data(data)
                     return c
@@ -159,9 +159,9 @@ class CombinationStorage:
                 return c
         return None
 
-    def remove_artist_from_all(self, artist_name: str) -> int:
+    def remove_artist_from_all(self, prompt_value: str) -> int:
         """
-        从所有组合中移除指定Prompt名称
+        从所有组合中移除指定Prompt值
         :return: 受影响的组合数量
         """
         with self._lock:
@@ -169,12 +169,12 @@ class CombinationStorage:
             affected = 0
 
             for c in data["combinations"]:
-                keys = c.get("artistKeys", [])
-                if artist_name in keys:
-                    keys.remove(artist_name)
-                    c["artistKeys"] = keys
+                keys = c.get("prompts", [])
+                if prompt_value in keys:
+                    keys.remove(prompt_value)
+                    c["prompts"] = keys
                     # 更新 outputContent（如果未自定义，重新生成）
-                    if not c.get("outputContent") or c["outputContent"] == ",".join(keys + [artist_name]):
+                    if not c.get("outputContent") or c["outputContent"] == ",".join(keys + [prompt_value]):
                         c["outputContent"] = ",".join(keys)
                     affected += 1
 

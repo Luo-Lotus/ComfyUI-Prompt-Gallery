@@ -33,7 +33,7 @@ async def get_combinations(request):
             # 优先使用设置的封面，否则取第一个成员Prompt的第一张图
             cover_path = comb.get("coverImageId")
             if not cover_path:
-                for artist_name in comb.get("artistKeys", []):
+                for artist_name in comb.get("prompts", []):
                     mappings = mapping_storage.get_mappings_by_artist(artist_name)
                     for m in mappings:
                         image_path = m.get("imagePath")
@@ -72,7 +72,7 @@ async def get_all_combinations(request):
             # 优先使用设置的封面，否则取第一个成员Prompt的第一张图
             cover_path = comb.get("coverImageId")
             if not cover_path:
-                for artist_name in comb.get("artistKeys", []):
+                for artist_name in comb.get("prompts", []):
                     mappings = mapping_storage.get_mappings_by_artist(artist_name)
                     for m in mappings:
                         image_path = m.get("imagePath")
@@ -119,19 +119,19 @@ async def create_combination(request):
         data = await request.json()
         name = data.get("name", "").strip()
         category_id = data.get("categoryId", "root")
-        artist_keys = data.get("artistKeys", [])
+        prompts = data.get("prompts", [])
         output_content = data.get("outputContent", "")
 
         if not name:
             return web.json_response({"success": False, "error": "组合名称不能为空"}, status=400)
-        if not artist_keys:
+        if not prompts:
             return web.json_response({"success": False, "error": "请选择至少一个Prompt"}, status=400)
 
         _, _, _, combination_storage = get_storage()
         combination = combination_storage.add_combination(
             name=name,
             category_id=category_id,
-            artist_keys=artist_keys,
+            prompts=prompts,
             output_content=output_content,
         )
 
@@ -243,8 +243,8 @@ async def get_combination_images(request):
         if not combination:
             return web.json_response({"success": False, "error": "组合不存在"}, status=404)
 
-        artist_keys = combination.get("artistKeys", [])
-        if not artist_keys:
+        prompts = combination.get("prompts", [])
+        if not prompts:
             return web.json_response({
                 "success": True,
                 "images": [],
@@ -253,7 +253,7 @@ async def get_combination_images(request):
 
         # 获取每个Prompt的图片路径集合
         artist_image_sets = []
-        for artist_name in artist_keys:
+        for artist_name in prompts:
             mappings = mapping_storage.get_mappings_by_artist(artist_name)
             paths = set()
             for m in mappings:
@@ -285,7 +285,7 @@ async def get_combination_images(request):
                     "path": image_path,
                     "size": stat.st_size,
                     "mtime": stat.st_mtime * 1000,
-                    "artistNames": artist_keys,
+                    "prompts": prompts,
                 })
             except Exception:
                 pass

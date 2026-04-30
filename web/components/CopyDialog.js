@@ -102,7 +102,7 @@ export function CopyDialog({
   const getItemName = () => {
     if (!item) return '';
     if (itemType === 'category') return item.name;
-    if (itemType === 'artist') return item.displayName || item.name;
+    if (itemType === 'artist') return item.name || item.value;
     if (itemType === 'image') return '图片';
     if (itemType === 'combination') return item.name;
     return '';
@@ -178,7 +178,7 @@ export function CopyDialog({
             { class: 'copy-dialog-selected-value' },
             selectedTarget.type === 'category'
               ? [h(Icon, { name: 'folder', size: 14 }), ' ', selectedTarget.name]
-              : [h(Icon, { name: 'user', size: 14 }), ' ', selectedTarget.displayName || selectedTarget.name],
+              : [h(Icon, { name: 'user', size: 14 }), ' ', selectedTarget.name || selectedTarget.value],
           ),
         ]),
     ],

@@ -16,9 +16,9 @@
         - artistNames 修改为 prompts
     - combinations.json 改名为combinations.json，
         - artistKeys 修改为 prompts, 2.单个创建字段优化
-          名称：输入框，对应displayName字段
     - 增加迁移逻辑，每次打开时进行检测，如果发现当前数据为老数据 自动执行迁移操作
-    - 对系统内所有使用老字段的字符都要进行修改
+    - 对系统内所有使用老字段的地方都要进行修改
+    - 对导出数据的格式也要进行适配
 - 对prompt创建弹窗进行优化，修改如下
     - 创建单个
         - 输入框：名称（可选如果不填以value为名称）

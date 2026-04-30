@@ -142,8 +142,8 @@ export async function fetchAllArtists() {
 
 // ============ Artist API (Composite Key) ============
 
-export async function fetchArtist(categoryId, name) {
-  const response = await fetch(`/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(name)}`);
+export async function fetchArtist(categoryId, value) {
+  const response = await fetch(`/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`);
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || '获取Prompt失败');
@@ -151,9 +151,9 @@ export async function fetchArtist(categoryId, name) {
   return await response.json();
 }
 
-export async function deleteArtist(categoryId, name) {
+export async function deleteArtist(categoryId, value) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(name)}`,
+    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
     {
       method: 'DELETE',
     },
@@ -165,15 +165,15 @@ export async function deleteArtist(categoryId, name) {
   return await response.json();
 }
 
-export async function copyArtist(categoryId, name, targetCategoryId, newName) {
+export async function copyArtist(categoryId, value, targetCategoryId, newValue) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(name)}/copy`,
+    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}/copy`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         targetCategoryId,
-        newName,
+        newValue,
       }),
     },
   );
@@ -184,17 +184,17 @@ export async function copyArtist(categoryId, name, targetCategoryId, newName) {
   return await response.json();
 }
 
-export async function fetchArtistImages(name) {
-  const response = await fetch(`/artist_gallery/artist_images?name=${encodeURIComponent(name)}`);
+export async function fetchArtistImages(value) {
+  const response = await fetch(`/artist_gallery/artist_images?value=${encodeURIComponent(value)}`);
   if (!response.ok) {
     throw new Error('获取Prompt图片失败');
   }
   return await response.json();
 }
 
-export async function setArtistCover(categoryId, name, coverImagePath) {
+export async function setArtistCover(categoryId, value, coverImagePath) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(name)}`,
+    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -216,13 +216,13 @@ export async function fetchInitData() {
   return await response.json();
 }
 
-export async function copyImage(imagePath, toArtistId) {
+export async function copyImage(imagePath, toPromptValue) {
   const response = await fetch('/artist_gallery/image/copy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       imagePath,
-      toArtistId,
+      toPromptValue,
     }),
   });
   if (!response.ok) {

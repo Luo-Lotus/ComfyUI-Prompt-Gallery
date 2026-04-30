@@ -27,7 +27,7 @@ export function useImagePreview() {
     renderToBody(
       h(ImagePreviewPopup, {
         imageUrl: buildImageUrl(coverPath),
-        alt: artist.displayName || artist.name,
+        alt: artist.name || artist.value,
         x: event.clientX + 15,
         y: event.clientY + 15,
       }),

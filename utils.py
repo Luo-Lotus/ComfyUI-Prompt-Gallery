@@ -75,8 +75,8 @@ def scan_output_directory(output_dir):
 
                 if artist_name not in artists:
                     artists[artist_name] = {
+                        "value": artist_name,
                         "name": artist_name,
-                        "displayName": artist_name,
                         "images": []
                     }
 

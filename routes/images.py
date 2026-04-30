@@ -62,7 +62,7 @@ async def get_image_info(request):
         mapping = mapping_storage.get_mappings_by_image(image_path)
         if mapping:
             result["mapping"] = {
-                "artistNames": mapping.get("artistNames", []),
+                "prompts": mapping.get("prompts", []),
                 "savedAt": mapping.get("savedAt"),
                 "metadata": mapping.get("metadata", {}),
             }
@@ -96,13 +96,13 @@ async def save_to_gallery(request):
     try:
         data = await request.json()
         image_filename = data.get("imageFilename")
-        artist_ids = data.get("artistIds", [])
+        prompt_values = data.get("promptValues", [])
         metadata = data.get("metadata", {})
 
         if not image_filename:
             return web.json_response({"error": "图片文件名不能为空"}, status=400)
 
-        if not artist_ids:
+        if not prompt_values:
             return web.json_response({"error": "必须选择至少一个Prompt"}, status=400)
 
         # 构建图片路径
@@ -110,11 +110,11 @@ async def save_to_gallery(request):
 
         # 创建映射关系
         _, mapping_storage, _, _ = get_storage()
-        mapping = mapping_storage.add_mapping(image_path, artist_ids, metadata)
+        mapping = mapping_storage.add_mapping(image_path, prompt_values, metadata)
 
         # 更新Prompt的图片计数
         artist_storage, _, _, _ = get_storage()
-        for artist_id in artist_ids:
+        for artist_id in prompt_values:
             artist_storage.update_image_count(artist_id, 1)
 
         return web.json_response({
@@ -226,7 +226,7 @@ async def delete_image(request):
             return web.json_response({"error": "图片映射不存在"}, status=404)
 
         # 获取关联的Prompt列表
-        artist_names = mapping.get("artistNames", [])
+        prompt_values = mapping.get("prompts", [])
 
         # 删除图片文件
         import folder_paths
@@ -245,14 +245,14 @@ async def delete_image(request):
         mapping_storage.delete_mapping_by_image(image_path)
 
         # 更新所有关联Prompt的图片计数
-        for artist_name in artist_names:
-            # 查找所有同名Prompt并更新计数
+        for prompt_value in prompt_values:
+            # 查找所有匹配的Prompt并更新计数
             all_artists = artist_storage.get_all_artists()
             for artist in all_artists:
-                if artist.get("name") == artist_name:
+                if artist.get("value") == prompt_value:
                     artist_storage.update_image_count(
                         artist.get("categoryId"),
-                        artist_name,
+                        prompt_value,
                         -1
                     )
 
@@ -260,7 +260,7 @@ async def delete_image(request):
             "success": True,
             "message": "图片已删除",
             "fileDeleted": file_deleted,
-            "affectedArtists": artist_names
+            "affectedArtists": prompt_values
         })
 
     except Exception as e:
@@ -273,21 +273,21 @@ async def move_image(request):
     try:
         data = await request.json()
         image_path = data.get("imagePath")
-        from_artist_name = data.get("fromArtistName")
-        to_artist_name = data.get("toArtistName")
+        from_prompt_value = data.get("fromPromptValue")
+        to_prompt_value = data.get("toPromptValue")
         to_category_id = data.get("toCategoryId")
 
-        if not image_path or not from_artist_name or not to_artist_name:
+        if not image_path or not from_prompt_value or not to_prompt_value:
             return web.json_response({"error": "缺少必要参数"}, status=400)
 
-        if from_artist_name == to_artist_name:
+        if from_prompt_value == to_prompt_value:
             return web.json_response({"error": "不能移动到同一个Prompt"}, status=400)
 
         artist_storage, mapping_storage, _, _ = get_storage()
 
         # 验证目标Prompt存在
         to_category_id = to_category_id or "root"
-        to_artist = artist_storage.get_artist(to_category_id, to_artist_name)
+        to_artist = artist_storage.get_artist(to_category_id, to_prompt_value)
         if not to_artist:
             return web.json_response({"error": "目标Prompt不存在"}, status=400)
 
@@ -297,32 +297,32 @@ async def move_image(request):
             return web.json_response({"error": "图片映射不存在"}, status=404)
 
         # 从映射中移除原Prompt，添加目标Prompt
-        artist_names = mapping.get("artistNames", [])
-        if from_artist_name not in artist_names:
+        prompt_values = mapping.get("prompts", [])
+        if from_prompt_value not in prompt_values:
             return web.json_response({"error": "原Prompt未关联此图片"}, status=400)
 
-        artist_names.remove(from_artist_name)
-        if to_artist_name not in artist_names:
-            artist_names.append(to_artist_name)
+        prompt_values.remove(from_prompt_value)
+        if to_prompt_value not in prompt_values:
+            prompt_values.append(to_prompt_value)
 
         # 更新映射到文件
-        success = mapping_storage.update_mapping(image_path, artist_names)
+        success = mapping_storage.update_mapping(image_path, prompt_values)
 
         if success:
             # 更新图片计数：使用组合键
             from_artist = None
             for a in artist_storage.get_all_artists():
-                if a.get("name") == from_artist_name:
+                if a.get("value") == from_prompt_value:
                     from_artist = a
                     break
 
             if from_artist:
-                artist_storage.update_image_count(from_artist.get("categoryId", "root"), from_artist_name, -1)
-            artist_storage.update_image_count(to_category_id, to_artist_name, 1)
+                artist_storage.update_image_count(from_artist.get("categoryId", "root"), from_prompt_value, -1)
+            artist_storage.update_image_count(to_category_id, to_prompt_value, 1)
 
             return web.json_response({
                 "success": True,
-                "message": f"已移动图片到Prompt '{to_artist.get('displayName', to_artist.get('name'))}'"
+                "message": f"已移动图片到Prompt '{to_artist.get('name', to_artist.get('value'))}'"
             })
         else:
             return web.json_response({"error": "更新映射失败"}, status=500)
@@ -339,17 +339,17 @@ async def copy_image(request):
     try:
         data = await request.json()
         image_path = data.get("imagePath")
-        to_artist_name = data.get("toArtistName")
+        to_prompt_value = data.get("toPromptValue")
         to_category_id = data.get("toCategoryId")
 
-        if not image_path or not to_artist_name:
+        if not image_path or not to_prompt_value:
             return web.json_response({"error": "缺少必要参数"}, status=400)
 
         artist_storage, mapping_storage, _, _ = get_storage()
 
         # 验证目标Prompt存在
         to_category_id = to_category_id or "root"
-        to_artist = artist_storage.get_artist(to_category_id, to_artist_name)
+        to_artist = artist_storage.get_artist(to_category_id, to_prompt_value)
         if not to_artist:
             return web.json_response({"error": "目标Prompt不存在"}, status=400)
 
@@ -359,25 +359,25 @@ async def copy_image(request):
             return web.json_response({"error": "图片映射不存在"}, status=404)
 
         # 获取当前Prompt列表
-        artist_names = mapping.get("artistNames", [])
+        prompt_values = mapping.get("prompts", [])
 
         # 如果已经关联，不重复添加
-        if to_artist_name in artist_names:
+        if to_prompt_value in prompt_values:
             return web.json_response({"error": "图片已关联到目标Prompt"}, status=400)
 
         # 添加目标Prompt到映射
-        artist_names.append(to_artist_name)
+        prompt_values.append(to_prompt_value)
 
         # 更新映射到文件
-        success = mapping_storage.update_mapping(image_path, artist_names)
+        success = mapping_storage.update_mapping(image_path, prompt_values)
 
         if success:
             # 更新目标Prompt图片计数
-            artist_storage.update_image_count(to_category_id, to_artist_name, 1)
+            artist_storage.update_image_count(to_category_id, to_prompt_value, 1)
 
             return web.json_response({
                 "success": True,
-                "message": f"已复制图片到Prompt '{to_artist.get('displayName', to_artist.get('name'))}'"
+                "message": f"已复制图片到Prompt '{to_artist.get('name', to_artist.get('value'))}'"
             })
         else:
             return web.json_response({"error": "更新映射失败"}, status=500)

@@ -125,7 +125,7 @@ class ArtistSelector:
         # 获取当前分类下的画师
         for artist in all_artists:
             if artist.get('categoryId') == category_id:
-                name = artist.get('name', '').strip()
+                name = artist.get('value', '').strip()
                 if name:
                     names.append(name)
 
@@ -149,7 +149,7 @@ class ArtistSelector:
 
         formatted_results = []
         # 跨分区收集全部已解析画师（用于 SaveToGallery）
-        all_resolved = []      # [{categoryId, name, saveToGallery}, ...]
+        all_resolved = []      # [{categoryId, value, saveToGallery}, ...]
         seen_keys = set()
         # 记录每个分区实际使用的画师名（考虑随机/循环后）
         partition_used_artists = {}  # {partition_id: [name, ...]}
@@ -161,7 +161,7 @@ class ArtistSelector:
                 seen_keys.add(key)
                 all_resolved.append({
                     "categoryId": cat_id,
-                    "name": name,
+                    "value": name,
                     "saveToGallery": save_to_gallery,
                 })
 
@@ -206,7 +206,7 @@ class ArtistSelector:
                         if combination:
                             combination_entries.append((
                                 combination.get('outputContent', ''),
-                                combination.get('artistKeys', []),
+                                combination.get('prompts', []),
                             ))
                     except Exception as e:
                         print(f"[ArtistSelector] Failed to lookup combination {comb_id}: {e}")
@@ -318,7 +318,7 @@ class ArtistSelector:
                     new_comb = combination_storage.add_combination(
                         name=comb_name,
                         category_id="root",
-                        artist_keys=artist_names,
+                        prompts=artist_names,
                         output_content=output_content,
                     )
                     
@@ -329,7 +329,7 @@ class ArtistSelector:
 
         # 构建富化 metadata：包含解析结果，供 SaveToGallery 直接使用
         enriched_metadata = json.dumps({
-            "artist_names": [a["name"] for a in all_resolved],
+            "artist_names": [a["value"] for a in all_resolved],
             "selected_artists": all_resolved,
             "formatted_result": result,
         })
@@ -385,7 +385,7 @@ class ArtistSelector:
         """从 metadata 中获取画师信息"""
         selected_artists = metadata_dict.get('selected_artists', [])
         for artist_info in selected_artists:
-            if artist_info.get('name') == artist_name:
+            if artist_info.get('value') == artist_name:
                 return artist_info
         return None
 
@@ -415,10 +415,18 @@ class SaveToGallery:
         name_to_artists = {}
         lower_to_canonical = {}  # 小写 → 原始大小写 key，用于 IGNORECASE 匹配后还原
         for artist in all_artists:
-            name = artist.get("name", "").strip()
-            if name:
-                name_to_artists.setdefault(name, []).append(artist)
-                lower_to_canonical[name.lower()] = name
+            value = artist.get("value", "").strip()
+            if value:
+                name_to_artists.setdefault(value, []).append(artist)
+                lower_to_canonical[value.lower()] = value
+            # 别名也加入匹配
+            alias = artist.get("alias", "").strip()
+            if alias:
+                for a in alias.split(","):
+                    a = a.strip()
+                    if a:
+                        name_to_artists.setdefault(a, []).append(artist)
+                        lower_to_canonical[a.lower()] = a
 
         # 检查缓存是否需要重建
         current_names = frozenset(name_to_artists.keys())
@@ -442,7 +450,7 @@ class SaveToGallery:
                 for artist in name_to_artists[matched_key]:
                     result.append({
                         "categoryId": artist.get("categoryId", "root"),
-                        "name": artist.get("name"),
+                        "value": artist.get("value"),
                         "saveToGallery": True,
                     })
 
@@ -491,11 +499,11 @@ class SaveToGallery:
         if artist_names_from_meta and selected_artists:
             # Path A: metadata_json 有效，使用现有逻辑
             saveable_artists = [a for a in selected_artists if a.get("saveToGallery", True)]
-            saveable_names = [a["name"] for a in saveable_artists]
+            saveable_names = [a["value"] for a in saveable_artists]
         elif prompt_string and prompt_string.strip():
             # Path B: 从 prompt_string 匹配画师
             saveable_artists = self._match_artists_from_prompt(prompt_string)
-            saveable_names = [a["name"] for a in saveable_artists]
+            saveable_names = [a["value"] for a in saveable_artists]
             if not saveable_names:
                 print("[SaveToGallery] 错误: prompt_string 中未匹配到已知画师")
                 return ()
@@ -549,9 +557,9 @@ class SaveToGallery:
                 artist_storage = get_storage()[0]
                 for artist_info in saveable_artists:
                     category_id = artist_info.get("categoryId", "root")
-                    name = artist_info.get("name", "")
-                    if category_id and name:
-                        artist_storage.update_image_count(category_id, name, 1)
+                    value = artist_info.get("value", "")
+                    if category_id and value:
+                        artist_storage.update_image_count(category_id, value, 1)
 
                 print(f"[SaveToGallery] 已保存: {filename} -> Prompt: {', '.join(saveable_names)}")
 

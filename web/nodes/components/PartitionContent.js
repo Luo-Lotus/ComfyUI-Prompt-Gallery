@@ -76,7 +76,7 @@ export function PartitionContent({
         },
       },
       [
-        h('span', { class: 'artist-name' }, artist.displayName || artist.name),
+        h('span', { class: 'artist-name' }, artist.name || artist.value),
         h(
           'button',
           {

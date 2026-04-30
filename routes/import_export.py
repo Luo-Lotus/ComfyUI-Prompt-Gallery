@@ -66,18 +66,18 @@ async def import_images_batch(request):
                     # 2. 解析Prompt信息
                     if mode == "single":
                         # 单个Prompt模式：直接使用配置中的Prompt信息
-                        artist_name = config.get("artistName", "").strip()
-                        display_name = config.get("displayName", artist_name)
+                        value = config.get("value", "").strip()
+                        display_name = config.get("name", value)
                         category_id = config.get("categoryId", "root")
                         will_create_artist = False
                         error_msg = None
                     else:
                         # 自定义模式：从文件名解析
-                        artist_name, display_name, error_msg, will_create_artist = \
+                        value, display_name, error_msg, will_create_artist = \
                             parse_artist_info_from_filename(filename, config)
                         category_id = config.get("defaultCategoryId", "root")
 
-                    if not artist_name:
+                    if not value:
                         return {
                             'filename': filename,
                             'success': False,
@@ -85,17 +85,17 @@ async def import_images_batch(request):
                         }
 
                     # 3. 确保Prompt存在
-                    artist = artist_storage.get_artist(category_id, artist_name)
+                    artist = artist_storage.get_artist(category_id, value)
                     if not artist and will_create_artist:
                         try:
                             artist = artist_storage.add_artist(
-                                name=artist_name,
-                                display_name=display_name,
+                                value=value,
+                                name=display_name,
                                 category_id=category_id
                             )
                         except ValueError:
                             # Prompt已存在（并发情况）
-                            artist = artist_storage.get_artist(category_id, artist_name)
+                            artist = artist_storage.get_artist(category_id, value)
 
                     if not artist:
                         return {
@@ -113,14 +113,14 @@ async def import_images_batch(request):
                     # 5. 保存图片并嵌入metadata（一次性完成）
                     selected_artists = [{
                         "categoryId": category_id,
-                        "name": artist_name,
-                        "displayName": display_name
+                        "value": value,
+                        "name": display_name
                     }]
 
                     success, metadata = save_image_with_metadata(
                         image_bytes=image_bytes,
                         save_path=save_path,
-                        artist_names=[artist_name],
+                        artist_names=[value],
                         display_names=[display_name],
                         categories=[category_id],
                         selected_artists=selected_artists
@@ -140,19 +140,19 @@ async def import_images_batch(request):
                     image_rel_path = f"artist_gallery/{new_filename}"
                     mapping_storage.add_mapping(
                         image_rel_path,
-                        [artist_name],
+                        [value],
                         metadata or {"width": 0, "height": 0}
                     )
 
                     # 7. 更新Prompt计数
-                    artist_storage.update_image_count(category_id, artist_name, 1)
+                    artist_storage.update_image_count(category_id, value, 1)
 
                     return {
                         'filename': filename,
                         'success': True,
                         'imagePath': image_rel_path,
-                        'artistName': artist_name,
-                        'displayName': display_name,
+                        'value': value,
+                        'name': display_name,
                         'categoryId': category_id
                     }
 
@@ -176,7 +176,7 @@ async def import_images_batch(request):
         # 收集创建的Prompt
         created_artists = [
             r for r in results
-            if r['success'] and r.get('artistName')
+            if r['success'] and r.get('value')
         ]
 
         return web.json_response({
@@ -212,7 +212,7 @@ async def import_preview(request):
         preview = []
 
         for filename in filenames:
-            artist_name, display_name, error_msg, will_create = \
+            value, display_name, error_msg, will_create = \
                 parse_artist_info_from_filename(filename, config)
 
             category_id = config.get("defaultCategoryId", "root")
@@ -224,16 +224,16 @@ async def import_preview(request):
 
             # 检查Prompt是否存在
             artist_storage, _, _, _ = get_storage()
-            artist_exists = artist_storage.get_artist(category_id, artist_name) is not None if artist_name else False
+            artist_exists = artist_storage.get_artist(category_id, value) is not None if value else False
 
             preview.append({
                 'filename': filename,
-                'parsedArtist': artist_name,
-                'displayName': display_name,
+                'parsedArtist': value,
+                'name': display_name,
                 'category': category_name,
                 'categoryId': category_id,
                 'willCreate': will_create and not artist_exists,
-                'warnings': [] if artist_name else ['无法解析Prompt名称']
+                'warnings': [] if value else ['无法解析Prompt名称']
             })
 
         # 统计
@@ -277,18 +277,19 @@ async def export_artists(request):
 
         for artist_key in artists_param:
             category_id = artist_key.get("categoryId")
-            name = artist_key.get("name")
+            value = artist_key.get("value")
 
-            artist = artist_storage.get_artist(category_id, name)
+            artist = artist_storage.get_artist(category_id, value)
             if not artist:
                 continue
 
             manifest_artists.append({
+                "value": artist.get("value"),
                 "name": artist.get("name"),
-                "displayName": artist.get("displayName"),
+                "alias": artist.get("alias", ""),
             })
 
-            mappings = mapping_storage.get_mappings_by_artist(name)
+            mappings = mapping_storage.get_mappings_by_artist(value)
             if max_images > 0:
                 mappings = mappings[:max_images]
 
@@ -297,13 +298,13 @@ async def export_artists(request):
                 if image_path not in exported_images:
                     filename = Path(image_path).name
                     zip_path = f"images/{filename}"
-                    exported_images[image_path] = {"path": zip_path, "artistNames": [name]}
+                    exported_images[image_path] = {"path": zip_path, "prompts": [value]}
                 else:
-                    if name not in exported_images[image_path]["artistNames"]:
-                        exported_images[image_path]["artistNames"].append(name)
+                    if value not in exported_images[image_path]["prompts"]:
+                        exported_images[image_path]["prompts"].append(value)
 
         manifest_images = [
-            {"path": info["path"], "artistNames": info["artistNames"]}
+            {"path": info["path"], "prompts": info["prompts"]}
             for info in exported_images.values()
         ]
 
@@ -380,8 +381,8 @@ async def export_category(request):
         # 收集所有相关图片
         exported_images = {}
         for artist in export_artists_list:
-            name = artist.get("name")
-            mappings = artist_mapping_index.get(name, [])
+            value = artist.get("value")
+            mappings = artist_mapping_index.get(value, [])
             if max_images > 0:
                 mappings = mappings[:max_images]
             for mapping in mappings:
@@ -389,10 +390,10 @@ async def export_category(request):
                 if image_path not in exported_images:
                     filename = Path(image_path).name
                     zip_path = f"images/{filename}"
-                    exported_images[image_path] = {"path": zip_path, "artistNames": [name]}
+                    exported_images[image_path] = {"path": zip_path, "prompts": [value]}
                 else:
-                    if name not in exported_images[image_path]["artistNames"]:
-                        exported_images[image_path]["artistNames"].append(name)
+                    if value not in exported_images[image_path]["prompts"]:
+                        exported_images[image_path]["prompts"].append(value)
 
         # 按拓扑顺序排列分类（父在前子在后）
         parent_map = {c["id"]: c.get("parentId") for c in export_categories}
@@ -418,8 +419,9 @@ async def export_category(request):
 
         manifest_artists = [
             {
+                "value": a.get("value"),
                 "name": a.get("name"),
-                "displayName": a.get("displayName"),
+                "alias": a.get("alias", ""),
                 "categoryId": a.get("categoryId"),
             }
             for a in export_artists_list
@@ -429,14 +431,14 @@ async def export_category(request):
             {
                 "name": c.get("name"),
                 "categoryId": c.get("categoryId"),
-                "artistKeys": c.get("artistKeys", []),
+                "prompts": c.get("prompts", []),
                 "outputContent": c.get("outputContent", ""),
             }
             for c in export_combinations
         ]
 
         manifest_images = [
-            {"path": info["path"], "artistNames": info["artistNames"]}
+            {"path": info["path"], "prompts": info["prompts"]}
             for info in exported_images.values()
         ]
 
@@ -543,15 +545,17 @@ async def _import_v1(zf, manifest_data, target_category_id, artist_storage, mapp
     added_images = 0
 
     for artist_info in manifest_data.get("artists", []):
-        name = artist_info.get("name", "").strip()
+        # 支持新格式(value)和旧格式(name)的向后兼容
+        name = (artist_info.get("value") or artist_info.get("name", "")).strip()
         if not name:
             continue
+        display_name = artist_info.get("name") or artist_info.get("displayName", name)
         existing = artist_storage.get_artist(target_category_id, name)
         if not existing:
             try:
                 artist_storage.add_artist(
-                    name=name,
-                    display_name=artist_info.get("displayName", name),
+                    value=name,
+                    name=display_name,
                     category_id=target_category_id,
                 )
                 added_artists.append(name)
@@ -560,7 +564,8 @@ async def _import_v1(zf, manifest_data, target_category_id, artist_storage, mapp
 
     for img_info in manifest_data.get("images", []):
         zip_img_path = img_info.get("path")
-        artist_names = img_info.get("artistNames", [])
+        # 支持新格式(prompts)和旧格式(artistNames)的向后兼容
+        artist_names = img_info.get("prompts") or img_info.get("artistNames", [])
         if not zip_img_path or zip_img_path not in zf.namelist():
             continue
 
@@ -575,7 +580,7 @@ async def _import_v1(zf, manifest_data, target_category_id, artist_storage, mapp
         relative_path = f"artist_gallery/{new_filename}"
         mapping_storage.add_mapping(
             image_path=relative_path,
-            artist_names=artist_names,
+            prompt_values=artist_names,
         )
         added_images += 1
 
@@ -647,9 +652,11 @@ async def _import_v2(zf, manifest_data, target_category_id,
     # B. 导入Prompt
     added_artists = []
     for artist_info in manifest_data.get("artists", []):
-        name = artist_info.get("name", "").strip()
+        # 支持新格式(value)和旧格式(name)的向后兼容
+        name = (artist_info.get("value") or artist_info.get("name", "")).strip()
         if not name:
             continue
+        display_name = artist_info.get("name") or artist_info.get("displayName", name)
         old_cat_id = artist_info.get("categoryId")
         new_cat_id = old_to_new_cat.get(old_cat_id, target_category_id)
 
@@ -657,8 +664,8 @@ async def _import_v2(zf, manifest_data, target_category_id,
         if not existing:
             try:
                 artist_storage.add_artist(
-                    name=name,
-                    display_name=artist_info.get("displayName", name),
+                    value=name,
+                    name=display_name,
                     category_id=new_cat_id,
                 )
                 added_artists.append(name)
@@ -673,14 +680,15 @@ async def _import_v2(zf, manifest_data, target_category_id,
             continue
         old_cat_id = comb_info.get("categoryId")
         new_cat_id = old_to_new_cat.get(old_cat_id, target_category_id)
-        artist_keys = comb_info.get("artistKeys", [])
+        # 支持新格式(prompts)和旧格式(artistKeys)的向后兼容
+        artist_keys = comb_info.get("prompts") or comb_info.get("artistKeys", [])
         output_content = comb_info.get("outputContent", "")
 
         try:
             combination_storage.add_combination(
                 name=name,
                 category_id=new_cat_id,
-                artist_keys=artist_keys,
+                prompts=artist_keys,
                 output_content=output_content,
             )
             added_combinations += 1
@@ -691,7 +699,8 @@ async def _import_v2(zf, manifest_data, target_category_id,
     added_images = 0
     for img_info in manifest_data.get("images", []):
         zip_img_path = img_info.get("path")
-        artist_names = img_info.get("artistNames", [])
+        # 支持新格式(prompts)和旧格式(artistNames)的向后兼容
+        artist_names = img_info.get("prompts") or img_info.get("artistNames", [])
         if not zip_img_path or zip_img_path not in zf.namelist():
             continue
 
@@ -706,7 +715,7 @@ async def _import_v2(zf, manifest_data, target_category_id,
         relative_path = f"artist_gallery/{new_filename}"
         mapping_storage.add_mapping(
             image_path=relative_path,
-            artist_names=artist_names,
+            prompt_values=artist_names,
         )
         added_images += 1
 
