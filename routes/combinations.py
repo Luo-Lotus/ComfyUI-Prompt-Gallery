@@ -8,9 +8,11 @@ import server
 from ..storage import get_storage
 
 
+
+
 # ============ 组合 CRUD API ============
 
-@server.PromptServer.instance.routes.get("/artist_gallery/combinations")
+@server.PromptServer.instance.routes.get("/prompt_gallery/combinations")
 async def get_combinations(request):
     """获取组合列表（支持 ?category= 过滤），附带封面图片路径"""
     try:
@@ -33,8 +35,8 @@ async def get_combinations(request):
             # 优先使用设置的封面，否则取第一个成员Prompt的第一张图
             cover_path = comb.get("coverImageId")
             if not cover_path:
-                for artist_name in comb.get("prompts", []):
-                    mappings = mapping_storage.get_mappings_by_artist(artist_name)
+                for prompt_name in comb.get("prompts", []):
+                    mappings = mapping_storage.get_mappings_by_prompt(prompt_name)
                     for m in mappings:
                         image_path = m.get("imagePath")
                         full_path = Path(output_dir) / image_path
@@ -54,7 +56,7 @@ async def get_combinations(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.get("/artist_gallery/combinations/all")
+@server.PromptServer.instance.routes.get("/prompt_gallery/combinations/all")
 async def get_all_combinations(request):
     """获取所有组合（选择器用），附带封面图片路径"""
     try:
@@ -72,8 +74,8 @@ async def get_all_combinations(request):
             # 优先使用设置的封面，否则取第一个成员Prompt的第一张图
             cover_path = comb.get("coverImageId")
             if not cover_path:
-                for artist_name in comb.get("prompts", []):
-                    mappings = mapping_storage.get_mappings_by_artist(artist_name)
+                for prompt_name in comb.get("prompts", []):
+                    mappings = mapping_storage.get_mappings_by_prompt(prompt_name)
                     for m in mappings:
                         image_path = m.get("imagePath")
                         full_path = Path(output_dir) / image_path
@@ -93,7 +95,7 @@ async def get_all_combinations(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.get("/artist_gallery/combinations/{id}")
+@server.PromptServer.instance.routes.get("/prompt_gallery/combinations/{id}")
 async def get_combination(request):
     """获取单个组合"""
     try:
@@ -112,7 +114,7 @@ async def get_combination(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/combinations")
+@server.PromptServer.instance.routes.post("/prompt_gallery/combinations")
 async def create_combination(request):
     """创建组合"""
     try:
@@ -143,7 +145,7 @@ async def create_combination(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.put("/artist_gallery/combinations/{id}")
+@server.PromptServer.instance.routes.put("/prompt_gallery/combinations/{id}")
 async def update_combination(request):
     """更新组合"""
     try:
@@ -164,7 +166,7 @@ async def update_combination(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.delete("/artist_gallery/combinations/{id}")
+@server.PromptServer.instance.routes.delete("/prompt_gallery/combinations/{id}")
 async def delete_combination(request):
     """删除组合"""
     try:
@@ -181,7 +183,7 @@ async def delete_combination(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/combinations/{id}/duplicate")
+@server.PromptServer.instance.routes.post("/prompt_gallery/combinations/{id}/duplicate")
 async def duplicate_combination(request):
     """复制组合（独立副本）"""
     try:
@@ -206,7 +208,7 @@ async def duplicate_combination(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/combinations/{id}/move")
+@server.PromptServer.instance.routes.post("/prompt_gallery/combinations/{id}/move")
 async def move_combination(request):
     """移动组合到新分类"""
     try:
@@ -225,7 +227,7 @@ async def move_combination(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.get("/artist_gallery/combinations/{id}/images")
+@server.PromptServer.instance.routes.get("/prompt_gallery/combinations/{id}/images")
 async def get_combination_images(request):
     """
     获取组合的合并图片（交集：只返回同时属于所有成员Prompt的图片）
@@ -252,18 +254,18 @@ async def get_combination_images(request):
             })
 
         # 获取每个Prompt的图片路径集合
-        artist_image_sets = []
-        for artist_name in prompts:
-            mappings = mapping_storage.get_mappings_by_artist(artist_name)
+        prompt_image_sets = []
+        for prompt_name in prompts:
+            mappings = mapping_storage.get_mappings_by_prompt(prompt_name)
             paths = set()
             for m in mappings:
                 image_path = m.get("imagePath")
                 full_path = Path(output_dir) / image_path
                 if full_path.exists():
                     paths.add(image_path)
-            artist_image_sets.append(paths)
+            prompt_image_sets.append(paths)
 
-        if not artist_image_sets:
+        if not prompt_image_sets:
             return web.json_response({
                 "success": True,
                 "images": [],
@@ -271,8 +273,8 @@ async def get_combination_images(request):
             })
 
         # 交集：只保留属于所有Prompt的图片
-        common_paths = artist_image_sets[0]
-        for s in artist_image_sets[1:]:
+        common_paths = prompt_image_sets[0]
+        for s in prompt_image_sets[1:]:
             common_paths = common_paths & s
 
         # 构建图片信息
@@ -302,7 +304,7 @@ async def get_combination_images(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.delete("/artist_gallery/combinations/batch")
+@server.PromptServer.instance.routes.delete("/prompt_gallery/combinations/batch")
 async def batch_delete_combinations(request):
     """批量删除组合"""
     try:

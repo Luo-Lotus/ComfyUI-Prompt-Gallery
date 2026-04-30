@@ -3,10 +3,10 @@
  */
 import { useMemo } from '../../lib/hooks.mjs';
 
-export function useFilteredArtists(data, searchQuery, sortBy, sortOrder, showFavoritesOnly, favorites) {
-  const filteredArtists = useMemo(() => {
+export function useFilteredPrompts(data, searchQuery, sortBy, sortOrder, showFavoritesOnly, favorites) {
+  const filteredPrompts = useMemo(() => {
     if (!data) return [];
-    let result = [...data.artists];
+    let result = [...data.prompts];
 
     // 搜索过滤（搜索 value、name、alias）
     if (searchQuery) {
@@ -40,5 +40,5 @@ export function useFilteredArtists(data, searchQuery, sortBy, sortOrder, showFav
     return result;
   }, [data, searchQuery, sortBy, sortOrder, showFavoritesOnly, favorites]);
 
-  return filteredArtists;
+  return filteredPrompts;
 }

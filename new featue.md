@@ -8,14 +8,14 @@
 帮我对创建prompt功能进行优化：
 
 - 对数据存储结构进行优化，
-    - artist.json 改名为prompt.json，
+    - prompt.json 改名为prompt.json，
         - displayName 修改为 name
         - name 修改为 value
         - 增加 alias 字段，
-    - image_artists.json 改名为image_prompts.json，
-        - artistNames 修改为 prompts
+    - image_prompts.json 改名为image_prompts.json，
+        - promptNames 修改为 prompts
     - combinations.json 改名为combinations.json，
-        - artistKeys 修改为 prompts, 2.单个创建字段优化
+        - promptKeys 修改为 prompts, 2.单个创建字段优化
     - 增加迁移逻辑，每次打开时进行检测，如果发现当前数据为老数据 自动执行迁移操作
     - 对系统内所有使用老字段的地方都要进行修改
     - 对导出数据的格式也要进行适配

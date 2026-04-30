@@ -16,7 +16,7 @@ export function BatchActionBar() {
     switch (selectionType) {
       case 'category':
         return '分类';
-      case 'artist':
+      case 'prompt':
         return 'Prompt';
       case 'image':
         return '图片';

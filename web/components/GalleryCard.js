@@ -10,8 +10,8 @@ import { BaseCard } from './BaseCard.js';
 import { useContextMenu } from './ContextMenu.js';
 
 export function GalleryCard({
-  artist,
-  artistIndex,
+  prompt,
+  promptIndex,
   favorites,
   onFavoriteToggle,
   onImageClick,
@@ -27,21 +27,21 @@ export function GalleryCard({
   onSelect,
 }) {
   const [copied, setCopied] = useState(false);
-  const isFav = favorites.has(artist.value);
-  const hasImages = artist.imageCount > 0;
+  const isFav = favorites.has(prompt.value);
+  const hasImages = prompt.imageCount > 0;
   const { showContextMenu } = useContextMenu();
 
   // 生成选择键（用于多选）
-  const selectionKey = `artist:${artist.categoryId}:${artist.value}`;
+  const selectionKey = `prompt:${prompt.categoryId}:${prompt.value}`;
 
   // 封面图路径
-  const coverPath = artist.coverImagePath;
+  const coverPath = prompt.coverImagePath;
   const coverImage = coverPath ? { path: coverPath } : null;
 
   // ============ 事件处理 ============
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(artist.value).then(() => {
+    navigator.clipboard.writeText(prompt.value).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
@@ -56,32 +56,32 @@ export function GalleryCard({
       {
         icon: 'star',
         label: '收藏',
-        action: () => onFavoriteToggle(artist.value),
+        action: () => onFavoriteToggle(prompt.value),
       },
       {
         icon: 'edit',
         label: '编辑',
-        action: () => onEdit && onEdit(artist),
+        action: () => onEdit && onEdit(prompt),
       },
       {
         icon: 'move',
         label: '移动',
-        action: () => onMove && onMove(artist),
+        action: () => onMove && onMove(prompt),
       },
       {
         icon: 'copy',
         label: '复制到',
-        action: () => onCopy && onCopy(artist),
+        action: () => onCopy && onCopy(prompt),
       },
       {
         icon: 'upload',
         label: '导出',
-        action: () => onExport && onExport(artist),
+        action: () => onExport && onExport(prompt),
       },
       {
         icon: 'trash-2',
         label: '删除',
-        action: () => onDelete && onDelete(artist),
+        action: () => onDelete && onDelete(prompt),
       },
     ];
 
@@ -99,12 +99,12 @@ export function GalleryCard({
       h(
         'span',
         {
-          class: 'gallery-artist-name',
-          title: artist.name || artist.value,
+          class: 'gallery-prompt-name',
+          title: prompt.name || prompt.value,
         },
-        artist.name || artist.value,
+        prompt.name || prompt.value,
       ),
-      h('span', { class: 'gallery-artist-count' }, `${artist.imageCount}张`),
+      h('span', { class: 'gallery-prompt-count' }, `${prompt.imageCount}张`),
 
       // 右侧：收藏按钮
       // h(
@@ -113,7 +113,7 @@ export function GalleryCard({
       //         class: `gallery-fav-btn ${isFav ? 'fav-active' : ''}`,
       //         onClick: (e) => {
       //             e.stopPropagation();
-      //             onFavoriteToggle(artist.name);
+      //             onFavoriteToggle(prompt.name);
       //         },
       //         title: isFav ? '取消收藏' : '添加收藏',
       //     },
@@ -134,13 +134,13 @@ export function GalleryCard({
         class: 'gallery-image-cover',
         onClick: (e) => {
           if (!selectionMode) {
-            onImageClick && onImageClick(artistIndex);
+            onImageClick && onImageClick(promptIndex);
           }
         },
       },
       h('img', {
         src: buildImageUrl(coverImage.path),
-        alt: artist.name || artist.value,
+        alt: prompt.name || prompt.value,
         loading: 'lazy',
       }),
     );

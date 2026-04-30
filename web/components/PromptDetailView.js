@@ -6,19 +6,19 @@ import { h } from '../lib/preact.mjs';
 import { useMemo } from '../lib/hooks.mjs';
 import { useContextMenu } from './ContextMenu.js';
 import { LazyList } from './LazyList.js';
-import { buildImageUrl, setArtistCover } from '../utils.js';
+import { buildImageUrl, setPromptCover } from '../utils.js';
 import { showToast } from './Toast.js';
 import { useGallery } from './GalleryContext.js';
 import { computeSizeVars } from './SizePresets.js';
 
-export function ArtistDetailView() {
+export function PromptDetailView() {
   const ctx = useGallery();
   const { showContextMenu } = useContextMenu();
 
   const gridStyle = useMemo(() => computeSizeVars(ctx.cardSize), [ctx.cardSize]);
 
-  const artist = ctx.currentArtist;
-  const images = ctx.filteredArtistImages;
+  const prompt = ctx.currentPrompt;
+  const images = ctx.filteredPromptImages;
 
   const handleImageContextMenu = (e, image) => {
     e.preventDefault();
@@ -28,16 +28,16 @@ export function ArtistDetailView() {
       {
         icon: 'search',
         label: '查看大图',
-        action: () => ctx.openLightbox({ ...artist, images }, images.indexOf(image)),
+        action: () => ctx.openLightbox({ ...prompt, images }, images.indexOf(image)),
       },
       {
         icon: 'image',
         label: '设为封面',
         action: async () => {
           try {
-            await setArtistCover(artist.categoryId, artist.value, image.path);
+            await setPromptCover(prompt.categoryId, prompt.value, image.path);
             showToast('已设为封面', 'success');
-            ctx.handleArtistSetCoverSuccess(image.path);
+            ctx.handlePromptSetCoverSuccess(image.path);
           } catch (err) {
             showToast('设置封面失败: ' + err.message, 'error');
           }
@@ -59,16 +59,16 @@ export function ArtistDetailView() {
         action: async () => {
           if (!confirm('确定要删除这张图片吗？')) return;
           try {
-            const response = await fetch('/artist_gallery/image', {
+            const response = await fetch('/prompt_gallery/image', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 imagePath: image.path,
-                artistId: artist.id,
+                promptId: prompt.id,
               }),
             });
             if (response.ok) {
-              await ctx.handleArtistDeleteImageSuccess();
+              await ctx.handlePromptDeleteImageSuccess();
             } else {
               const error = await response.json();
               alert(`删除失败: ${error.error || '未知错误'}`);
@@ -83,7 +83,7 @@ export function ArtistDetailView() {
     showContextMenu(e, menuItems);
   };
 
-  return h('div', { class: 'artist-detail-view' }, [
+  return h('div', { class: 'prompt-detail-view' }, [
     images.length > 0
       ? h(LazyList, {
           items: images,
@@ -94,12 +94,12 @@ export function ArtistDetailView() {
               'div',
               {
                 key: img.path,
-                class: `artist-detail-image-item ${ctx.selectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`,
+                class: `prompt-detail-image-item ${ctx.selectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`,
                 onClick: (e) => {
                   if (ctx.selectionMode) {
-                    ctx.handleArtistSelect(imgKey, e.shiftKey);
+                    ctx.handlePromptSelect(imgKey, e.shiftKey);
                   } else {
-                    ctx.openLightbox({ ...artist, images }, index);
+                    ctx.openLightbox({ ...prompt, images }, index);
                   }
                 },
                 onContextMenu: (e) => handleImageContextMenu(e, img),
@@ -107,16 +107,16 @@ export function ArtistDetailView() {
               [
                 h('img', {
                   src: buildImageUrl(img.path),
-                  alt: `${artist.name || artist.value} - ${index + 1}`,
+                  alt: `${prompt.name || prompt.value} - ${index + 1}`,
                   loading: 'lazy',
                 }),
               ],
             );
           },
           layout: 'grid',
-          className: 'artist-detail-grid',
+          className: 'prompt-detail-grid',
           style: gridStyle,
         })
-      : h('div', { class: 'artist-detail-empty' }, '暂无图片'),
+      : h('div', { class: 'prompt-detail-empty' }, '暂无图片'),
   ]);
 }

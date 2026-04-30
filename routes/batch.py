@@ -7,9 +7,11 @@ import server
 from ..storage import get_storage
 
 
+
+
 # ============ Batch Operations API ============
 
-@server.PromptServer.instance.routes.delete("/artist_gallery/batch/delete")
+@server.PromptServer.instance.routes.delete("/prompt_gallery/batch/delete")
 async def batch_delete(request):
     """
     批量删除分类和Prompt
@@ -20,20 +22,20 @@ async def batch_delete(request):
 
     请求体: {
       "categories": ["cat1", "cat2"],
-      "artists": [{"categoryId": "xxx", "value": "yyy"}]
+      "prompts": [{"categoryId": "xxx", "value": "yyy"}]
     }
     """
     try:
         data = await request.json()
         category_ids = data.get("categories", [])
-        artists = data.get("artists", [])
+        prompts = data.get("prompts", [])
 
-        artist_storage, mapping_storage, category_storage, _ = get_storage()
+        prompt_storage, mapping_storage, category_storage, _ = get_storage()
         import folder_paths
         output_dir = Path(folder_paths.get_output_directory())
 
         deleted_categories = []
-        deleted_artists = []
+        deleted_prompts = []
         deleted_images = []
         errors = []
 
@@ -57,21 +59,21 @@ async def batch_delete(request):
                 all_cat_ids = get_all_child_categories(cat_id)
 
                 # 获取这些分类下的所有Prompt
-                all_artists = []
+                all_prompts = []
                 for cid in all_cat_ids:
-                    all_artists.extend([
-                        a for a in artist_storage.get_all_artists()
+                    all_prompts.extend([
+                        a for a in prompt_storage.get_all_prompts()
                         if a.get("categoryId") == cid
                     ])
 
                 # 只删除Prompt记录，不修改图片映射
-                for artist in all_artists:
-                    artist_value = artist.get("value")
-                    artist_cat_id = artist.get("categoryId")
+                for prompt in all_prompts:
+                    prompt_value = prompt.get("value")
+                    prompt_cat_id = prompt.get("categoryId")
 
                     # 删除Prompt记录（不影响图片映射）
-                    artist_storage.delete_artist(artist_cat_id, artist_value)
-                    deleted_artists.append(artist.get("name", artist_value))
+                    prompt_storage.delete_prompt(prompt_cat_id, prompt_value)
+                    deleted_prompts.append(prompt.get("name", prompt_value))
 
                 # 删除分类记录（从叶子节点开始）
                 for cid in reversed(all_cat_ids):
@@ -83,23 +85,23 @@ async def batch_delete(request):
 
         # ============ 第二部分：删除独立Prompt ============
         # 移除图片映射，删除孤儿图片文件
-        for artist_data in artists:
+        for prompt_data in prompts:
             try:
-                category_id = artist_data.get("categoryId")
-                value = artist_data.get("value")
+                category_id = prompt_data.get("categoryId")
+                value = prompt_data.get("value")
 
                 # 获取Prompt
-                artist = artist_storage.get_artist(category_id, value)
-                if not artist:
+                prompt = prompt_storage.get_prompt(category_id, value)
+                if not prompt:
                     errors.append(f"Prompt {value} 不存在")
                     continue
 
                 # 移除图片映射，获取孤儿图片
-                orphan_images = mapping_storage.remove_artist_from_mappings(value)
+                orphan_images = mapping_storage.remove_prompt_from_mappings(value)
 
                 # 删除孤儿图片文件
                 for image_path in orphan_images:
-                    full_path = output_dir / image_path
+                    full_path = Path(output_dir) / image_path
                     try:
                         if full_path.exists():
                             full_path.unlink()
@@ -108,19 +110,19 @@ async def batch_delete(request):
                         errors.append(f"删除文件 {image_path} 失败: {e}")
 
                 # 删除Prompt记录
-                artist_storage.delete_artist(category_id, value)
-                deleted_artists.append(artist.get("name", value))
+                prompt_storage.delete_prompt(category_id, value)
+                deleted_prompts.append(prompt.get("name", value))
 
             except Exception as e:
-                errors.append(f"删除Prompt {artist_data.get('value')} 失败: {str(e)}")
+                errors.append(f"删除Prompt {prompt_data.get('value')} 失败: {str(e)}")
 
         had_errors = len(errors) > 0
-        had_deletions = len(deleted_categories) > 0 or len(deleted_artists) > 0 or len(deleted_images) > 0
+        had_deletions = len(deleted_categories) > 0 or len(deleted_prompts) > 0 or len(deleted_images) > 0
 
         return web.json_response({
             "success": had_deletions or not had_errors,
             "deletedCategories": deleted_categories,
-            "deletedArtists": deleted_artists,
+            "deletedPrompts": deleted_prompts,
             "deletedImages": deleted_images,
             "errors": errors
         })
@@ -131,24 +133,24 @@ async def batch_delete(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/batch/move")
+@server.PromptServer.instance.routes.post("/prompt_gallery/batch/move")
 async def batch_move(request):
     """
     批量移动分类和Prompt
     请求体: {
       "categories": [{"id": "xxx", "newParentId": "yyy"}],
-      "artists": [{"categoryId": "xxx", "value": "yyy", "newCategoryId": "zzz"}]
+      "prompts": [{"categoryId": "xxx", "value": "yyy", "newCategoryId": "zzz"}]
     }
     """
     try:
         data = await request.json()
         categories = data.get("categories", [])
-        artists = data.get("artists", [])
+        prompts = data.get("prompts", [])
 
-        artist_storage, _, category_storage, _ = get_storage()
+        prompt_storage, _, category_storage, _ = get_storage()
 
         moved_categories = []
-        moved_artists = []
+        moved_prompts = []
         errors = []
 
         # 移动分类
@@ -189,11 +191,11 @@ async def batch_move(request):
                 errors.append(f"移动分类 {cat_data.get('id')} 失败: {str(e)}")
 
         # 移动Prompt
-        for artist_data in artists:
+        for prompt_data in prompts:
             try:
-                category_id = artist_data.get("categoryId")
-                value = artist_data.get("value")
-                new_category_id = artist_data.get("newCategoryId", "root")
+                category_id = prompt_data.get("categoryId")
+                value = prompt_data.get("value")
+                new_category_id = prompt_data.get("newCategoryId", "root")
 
                 # 验证目标分类存在
                 target_cat = category_storage.get_category_by_id(new_category_id)
@@ -202,20 +204,20 @@ async def batch_move(request):
                     continue
 
                 # 更新Prompt的分类
-                success = artist_storage.update_artist(category_id, value, categoryId=new_category_id)
+                success = prompt_storage.update_prompt(category_id, value, categoryId=new_category_id)
                 if success:
-                    artist = artist_storage.get_artist(new_category_id, value)
-                    moved_artists.append(artist.get("name", value))
+                    prompt = prompt_storage.get_prompt(new_category_id, value)
+                    moved_prompts.append(prompt.get("name", value))
                 else:
                     errors.append(f"Prompt {value} 不存在")
 
             except Exception as e:
-                errors.append(f"移动Prompt {artist_data.get('value')} 失败: {str(e)}")
+                errors.append(f"移动Prompt {prompt_data.get('value')} 失败: {str(e)}")
 
         return web.json_response({
             "success": True,
             "movedCategories": moved_categories,
-            "movedArtists": moved_artists,
+            "movedPrompts": moved_prompts,
             "errors": errors
         })
 
@@ -225,33 +227,33 @@ async def batch_move(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/batch/copy")
+@server.PromptServer.instance.routes.post("/prompt_gallery/batch/copy")
 async def batch_copy(request):
     """
     批量复制Prompt到目标分类
     请求体: {
-      "artists": [{"categoryId": "xxx", "value": "yyy", "targetCategoryId": "zzz"}]
+      "prompts": [{"categoryId": "xxx", "value": "yyy", "targetCategoryId": "zzz"}]
     }
     """
     try:
         data = await request.json()
-        artists = data.get("artists", [])
+        prompts = data.get("prompts", [])
 
-        artist_storage, _, category_storage, _ = get_storage()
+        prompt_storage, _, category_storage, _ = get_storage()
 
-        copied_artists = []
+        copied_prompts = []
         errors = []
 
-        for artist_data in artists:
+        for prompt_data in prompts:
             try:
-                category_id = artist_data.get("categoryId")
-                value = artist_data.get("value")
-                target_category_id = artist_data.get("targetCategoryId")
-                new_name = artist_data.get("newName", value)
+                category_id = prompt_data.get("categoryId")
+                value = prompt_data.get("value")
+                target_category_id = prompt_data.get("targetCategoryId")
+                new_name = prompt_data.get("newName", value)
 
                 # 验证源Prompt存在
-                source_artist = artist_storage.get_artist(category_id, value)
-                if not source_artist:
+                source_prompt = prompt_storage.get_prompt(category_id, value)
+                if not source_prompt:
                     errors.append(f"源Prompt {value} 不存在")
                     continue
 
@@ -263,21 +265,21 @@ async def batch_copy(request):
 
                 # 创建新Prompt（使用相同或新名称）
                 try:
-                    new_artist = artist_storage.add_artist(
+                    new_prompt = prompt_storage.add_prompt(
                         value=new_name,
-                        name=source_artist.get("name"),
+                        name=source_prompt.get("name"),
                         category_id=target_category_id
                     )
-                    copied_artists.append(new_artist.get("name", new_name))
+                    copied_prompts.append(new_prompt.get("name", new_name))
                 except ValueError as e:
                     errors.append(f"复制Prompt {value} 失败: {str(e)}")
 
             except Exception as e:
-                errors.append(f"复制Prompt {artist_data.get('value')} 失败: {str(e)}")
+                errors.append(f"复制Prompt {prompt_data.get('value')} 失败: {str(e)}")
 
         return web.json_response({
             "success": True,
-            "copiedArtists": copied_artists,
+            "copiedPrompts": copied_prompts,
             "errors": errors
         })
 

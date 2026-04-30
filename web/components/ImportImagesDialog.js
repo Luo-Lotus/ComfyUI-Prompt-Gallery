@@ -16,9 +16,9 @@ import { Icon } from '../lib/icons.mjs';
 export function ImportImagesDialog({
   isOpen,
   onClose,
-  viewMode, // 'gallery' | 'artist'
+  viewMode, // 'gallery' | 'prompt'
   currentCategory,
-  currentArtist, // 仅在artist视图时传入
+  currentPrompt, // 仅在prompt视图时传入
   categories,
   onSuccess,
 }) {
@@ -30,19 +30,19 @@ export function ImportImagesDialog({
   // 自定义导入配置（仅分类视图）
   const [parseStrategy, setParseStrategy] = useState('auto_create');
   const [regexPattern, setRegexPattern] = useState('@([^,]+),');
-  const [autoCreateArtist, setAutoCreateArtist] = useState(true);
+  const [autoCreatePrompt, setAutoCreatePrompt] = useState(true);
   const [urlDecode, setUrlDecode] = useState(false);
 
   // ============ 工具函数 ============
 
   const buildConfig = () => {
-    if (viewMode === 'artist') {
+    if (viewMode === 'prompt') {
       // Prompt详情视图：使用当前Prompt信息
       return {
         mode: 'single',
-        categoryId: currentArtist.categoryId,
-        artistName: currentArtist.value,
-        displayName: currentArtist.name || currentArtist.value,
+        categoryId: currentPrompt.categoryId,
+        promptName: currentPrompt.value,
+        displayName: currentPrompt.name || currentPrompt.value,
       };
     } else {
       // 分类视图：使用解析配置
@@ -51,7 +51,7 @@ export function ImportImagesDialog({
         parseStrategy: parseStrategy,
         defaultCategoryId: currentCategory,
         regexPattern: regexPattern,
-        autoCreateArtist: autoCreateArtist,
+        autoCreatePrompt: autoCreatePrompt,
         urlDecode: urlDecode,
       };
     }
@@ -59,7 +59,7 @@ export function ImportImagesDialog({
 
   const buildRequestBody = () => {
     // 构建请求体，确保顶层mode和config里的mode一致
-    if (viewMode === 'artist') {
+    if (viewMode === 'prompt') {
       return {
         mode: 'single',
         images: null, // 稍后在handleImport中填充
@@ -90,7 +90,7 @@ export function ImportImagesDialog({
 
       console.log('[ImportImagesDialog] 发送预览请求:', requestBody);
 
-      const response = await fetch('/artist_gallery/import/preview', {
+      const response = await fetch('/prompt_gallery/import/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -132,14 +132,14 @@ export function ImportImagesDialog({
 
       // 调用导入API
       const requestBody = {
-        mode: viewMode === 'artist' ? 'single' : 'custom',
+        mode: viewMode === 'prompt' ? 'single' : 'custom',
         images: images,
         config: buildConfig(),
       };
 
       console.log('[ImportImagesDialog] 发送导入请求:', requestBody);
 
-      const response = await fetch('/artist_gallery/import/batch', {
+      const response = await fetch('/prompt_gallery/import/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -174,8 +174,8 @@ export function ImportImagesDialog({
   };
 
   const getDialogTitle = () => {
-    if (viewMode === 'artist') {
-      return `导入图片到 ${currentArtist.name || currentArtist.value}`;
+    if (viewMode === 'prompt') {
+      return `导入图片到 ${currentPrompt.name || currentPrompt.value}`;
     } else {
       const category = categories.find((c) => c.id === currentCategory);
       const categoryName = category ? category.name : currentCategory;
@@ -187,7 +187,7 @@ export function ImportImagesDialog({
 
   const renderConfigOptions = () => {
     // 仅在分类视图显示配置选项
-    if (viewMode === 'artist') return null;
+    if (viewMode === 'prompt') return null;
 
     return h('div', { class: 'import-config' }, [
       h('div', { class: 'form-group' }, [
@@ -221,8 +221,8 @@ export function ImportImagesDialog({
       h('div', { class: 'form-checkbox' }, [
         h('input', {
           type: 'checkbox',
-          checked: autoCreateArtist,
-          onInput: (e) => setAutoCreateArtist(e.target.checked),
+          checked: autoCreatePrompt,
+          onInput: (e) => setAutoCreatePrompt(e.target.checked),
         }),
         h('label', {}, '自动创建不存在的Prompt'),
       ]),
@@ -275,14 +275,14 @@ export function ImportImagesDialog({
       renderConfigOptions(),
 
       // Prompt详情视图的简单提示
-      viewMode === 'artist' &&
+      viewMode === 'prompt' &&
         selectedFiles.length > 0 &&
         h(
           'div',
           {
-            class: 'import-single-artist-hint',
+            class: 'import-single-prompt-hint',
           },
-          [h('p', {}, `所有图片将导入到: ${currentArtist.name || currentArtist.value}`)],
+          [h('p', {}, `所有图片将导入到: ${currentPrompt.name || currentPrompt.value}`)],
         ),
 
       // 分类视图的预览

@@ -11,10 +11,10 @@ import { Icon } from '../lib/icons.mjs';
 
 export function MoveDialog({
   isOpen,
-  itemType, // 'category' | 'artist' | 'image'
+  itemType, // 'category' | 'prompt' | 'image'
   item,
   categories,
-  artists,
+  prompts,
   onClose,
   onMove,
 }) {
@@ -64,7 +64,7 @@ export function MoveDialog({
   const getTitle = () => {
     const titles = {
       category: `移动分类 "${item?.name}"`,
-      artist: `移动Prompt "${item?.name || item?.value}"`,
+      prompt: `移动Prompt "${item?.name || item?.value}"`,
       image: '移动图片',
       combination: `移动组合 "${item?.name}"`,
     };
@@ -72,7 +72,7 @@ export function MoveDialog({
   };
 
   const getSelectorType = () => {
-    if (itemType === 'image') return 'artist';
+    if (itemType === 'image') return 'prompt';
     return 'category';
   };
 
@@ -114,7 +114,7 @@ export function MoveDialog({
       h(FlatSelector, {
         type: getSelectorType(),
         categories,
-        artists,
+        prompts,
         currentId: selectedTarget?.id,
         onSelect: setSelectedTarget,
         excludeIds,

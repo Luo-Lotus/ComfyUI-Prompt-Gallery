@@ -5,12 +5,12 @@ from typing import Dict, List, Optional, Tuple
 import threading
 
 
-class ArtistStorage:
+class PromptStorage:
     """Prompt数据存储管理"""
 
     def __init__(self, storage_dir: Path):
         self.storage_dir = storage_dir
-        self.artists_file = storage_dir / "prompts.json"
+        self.prompts_file = storage_dir / "prompts.json"
         self._lock = threading.Lock()
         self._cache = None
         self._ensure_storage_dir()
@@ -20,26 +20,26 @@ class ArtistStorage:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
         # 初始化 prompts.json
-        if not self.artists_file.exists():
-            self._write_data({"artists": []})
+        if not self.prompts_file.exists():
+            self._write_data({"prompts": []})
 
     def _read_data(self) -> dict:
         """读取数据文件（带缓存）"""
         if self._cache is not None:
             return self._cache
         try:
-            with open(self.artists_file, 'r', encoding='utf-8') as f:
+            with open(self.prompts_file, 'r', encoding='utf-8') as f:
                 self._cache = json.load(f)
             return self._cache
         except Exception as e:
             print(f"Error reading prompts file: {e}")
-            self._cache = {"artists": []}
+            self._cache = {"prompts": []}
             return self._cache
 
     def _write_data(self, data: dict):
         """写入数据文件（同时更新缓存）"""
         try:
-            with open(self.artists_file, 'w', encoding='utf-8') as f:
+            with open(self.prompts_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             self._cache = data
         except Exception as e:
@@ -47,50 +47,50 @@ class ArtistStorage:
             print(f"Error writing prompts file: {e}")
             raise
 
-    def get_all_artists(self) -> List[dict]:
+    def get_all_prompts(self) -> List[dict]:
         """获取所有Prompt"""
         with self._lock:
             data = self._read_data()
-            return data.get("artists", [])
+            return data.get("prompts", [])
 
-    def get_artist_by_id(self, artist_id: str) -> Optional[dict]:
-        """根据 ID 获取Prompt（兼容旧版本，建议使用 get_artist）"""
-        artists = self.get_all_artists()
-        for artist in artists:
-            if artist.get("id") == artist_id:
-                return artist
+    def get_prompt_by_id(self, prompt_id: str) -> Optional[dict]:
+        """根据 ID 获取Prompt（兼容旧版本，建议使用 get_prompt）"""
+        prompts = self.get_all_prompts()
+        for prompt in prompts:
+            if prompt.get("id") == prompt_id:
+                return prompt
         return None
 
-    def get_artist(self, category_id: str, value: str) -> Optional[dict]:
+    def get_prompt(self, category_id: str, value: str) -> Optional[dict]:
         """
         根据分类ID和值获取Prompt（组合键）
         :param category_id: 分类 ID
         :param value: Prompt值
         :return: Prompt对象或 None
         """
-        artists = self.get_all_artists()
-        for artist in artists:
-            if artist.get("categoryId") == category_id and artist.get("value") == value:
-                return artist
+        prompts = self.get_all_prompts()
+        for prompt in prompts:
+            if prompt.get("categoryId") == category_id and prompt.get("value") == value:
+                return prompt
         return None
 
-    def get_artist_by_name(self, name: str) -> Optional[dict]:
+    def get_prompt_by_name(self, name: str) -> Optional[dict]:
         """
         根据值获取Prompt（返回第一个匹配的Prompt）
         注意：如果存在多个同值Prompt（不同分类），只返回第一个
-        建议使用 get_artist(category_id, value) 精确查询
+        建议使用 get_prompt(category_id, value) 精确查询
         """
-        artists = self.get_all_artists()
-        for artist in artists:
-            if artist.get("value") == name:
-                return artist
+        prompts = self.get_all_prompts()
+        for prompt in prompts:
+            if prompt.get("value") == name:
+                return prompt
         return None
 
-    def get_artist_by_value(self, value: str) -> Optional[dict]:
+    def get_prompt_by_value(self, value: str) -> Optional[dict]:
         """根据值获取Prompt（返回第一个匹配）"""
-        return self.get_artist_by_name(value)
+        return self.get_prompt_by_name(value)
 
-    def add_artist(self, value: str, name: Optional[str] = None, alias: str = "",
+    def add_prompt(self, value: str, name: Optional[str] = None, alias: str = "",
                    category_id: str = "root") -> dict:
         """
         添加Prompt
@@ -104,7 +104,7 @@ class ArtistStorage:
         # 先检查同一分类下 value 是否已存在（不持有锁）
         data = self._read_data()
         existing_values_in_category = {
-            a.get("value") for a in data.get("artists", [])
+            a.get("value") for a in data.get("prompts", [])
             if a.get("categoryId") == category_id
         }
         if value in existing_values_in_category:
@@ -114,7 +114,7 @@ class ArtistStorage:
         if not name:
             name = value
 
-        new_artist = {
+        new_prompt = {
             "value": value,
             "name": name,
             "alias": alias,
@@ -132,27 +132,27 @@ class ArtistStorage:
         # 获取锁并写入
         with self._lock:
             data = self._read_data()
-            data["artists"].append(new_artist)
+            data["prompts"].append(new_prompt)
             self._write_data(data)
 
-            return new_artist
+            return new_prompt
 
-    def add_artists_batch(self, artists_data: List[dict], category_id: str = "root") -> Tuple[List[dict], List[str]]:
+    def add_prompts_batch(self, prompts_data: List[dict], category_id: str = "root") -> Tuple[List[dict], List[str]]:
         """
         批量添加Prompt
-        :param artists_data: Prompt数据列表，每个元素包含 {"value": str, "name": str(可选), "alias": str(可选)}
+        :param prompts_data: Prompt数据列表，每个元素包含 {"value": str, "name": str(可选), "alias": str(可选)}
         :param category_id: 所属分类ID，默认为root
         :return: (成功添加的Prompt列表, 失败的值列表)
         """
         with self._lock:
-            success_artists = []
+            success_prompts = []
             failed_values = []
 
             data = self._read_data()
-            existing_values = {a.get("value") for a in data["artists"]}
+            existing_values = {a.get("value") for a in data["prompts"]}
 
-            for artist_data in artists_data:
-                value = artist_data.get("value", "").strip()
+            for prompt_data in prompts_data:
+                value = prompt_data.get("value", "").strip()
                 if not value:
                     failed_values.append(f"空值")
                     continue
@@ -161,10 +161,10 @@ class ArtistStorage:
                     failed_values.append(value)
                     continue
 
-                name = artist_data.get("name") or value
-                alias = artist_data.get("alias", "")
+                name = prompt_data.get("name") or value
+                alias = prompt_data.get("alias", "")
 
-                new_artist = {
+                new_prompt = {
                     "value": value,
                     "name": name,
                     "alias": alias,
@@ -174,14 +174,14 @@ class ArtistStorage:
                     "imageCount": 0
                 }
 
-                data["artists"].append(new_artist)
-                success_artists.append(new_artist)
+                data["prompts"].append(new_prompt)
+                success_prompts.append(new_prompt)
                 existing_values.add(value)
 
             self._write_data(data)
-            return success_artists, failed_values
+            return success_prompts, failed_values
 
-    def update_artist(self, category_id: str, old_value: str, **kwargs) -> bool:
+    def update_prompt(self, category_id: str, old_value: str, **kwargs) -> bool:
         """
         更新Prompt信息（使用组合键）
         :param category_id: 分类 ID
@@ -194,38 +194,38 @@ class ArtistStorage:
             data = self._read_data()
 
             # 查找目标Prompt
-            target_artist = None
+            target_prompt = None
             target_index = -1
-            for i, artist in enumerate(data["artists"]):
-                if artist.get("categoryId") == category_id and artist.get("value") == old_value:
-                    target_artist = artist
+            for i, prompt in enumerate(data["prompts"]):
+                if prompt.get("categoryId") == category_id and prompt.get("value") == old_value:
+                    target_prompt = prompt
                     target_index = i
                     break
 
-            if not target_artist:
+            if not target_prompt:
                 return False
 
             # 如果要更新 value，需要检查同分类下重复
             if "value" in kwargs:
                 new_value = kwargs["value"]
-                for i, artist in enumerate(data["artists"]):
+                for i, prompt in enumerate(data["prompts"]):
                     if (i != target_index and
-                        artist.get("categoryId") == category_id and
-                        artist.get("value") == new_value):
+                        prompt.get("categoryId") == category_id and
+                        prompt.get("value") == new_value):
                         raise ValueError(f"分类 '{category_id}' 下Prompt值 '{new_value}' 已存在")
 
             # 更新字段
             for key, val in kwargs.items():
                 if key in ["value", "name", "alias", "imageCount", "categoryId", "coverImageId"]:
-                    target_artist[key] = val
+                    target_prompt[key] = val
 
             self._write_data(data)
             return True
 
-    def update_artist_by_id(self, artist_id: str, **kwargs) -> bool:
+    def update_prompt_by_id(self, prompt_id: str, **kwargs) -> bool:
         """
         更新Prompt信息（使用 ID，兼容旧版本）
-        :param artist_id: Prompt ID
+        :param prompt_id: Prompt ID
         :param kwargs: 要更新的字段
         :return: 是否更新成功
         """
@@ -235,20 +235,20 @@ class ArtistStorage:
             # 如果要更新 value，需要检查重复
             if "value" in kwargs:
                 new_value = kwargs["value"]
-                for artist in data["artists"]:
-                    if artist.get("id") != artist_id and artist.get("value") == new_value:
+                for prompt in data["prompts"]:
+                    if prompt.get("id") != prompt_id and prompt.get("value") == new_value:
                         raise ValueError(f"Prompt值 '{new_value}' 已存在")
 
-            for artist in data["artists"]:
-                if artist.get("id") == artist_id:
+            for prompt in data["prompts"]:
+                if prompt.get("id") == prompt_id:
                     for key, value in kwargs.items():
                         if key in ["value", "name", "alias", "imageCount", "categoryId", "coverImageId"]:
-                            artist[key] = value
+                            prompt[key] = value
                     self._write_data(data)
                     return True
             return False
 
-    def delete_artist(self, category_id: str, value: str) -> bool:
+    def delete_prompt(self, category_id: str, value: str) -> bool:
         """
         删除Prompt（使用组合键）
         :param category_id: 分类 ID
@@ -257,29 +257,29 @@ class ArtistStorage:
         """
         with self._lock:
             data = self._read_data()
-            original_count = len(data["artists"])
-            data["artists"] = [
-                a for a in data["artists"]
+            original_count = len(data["prompts"])
+            data["prompts"] = [
+                a for a in data["prompts"]
                 if not (a.get("categoryId") == category_id and a.get("value") == value)
             ]
 
-            if len(data["artists"]) < original_count:
+            if len(data["prompts"]) < original_count:
                 self._write_data(data)
                 return True
             return False
 
-    def delete_artist_by_id(self, artist_id: str) -> bool:
+    def delete_prompt_by_id(self, prompt_id: str) -> bool:
         """
         删除Prompt（使用 ID，兼容旧版本）
-        :param artist_id: Prompt ID
+        :param prompt_id: Prompt ID
         :return: 是否删除成功
         """
         with self._lock:
             data = self._read_data()
-            original_count = len(data["artists"])
-            data["artists"] = [a for a in data["artists"] if a.get("id") != artist_id]
+            original_count = len(data["prompts"])
+            data["prompts"] = [a for a in data["prompts"] if a.get("id") != prompt_id]
 
-            if len(data["artists"]) < original_count:
+            if len(data["prompts"]) < original_count:
                 self._write_data(data)
                 return True
             return False
@@ -293,24 +293,24 @@ class ArtistStorage:
         """
         with self._lock:
             data = self._read_data()
-            for artist in data["artists"]:
-                if artist.get("categoryId") == category_id and artist.get("value") == value:
-                    current_count = artist.get("imageCount", 0)
-                    artist["imageCount"] = max(0, current_count + delta)
+            for prompt in data["prompts"]:
+                if prompt.get("categoryId") == category_id and prompt.get("value") == value:
+                    current_count = prompt.get("imageCount", 0)
+                    prompt["imageCount"] = max(0, current_count + delta)
                     self._write_data(data)
                     return
 
-    def update_image_count_by_id(self, artist_id: str, delta: int = 1):
+    def update_image_count_by_id(self, prompt_id: str, delta: int = 1):
         """
         更新Prompt的图片数量（使用 ID，兼容旧版本）
-        :param artist_id: Prompt ID
+        :param prompt_id: Prompt ID
         :param delta: 增量（正数增加，负数减少）
         """
         with self._lock:
             data = self._read_data()
-            for artist in data["artists"]:
-                if artist.get("id") == artist_id:
-                    current_count = artist.get("imageCount", 0)
-                    artist["imageCount"] = max(0, current_count + delta)
+            for prompt in data["prompts"]:
+                if prompt.get("id") == prompt_id:
+                    current_count = prompt.get("imageCount", 0)
+                    prompt["imageCount"] = max(0, current_count + delta)
                     self._write_data(data)
                     return

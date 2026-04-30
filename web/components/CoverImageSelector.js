@@ -5,14 +5,14 @@
 import { h } from '../lib/preact.mjs';
 import { buildImageUrl } from '../utils.js';
 
-export function CoverImageSelector({ artist, selectedImageId, onSelect }) {
+export function CoverImageSelector({ prompt, selectedImageId, onSelect }) {
   const handleSelect = (imagePath) => {
     if (onSelect) {
       onSelect(imagePath);
     }
   };
 
-  if (!artist || !artist.images || artist.images.length === 0) {
+  if (!prompt || !prompt.images || prompt.images.length === 0) {
     return h('div', { class: 'cover-selector-empty' }, '暂无图片可供选择封面');
   }
 
@@ -21,14 +21,14 @@ export function CoverImageSelector({ artist, selectedImageId, onSelect }) {
     h(
       'div',
       { class: 'cover-grid' },
-      artist.images.map((img, index) =>
+      prompt.images.map((img, index) =>
         h(
           'div',
           {
             key: img.path,
             class: `cover-item ${selectedImageId === img.path ? 'selected' : ''}`,
             onClick: () => handleSelect(img.path),
-            title: `点击设置为封面 (${index + 1}/${artist.images.length})`,
+            title: `点击设置为封面 (${index + 1}/${prompt.images.length})`,
           },
           [
             h('img', {

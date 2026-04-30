@@ -55,8 +55,8 @@ export function CombinationDetailView() {
         action: async () => {
           if (!confirm('确定要删除这张图片吗？删除将从组合中所有成员Prompt移除。')) return;
           try {
-            for (const artistName of comb.prompts || []) {
-              await fetch('/artist_gallery/image', {
+            for (const promptName of comb.prompts || []) {
+              await fetch('/prompt_gallery/image', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ imagePath: image.path }),
@@ -86,7 +86,7 @@ export function CombinationDetailView() {
               'div',
               {
                 key: img.path,
-                class: `artist-detail-image-item ${ctx.selectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`,
+                class: `prompt-detail-image-item ${ctx.selectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`,
                 onClick: (e) => {
                   if (ctx.selectionMode) {
                     ctx.handleCombinationSelect(imgKey, e.shiftKey);
@@ -113,9 +113,9 @@ export function CombinationDetailView() {
             );
           },
           layout: 'grid',
-          className: 'artist-detail-grid',
+          className: 'prompt-detail-grid',
           style: gridStyle,
         })
-      : h('div', { class: 'artist-detail-empty' }, '暂无交集图片'),
+      : h('div', { class: 'prompt-detail-empty' }, '暂无交集图片'),
   ]);
 }

@@ -8,7 +8,7 @@ from ..storage import migrate_to_composite_key, _resolve_storage_dir
 
 # ============ Migration API ============
 
-@server.PromptServer.instance.routes.post("/artist_gallery/migrate")
+@server.PromptServer.instance.routes.post("/prompt_gallery/migrate")
 async def migrate_data(request):
     """
     迁移数据到组合键架构

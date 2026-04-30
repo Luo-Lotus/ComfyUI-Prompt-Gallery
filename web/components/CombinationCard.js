@@ -11,7 +11,7 @@ import { useContextMenu } from './ContextMenu.js';
 
 export function CombinationCard({
   combination,
-  artists = [],
+  prompts = [],
   onClick,
   onEdit,
   onDuplicate,
@@ -80,12 +80,12 @@ export function CombinationCard({
       h(
         'span',
         {
-          class: 'gallery-artist-name',
+          class: 'gallery-prompt-name',
           title: combination.name,
         },
         `${combination.name}`,
       ),
-      h('span', { class: 'gallery-artist-count' }, `${memberCount}人`),
+      h('span', { class: 'gallery-prompt-count' }, `${memberCount}人`),
     ]);
   };
 

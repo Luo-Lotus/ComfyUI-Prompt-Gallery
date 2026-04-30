@@ -17,7 +17,7 @@ export function CategoryConfigDialog({
   categoryName,
   currentConfig, // null 表示使用全局配置
   globalConfig,
-  sampleArtistName = 'artist_name',
+  samplePromptName = 'prompt_name',
 }) {
   const { previewFormat, validateFormat } = useFormatProcessor();
 
@@ -34,9 +34,9 @@ export function CategoryConfigDialog({
 
   // 更新预览
   useEffect(() => {
-    const previewText = previewFormat(format, sampleArtistName);
+    const previewText = previewFormat(format, samplePromptName);
     setPreview(previewText);
-  }, [format, sampleArtistName]);
+  }, [format, samplePromptName]);
 
   // 处理保存
   const handleSave = () => {

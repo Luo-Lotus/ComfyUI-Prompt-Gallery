@@ -3,20 +3,20 @@
  */
 import { h } from '../lib/preact.mjs';
 import { showToast } from './Toast.js';
-import { deleteArtistByKey } from '../services/artistApi.js';
+import { deletePromptByKey } from '../services/promptApi.js';
 import { Dialog, DialogButton } from './Dialog.js';
 import { Icon } from '../lib/icons.mjs';
 
-export function DeleteConfirmDialog({ isOpen, artist, onConfirm, onCancel }) {
+export function DeleteConfirmDialog({ isOpen, prompt, onConfirm, onCancel }) {
   /**
    * 处理删除操作
    */
   const handleDelete = async () => {
-    if (!artist) return;
+    if (!prompt) return;
 
     try {
       // 使用组合键删除Prompt
-      const data = await deleteArtistByKey(artist.categoryId, artist.value);
+      const data = await deletePromptByKey(prompt.categoryId, prompt.value);
 
       if (data.success) {
         showToast(data.message || '删除成功', 'success');
@@ -33,11 +33,11 @@ export function DeleteConfirmDialog({ isOpen, artist, onConfirm, onCancel }) {
    * 渲染确认内容
    */
   const renderContent = () => {
-    if (!artist) return null;
+    if (!prompt) return null;
 
     return [
-      h('p', { class: 'gallery-delete-message' }, `确定要删除Prompt "${artist.name || artist.value}" 吗？`),
-      h('p', { class: 'gallery-delete-warning' }, `这将同时删除该Prompt关联的 ${artist.imageCount} 张图片。`),
+      h('p', { class: 'gallery-delete-message' }, `确定要删除Prompt "${prompt.name || prompt.value}" 吗？`),
+      h('p', { class: 'gallery-delete-warning' }, `这将同时删除该Prompt关联的 ${prompt.imageCount} 张图片。`),
     ];
   };
 
@@ -67,7 +67,7 @@ export function DeleteConfirmDialog({ isOpen, artist, onConfirm, onCancel }) {
   // ============ 主渲染 ============
 
   // 提前检查，避免在 Dialog 渲染时出错
-  if (!isOpen || !artist) return null;
+  if (!isOpen || !prompt) return null;
 
   return h(
     Dialog,

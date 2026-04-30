@@ -7,11 +7,11 @@ import { showToast } from '../Toast.js';
 
 export function useSelection({
   categories,
-  filteredArtists,
-  currentArtist,
+  filteredPrompts,
+  currentPrompt,
   currentCategory,
   loadData,
-  setCurrentArtist,
+  setCurrentPrompt,
   refreshCategories,
   openBatchExportDialog,
 }) {
@@ -83,8 +83,8 @@ export function useSelection({
     flatCategories.forEach((cat) => {
       newSet.add(`category:${cat.id}`);
     });
-    filteredArtists.forEach((artist) => {
-      newSet.add(`artist:${artist.categoryId}:${artist.value}`);
+    filteredPrompts.forEach((prompt) => {
+      newSet.add(`prompt:${prompt.categoryId}:${prompt.value}`);
     });
     setSelectedItems(newSet);
   };
@@ -97,10 +97,10 @@ export function useSelection({
     const items = Array.from(selectedItems);
     const types = new Set(items.map((key) => key.split(':')[0]));
 
-    const typeCount = ['artist', 'category', 'image'].filter((t) => types.has(t)).length;
+    const typeCount = ['prompt', 'category', 'image'].filter((t) => types.has(t)).length;
     if (typeCount > 1) return 'mixed';
     if (types.has('image')) return 'image';
-    if (types.has('artist')) return 'artist';
+    if (types.has('prompt')) return 'prompt';
     if (types.has('category')) return 'category';
     return 'empty';
   };
@@ -109,7 +109,7 @@ export function useSelection({
     const items = Array.from(selectedItems);
     const result = {
       categories: [],
-      artists: [],
+      prompts: [],
       images: [],
     };
 
@@ -121,14 +121,14 @@ export function useSelection({
       if (type === 'category') {
         const cat = flatCategories.find((c) => c.id === id);
         if (cat) result.categories.push(cat);
-      } else if (type === 'artist') {
-        const artist = filteredArtists.find((a) => `${a.categoryId}:${a.value}` === id);
-        if (artist) {
-          result.artists.push(artist);
+      } else if (type === 'prompt') {
+        const prompt = filteredPrompts.find((a) => `${a.categoryId}:${a.value}` === id);
+        if (prompt) {
+          result.prompts.push(prompt);
         }
       } else if (type === 'image') {
-        if (currentArtist && currentArtist.images) {
-          const img = currentArtist.images.find((i) => i.path === id);
+        if (currentPrompt && currentPrompt.images) {
+          const img = currentPrompt.images.find((i) => i.path === id);
           if (img) result.images.push(img);
         }
       }
@@ -139,7 +139,7 @@ export function useSelection({
 
   const handleBatchDelete = () => {
     const details = getSelectedDetails();
-    if (details.categories.length === 0 && details.artists.length === 0 && details.images.length === 0) return;
+    if (details.categories.length === 0 && details.prompts.length === 0 && details.images.length === 0) return;
 
     setBatchOperation('delete');
     setShowBatchConfirm(true);
@@ -147,7 +147,7 @@ export function useSelection({
 
   const handleBatchMove = ({ setMoveItem, setMoveItemType, setShowMoveDialog }) => {
     const details = getSelectedDetails();
-    if (details.categories.length === 0 && details.artists.length === 0 && details.images.length === 0) return;
+    if (details.categories.length === 0 && details.prompts.length === 0 && details.images.length === 0) return;
 
     setBatchOperation('move');
     if (details.images.length > 0) {
@@ -157,15 +157,15 @@ export function useSelection({
       setMoveItemType('category');
       setMoveItem(details.categories[0]);
     } else {
-      setMoveItemType('artist');
-      setMoveItem(details.artists[0]);
+      setMoveItemType('prompt');
+      setMoveItem(details.prompts[0]);
     }
     setShowMoveDialog(true);
   };
 
   const handleBatchCopy = ({ setCopyItem, setCopyItemType, setShowCopyDialog }) => {
     const details = getSelectedDetails();
-    if (details.artists.length === 0 && details.images.length === 0) {
+    if (details.prompts.length === 0 && details.images.length === 0) {
       showToast('请选择Prompt后复制', 'warning');
       return;
     }
@@ -175,15 +175,15 @@ export function useSelection({
       setCopyItemType('image');
       setCopyItem(details.images[0]);
     } else {
-      setCopyItemType('artist');
-      setCopyItem(details.artists[0]);
+      setCopyItemType('prompt');
+      setCopyItem(details.prompts[0]);
     }
     setShowCopyDialog(true);
   };
 
   const handleBatchExport = () => {
     const details = getSelectedDetails();
-    if (details.artists.length === 0) {
+    if (details.prompts.length === 0) {
       showToast('请选择Prompt后导出', 'warning');
       return;
     }
@@ -202,7 +202,7 @@ export function useSelection({
       if (operation === 'delete') {
         if (details.images.length > 0) {
           for (const img of details.images) {
-            await fetch('/artist_gallery/image', {
+            await fetch('/prompt_gallery/image', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ imagePath: img.path }),
@@ -213,24 +213,24 @@ export function useSelection({
           setSelectionMode(false);
           setSelectedItems(new Set());
           await loadData();
-          if (currentArtist) {
-            const updatedData = await fetch(`/artist_gallery/data?category=${currentCategory}`);
+          if (currentPrompt) {
+            const updatedData = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
             const result = await updatedData.json();
-            const updatedArtist = result.artists?.find(
-              (a) => a.categoryId === currentArtist.categoryId && a.value === currentArtist.value,
+            const updatedPrompt = result.prompts?.find(
+              (a) => a.categoryId === currentPrompt.categoryId && a.value === currentPrompt.value,
             );
-            if (updatedArtist) {
-              setCurrentArtist(updatedArtist);
+            if (updatedPrompt) {
+              setCurrentPrompt(updatedPrompt);
             }
           }
           return;
         }
-        response = await fetch('/artist_gallery/batch/delete', {
+        response = await fetch('/prompt_gallery/batch/delete', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             categories: details.categories.map((c) => c.id),
-            artists: details.artists.map((a) => ({
+            prompts: details.prompts.map((a) => ({
               categoryId: a.categoryId,
               value: a.value,
             })),

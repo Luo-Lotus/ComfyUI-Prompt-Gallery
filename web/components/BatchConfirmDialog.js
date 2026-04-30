@@ -11,7 +11,7 @@ export function BatchConfirmDialog({
   isOpen,
   onClose,
   operation, // 'delete' | 'move' | 'copy'
-  items, // { categories, artists, images }
+  items, // { categories, prompts, images }
   onConfirm,
 }) {
   // 计算统计信息
@@ -19,7 +19,7 @@ export function BatchConfirmDialog({
     const imageCount = Array.isArray(items.images) ? items.images.length : items.images || 0;
     const counts = {
       categories: items.categories?.length || 0,
-      artists: items.artists?.length || 0,
+      prompts: items.prompts?.length || 0,
       images: imageCount,
     };
 
@@ -29,8 +29,8 @@ export function BatchConfirmDialog({
       summary.push(`${counts.categories} 个分类`);
     }
 
-    if (counts.artists > 0) {
-      summary.push(`${counts.artists} 个Prompt`);
+    if (counts.prompts > 0) {
+      summary.push(`${counts.prompts} 个Prompt`);
     }
 
     if (counts.images > 0) {
@@ -68,7 +68,7 @@ export function BatchConfirmDialog({
 
   const getConfirmationLevel = () => {
     const imageCount = Array.isArray(items.images) ? items.images.length : items.images || 0;
-    const totalItems = (items.categories?.length || 0) + (items.artists?.length || 0) + imageCount;
+    const totalItems = (items.categories?.length || 0) + (items.prompts?.length || 0) + imageCount;
 
     if (totalItems <= 5) return 'low';
     if (totalItems <= 20) return 'medium';
@@ -78,7 +78,7 @@ export function BatchConfirmDialog({
   const renderWarning = () => {
     const level = getConfirmationLevel();
     const imageCount = Array.isArray(items.images) ? items.images.length : items.images || 0;
-    const totalItems = (items.categories?.length || 0) + (items.artists?.length || 0) + imageCount;
+    const totalItems = (items.categories?.length || 0) + (items.prompts?.length || 0) + imageCount;
 
     if (level === 'low') {
       return null; // 少量项目，无需特殊警告
@@ -140,7 +140,7 @@ export function BatchConfirmDialog({
             'ul',
             {},
             items.categories?.length > 0 && h('li', {}, `• ${items.categories.length} 个分类`),
-            items.artists?.length > 0 && h('li', {}, `• ${items.artists.length} 个Prompt`),
+            items.prompts?.length > 0 && h('li', {}, `• ${items.prompts.length} 个Prompt`),
             (Array.isArray(items.images) ? items.images.length : 0) > 0 &&
               h('li', {}, `• ${items.images.length} 张图片`),
           ),

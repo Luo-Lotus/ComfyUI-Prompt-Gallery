@@ -1,19 +1,19 @@
 """
-Artist Gallery - ComfyUI Custom Node
+Prompt Gallery - ComfyUI Custom Node
 在 ComfyUI 中展示Prompt图库管理界面
 """
 
-from .nodes import ArtistGallery, ArtistSelector, SaveToGallery
+from .nodes import PromptGallery, PromptSelector, SaveToGallery
 
 NODE_CLASS_MAPPINGS = {
-    "ArtistGallery": ArtistGallery,
-    "ArtistSelector": ArtistSelector,
+    "PromptGallery": PromptGallery,
+    "PromptsSelector": PromptSelector,
     "SaveToGallery": SaveToGallery,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "ArtistGallery": "🎨 Prompt图库",
-    "ArtistSelector": "🎨 Prompt选择",
+    "PromptGallery": "🎨 Prompt图库",
+    "PromptsSelector": "🎨 Prompt选择",
     "SaveToGallery": "🎨 保存到画廊"
 }
 

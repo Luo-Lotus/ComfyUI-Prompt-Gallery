@@ -11,7 +11,7 @@ import server
 _cycle_states = {}  # node_id -> cycle_index
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/cycle-state")
+@server.PromptServer.instance.routes.post("/prompt_gallery/cycle-state")
 async def save_cycle_state(request):
     """保存循环状态"""
     try:
@@ -32,7 +32,7 @@ async def save_cycle_state(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.get("/artist_gallery/cycle-state")
+@server.PromptServer.instance.routes.get("/prompt_gallery/cycle-state")
 async def get_cycle_state(request):
     """获取循环状态"""
     try:
@@ -50,7 +50,7 @@ async def get_cycle_state(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/cycle-state/reset")
+@server.PromptServer.instance.routes.post("/prompt_gallery/cycle-state/reset")
 async def reset_cycle_state(request):
     """重置循环状态"""
     try:

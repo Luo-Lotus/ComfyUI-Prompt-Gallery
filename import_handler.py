@@ -21,7 +21,7 @@ class FilenameParser:
         """
         策略1: 自定义正则解析
         例: pattern="@([^,]+)," → "@akakura,_1.png" → "akakura"
-             pattern="@([^_]+)" → "@artist_name_001.png" → "artist"
+             pattern="@([^_]+)" → "@prompt_name_001.png" → "prompt"
 
         :param filename: 文件名（不含路径）
         :param pattern: 正则表达式模式
@@ -72,7 +72,7 @@ class FilenameParser:
         """
         策略2: 自动创建Prompt
         从文件名提取Prompt名，移除扩展名、数字后缀、特殊字符
-        例: "artist-name_001.png" → "artist-name"
+        例: "prompt-name_001.png" → "prompt-name"
 
         :param filename: 文件名（不含路径）
         :return: 清理后的Prompt名称，或None
@@ -100,8 +100,8 @@ class FilenameParser:
     @staticmethod
     def parse_url_decode(filename: str) -> Optional[str]:
         """
-        策略3: URL解码 + @artist格式提取
-        例: "%40artist%20name.png" → "@artist name"
+        策略3: URL解码 + @prompt格式提取
+        例: "%40prompt%20name.png" → "@prompt name"
 
         :param filename: 文件名（不含路径）
         :return: 解码并提取的Prompt名称，或None
@@ -117,12 +117,12 @@ class FilenameParser:
                     break
                 decoded = new_decoded
 
-            # 尝试@artist格式（使用现有的ARTIST_REGEX）
+            # 尝试@prompt格式（使用现有的ARTIST_REGEX）
             match = FilenameParser.ARTIST_REGEX.match(decoded)
             if match:
                 return match.group(1)
 
-            # 如果没有匹配到@artist格式，使用文件名（去掉扩展名）
+            # 如果没有匹配到@prompt格式，使用文件名（去掉扩展名）
             name = Path(decoded).stem
             name = name.lstrip('@')
             return name if name else None
@@ -134,10 +134,10 @@ class FilenameParser:
 
 def embed_image_metadata(
     image_path: Path,
-    artist_names: List[str],
+    prompt_names: List[str],
     display_names: List[str],
     categories: List[str],
-    selected_artists: List[Dict],
+    selected_prompts: List[Dict],
     prompt: Optional[Dict] = None,
     extra_pnginfo: Optional[Dict] = None
 ) -> bool:
@@ -146,10 +146,10 @@ def embed_image_metadata(
     100%复用SaveToGallery的嵌入逻辑，确保数据一致性
 
     :param image_path: 图片文件路径
-    :param artist_names: Prompt名称列表
+    :param prompt_names: Prompt名称列表
     :param display_names: 显示名称列表
     :param categories: 分类ID列表
-    :param selected_artists: 选中的Prompt信息列表
+    :param selected_prompts: 选中的Prompt信息列表
     :param prompt: ComfyUI工作流（可选）
     :param extra_pnginfo: 额外的PNG元数据（可选）
     :return: 是否成功
@@ -165,11 +165,11 @@ def embed_image_metadata(
                 pnginfo.add_text("prompt", json.dumps(prompt))
 
             # 嵌入Promptmetadata（核心逻辑，与SaveToGallery完全一致）
-            pnginfo.add_text("artist_gallery", json.dumps({
-                "artist_names": artist_names,
+            pnginfo.add_text("prompt_gallery", json.dumps({
+                "prompt_names": prompt_names,
                 "display_names": display_names,
                 "selected_categories": categories,
-                "selected_artists": selected_artists
+                "selected_prompts": selected_prompts
             }))
 
             # 添加额外的 PNG 元数据（如果提供）
@@ -201,10 +201,10 @@ def embed_image_metadata(
 def save_image_with_metadata(
     image_bytes: bytes,
     save_path: Path,
-    artist_names: List[str],
+    prompt_names: List[str],
     display_names: List[str],
     categories: List[str],
-    selected_artists: List[Dict],
+    selected_prompts: List[Dict],
     prompt: Optional[Dict] = None,
     extra_pnginfo: Optional[Dict] = None
 ) -> Tuple[bool, Optional[Dict]]:
@@ -214,10 +214,10 @@ def save_image_with_metadata(
 
     :param image_bytes: 图片字节数据
     :param save_path: 保存路径
-    :param artist_names: Prompt名称列表
+    :param prompt_names: Prompt名称列表
     :param display_names: 显示名称列表
     :param categories: 分类ID列表
-    :param selected_artists: 选中的Prompt信息列表
+    :param selected_prompts: 选中的Prompt信息列表
     :param prompt: ComfyUI工作流（可选）
     :param extra_pnginfo: 额外的PNG元数据（可选）
     :return: (是否成功, 图片元数据{"width", "height"})
@@ -234,11 +234,11 @@ def save_image_with_metadata(
             pnginfo.add_text("prompt", json.dumps(prompt))
 
         # 添加Prompt元数据（核心逻辑，与SaveToGallery完全一致）
-        pnginfo.add_text("artist_gallery", json.dumps({
-            "artist_names": artist_names,
+        pnginfo.add_text("prompt_gallery", json.dumps({
+            "prompt_names": prompt_names,
             "display_names": display_names,
             "selected_categories": categories,
-            "selected_artists": selected_artists
+            "selected_prompts": selected_prompts
         }))
 
         # 添加额外的 PNG 元数据（如果提供）
@@ -262,7 +262,7 @@ def save_image_with_metadata(
         return False, None
 
 
-def parse_artist_info_from_filename(
+def parse_prompt_info_from_filename(
     filename: str,
     config: Dict
 ) -> Tuple[Optional[str], Optional[str], Optional[str], bool]:
@@ -273,11 +273,11 @@ def parse_artist_info_from_filename(
     :param config: 配置字典，包含:
         - parseStrategy: "regex" | "auto_create"
         - regexPattern: 正则模式（仅regex策略）
-        - autoCreateArtist: 是否自动创建Prompt
+        - autoCreatePrompt: 是否自动创建Prompt
         - urlDecode: 是否URL解码（适用于所有策略）
-    :return: (artist_name, display_name, error_message, will_create_artist)
+    :return: (prompt_name, display_name, error_message, will_create_prompt)
     """
-    print(f"[ParseArtist] 开始解析Prompt信息")
+    print(f"[ParsePrompt] 开始解析Prompt信息")
     print(f"  原始文件名: {filename}")
     print(f"  配置: {config}")
 
@@ -301,37 +301,37 @@ def parse_artist_info_from_filename(
             filename = decoded
             print(f"  URL解码后: {filename}")
         except Exception as e:
-            print(f"[ParseArtist] URL解码失败: {e}")
+            print(f"[ParsePrompt] URL解码失败: {e}")
 
     # 解析Prompt名称
     if strategy == "regex":
         pattern = config.get("regexPattern", r"@([^,]+),")
         print(f"  使用正则策略，模式: {pattern}")
-        artist_name = parser.parse_regex(filename, pattern)
+        prompt_name = parser.parse_regex(filename, pattern)
     elif strategy == "auto_create":
         print(f"  使用自动创建策略")
-        artist_name = parser.parse_auto_create(filename)
+        prompt_name = parser.parse_auto_create(filename)
     else:
         error_msg = f"不支持的解析策略: {strategy}"
         print(f"  {error_msg}")
         return None, None, error_msg, False
 
-    if not artist_name:
+    if not prompt_name:
         error_msg = f"无法从文件名解析Prompt: {filename}"
         print(f"  {error_msg}")
         return None, None, error_msg, False
 
-    print(f"  解析出的Prompt名: {artist_name}")
+    print(f"  解析出的Prompt名: {prompt_name}")
 
     # 不自动添加@符号，严格使用正则的返回值
     # 如果名称不以@开头，也不自动添加
     # 如果用户想要@，应该在正则中包含它
 
-    # display_name默认与artist_name相同
-    display_name = artist_name
+    # display_name默认与prompt_name相同
+    display_name = prompt_name
 
     # 是否需要创建Prompt
-    will_create = config.get("autoCreateArtist", True)
+    will_create = config.get("autoCreatePrompt", True)
 
-    print(f"[ParseArtist] 解析成功: {artist_name}, will_create={will_create}")
-    return artist_name, display_name, None, will_create
+    print(f"[ParsePrompt] 解析成功: {prompt_name}, will_create={will_create}")
+    return prompt_name, display_name, None, will_create

@@ -26,8 +26,8 @@ const DEFAULT_PARTITION = {
 
 const DEFAULT_PARTITION_DATA = {
   partitions: [DEFAULT_PARTITION],
-  artistPartitionMap: {},
-  artistWeights: {},
+  promptPartitionMap: {},
+  promptWeights: {},
   categoryPartitionMap: {},
   combinationPartitionMap: {},
   globalConfig: { ...DEFAULT_CONFIG },
@@ -42,8 +42,8 @@ function validatePartitionData(data) {
     console.warn('[PartitionState] No default partition found');
     return null;
   }
-  if (!data.artistPartitionMap) data.artistPartitionMap = {};
-  if (!data.artistWeights) data.artistWeights = {};
+  if (!data.promptPartitionMap) data.promptPartitionMap = {};
+  if (!data.promptWeights) data.promptWeights = {};
   if (!data.categoryPartitionMap) data.categoryPartitionMap = {};
   if (!data.combinationPartitionMap) data.combinationPartitionMap = {};
   if (!data.globalConfig) data.globalConfig = { ...DEFAULT_CONFIG };
@@ -52,8 +52,8 @@ function validatePartitionData(data) {
 
 /**
  * 从 nodeInstance metadata widget 值解析分区数据
- * v1 格式: { version:1, partitions:[{id, artistKeys[], categoryIds[], ...}], globalConfig }
- * 内部格式: { partitions, artistPartitionMap, categoryPartitionMap, globalConfig }
+ * v1 格式: { version:1, partitions:[{id, promptKeys[], categoryIds[], ...}], globalConfig }
+ * 内部格式: { partitions, promptPartitionMap, categoryPartitionMap, globalConfig }
  */
 function parseWidgetMetadata(widgetValue) {
   try {
@@ -61,12 +61,12 @@ function parseWidgetMetadata(widgetValue) {
     if (!data || data.version !== 1 || !Array.isArray(data.partitions)) {
       return null;
     }
-    const artistPartitionMap = {};
+    const promptPartitionMap = {};
     const categoryPartitionMap = {};
     const combinationPartitionMap = {};
     const partitions = data.partitions.map((p, i) => {
-      for (const key of p.artistKeys || []) {
-        artistPartitionMap[key] = p.id;
+      for (const key of p.promptKeys || []) {
+        promptPartitionMap[key] = p.id;
       }
       for (const catId of p.categoryIds || []) {
         categoryPartitionMap[catId] = p.id;
@@ -86,8 +86,8 @@ function parseWidgetMetadata(widgetValue) {
     });
     return validatePartitionData({
       partitions,
-      artistPartitionMap,
-      artistWeights: data.artistWeights || {},
+      promptPartitionMap,
+      promptWeights: data.promptWeights || {},
       categoryPartitionMap,
       combinationPartitionMap,
       globalConfig: data.globalConfig || { ...DEFAULT_CONFIG },
@@ -97,7 +97,7 @@ function parseWidgetMetadata(widgetValue) {
   }
 }
 
-export function usePartitionState({ selectedArtistsCache, categories, combinations, metadataInput }) {
+export function usePartitionState({ selectedPromptsCache, categories, combinations, metadataInput }) {
   const [partitionData, setPartitionData] = useState(() => {
     // 从 nodeInstance widget 恢复（ComfyUI 在 onNodeCreated 前已恢复 widget 值）
     if (metadataInput?.value) {
@@ -108,13 +108,13 @@ export function usePartitionState({ selectedArtistsCache, categories, combinatio
   });
 
   // 获取每个分区的画师列表（含孤立项标记）
-  const getArtistsByPartition = useMemo(() => {
+  const getPromptsByPartition = useMemo(() => {
     const result = {};
     partitionData.partitions.forEach((partition) => {
-      result[partition.id] = Object.keys(partitionData.artistPartitionMap)
-        .filter((key) => partitionData.artistPartitionMap[key] === partition.id)
+      result[partition.id] = Object.keys(partitionData.promptPartitionMap)
+        .filter((key) => partitionData.promptPartitionMap[key] === partition.id)
         .map((key) => {
-          const cached = selectedArtistsCache[key];
+          const cached = selectedPromptsCache[key];
           if (cached) return cached;
           // 孤立项：生成合成对象，UI 可展示警告
           const colonIdx = key.indexOf(':');
@@ -128,7 +128,7 @@ export function usePartitionState({ selectedArtistsCache, categories, combinatio
         });
     });
     return result;
-  }, [partitionData, selectedArtistsCache]);
+  }, [partitionData, selectedPromptsCache]);
 
   // 获取每个分区的分类列表
   const getCategoriesByPartition = useMemo(() => {
@@ -191,10 +191,10 @@ export function usePartitionState({ selectedArtistsCache, categories, combinatio
       }
       const defaultPartition = prev.partitions.find((p) => p.isDefault);
       if (!defaultPartition) return prev;
-      const newArtistPartitionMap = { ...prev.artistPartitionMap };
-      Object.keys(newArtistPartitionMap).forEach((key) => {
-        if (newArtistPartitionMap[key] === partitionId) {
-          newArtistPartitionMap[key] = defaultPartition.id;
+      const newPromptPartitionMap = { ...prev.promptPartitionMap };
+      Object.keys(newPromptPartitionMap).forEach((key) => {
+        if (newPromptPartitionMap[key] === partitionId) {
+          newPromptPartitionMap[key] = defaultPartition.id;
         }
       });
       const newCombinationPartitionMap = { ...prev.combinationPartitionMap };
@@ -206,7 +206,7 @@ export function usePartitionState({ selectedArtistsCache, categories, combinatio
       return {
         ...prev,
         partitions: prev.partitions.filter((p) => p.id !== partitionId),
-        artistPartitionMap: newArtistPartitionMap,
+        promptPartitionMap: newPromptPartitionMap,
         combinationPartitionMap: newCombinationPartitionMap,
       };
     });
@@ -235,36 +235,36 @@ export function usePartitionState({ selectedArtistsCache, categories, combinatio
   }, []);
 
   // 移动画师到指定分区（partitionId 为 null 时移除）
-  const moveArtistToPartition = useCallback((artistKey, partitionId) => {
+  const movePromptToPartition = useCallback((promptKey, partitionId) => {
     setPartitionData((prev) => {
-      const newMap = { ...prev.artistPartitionMap };
-      const newWeights = { ...prev.artistWeights };
+      const newMap = { ...prev.promptPartitionMap };
+      const newWeights = { ...prev.promptWeights };
       if (partitionId == null) {
-        delete newMap[artistKey];
-        delete newWeights[artistKey];
+        delete newMap[promptKey];
+        delete newWeights[promptKey];
       } else {
-        newMap[artistKey] = partitionId;
+        newMap[promptKey] = partitionId;
       }
       return {
         ...prev,
-        artistPartitionMap: newMap,
-        artistWeights: newWeights,
+        promptPartitionMap: newMap,
+        promptWeights: newWeights,
       };
     });
   }, []);
 
   // 设置画师权重
-  const setArtistWeight = useCallback((artistKey, weight) => {
+  const setPromptWeight = useCallback((promptKey, weight) => {
     setPartitionData((prev) => {
-      const newWeights = { ...prev.artistWeights };
+      const newWeights = { ...prev.promptWeights };
       if (weight === 1.0 || weight == null) {
-        delete newWeights[artistKey];
+        delete newWeights[promptKey];
       } else {
-        newWeights[artistKey] = Math.round(weight * 10) / 10;
+        newWeights[promptKey] = Math.round(weight * 10) / 10;
       }
       return {
         ...prev,
-        artistWeights: newWeights,
+        promptWeights: newWeights,
       };
     });
   }, []);
@@ -337,14 +337,14 @@ export function usePartitionState({ selectedArtistsCache, categories, combinatio
   return {
     partitionData,
     setPartitionData,
-    getArtistsByPartition,
+    getPromptsByPartition,
     getCategoriesByPartition,
     getCombinationsByPartition,
     addPartition,
     deletePartition,
     updatePartition,
-    moveArtistToPartition,
-    setArtistWeight,
+    movePromptToPartition,
+    setPromptWeight,
     moveCategoryToPartition,
     moveCombinationToPartition,
     togglePartition,

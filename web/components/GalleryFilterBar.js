@@ -11,7 +11,7 @@ import { useGallery } from './GalleryContext.js';
 export function GalleryFilterBar() {
   const ctx = useGallery();
   const isGallery = ctx.viewMode === 'gallery';
-  const isArtist = ctx.viewMode === 'artist';
+  const isPrompt = ctx.viewMode === 'prompt';
   const isCombination = ctx.viewMode === 'combination';
 
   // 返回按钮逻辑
@@ -94,7 +94,7 @@ export function GalleryFilterBar() {
           ctx.sortOrder === 'asc' ? h(Icon, { name: 'arrow-up', size: 16 }) : h(Icon, { name: 'arrow-down', size: 16 }),
         ),
 
-        h('span', { class: 'gallery-count-badge' }, `${ctx.filteredArtists.length}/${ctx.data?.totalCount || 0}`),
+        h('span', { class: 'gallery-count-badge' }, `${ctx.filteredPrompts.length}/${ctx.data?.totalCount || 0}`),
 
         h('div', { class: 'gallery-size-slider' }, [
           h('span', { class: 'gallery-size-label' }, '◡'),
@@ -116,7 +116,7 @@ export function GalleryFilterBar() {
       ]),
 
     // Prompt/组合详情视图：图片搜索 + 排序
-    (isArtist || isCombination) &&
+    (isPrompt || isCombination) &&
       h('div', { class: 'gallery-filter-section' }, [
         h('input', {
           class: 'gallery-search-input',
@@ -151,7 +151,7 @@ export function GalleryFilterBar() {
         h(
           'span',
           { class: 'gallery-count-badge' },
-          `${isArtist ? ctx.filteredArtistImages.length : ctx.filteredCombinationImages.length}/${isArtist ? ctx.currentArtist?.images?.length || 0 : ctx.viewModeCombination?.images?.length || 0}`,
+          `${isPrompt ? ctx.filteredPromptImages.length : ctx.filteredCombinationImages.length}/${isPrompt ? ctx.currentPrompt?.images?.length || 0 : ctx.viewModeCombination?.images?.length || 0}`,
         ),
 
         h('div', { class: 'gallery-size-slider' }, [

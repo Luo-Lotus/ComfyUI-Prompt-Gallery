@@ -46,7 +46,7 @@ function parseImageInfo(info, imagePath) {
 
   let galleryData = {};
   try {
-    if (pnginfo.artist_gallery) galleryData = JSON.parse(pnginfo.artist_gallery);
+    if (pnginfo.prompt_gallery) galleryData = JSON.parse(pnginfo.prompt_gallery);
   } catch {}
 
   let promptText = '';
@@ -73,13 +73,13 @@ function parseImageInfo(info, imagePath) {
     workflowText = pnginfo.workflow || '';
   }
 
-  const artistNames = mapping?.prompts || galleryData.artist_names || [];
-  const artistJson = artistNames.length > 0 ? JSON.stringify(artistNames, null, 2) : '';
+  const promptNames = mapping?.prompts || galleryData.prompt_names || [];
+  const promptJson = promptNames.length > 0 ? JSON.stringify(promptNames, null, 2) : '';
 
   return {
     fileInfo,
-    artistNames,
-    artistJson,
+    promptNames,
+    promptJson,
     metaPromptString,
     displayPrompt,
     workflowText,
@@ -96,7 +96,7 @@ function InfoPanel({ info, loading, imagePath }) {
     return h('div', { class: 'lightbox-info-empty' }, '暂无信息');
   }
 
-  const { fileInfo, artistJson, artistNames, metaPromptString, displayPrompt, workflowText, imagePath: path } = info;
+  const { fileInfo, promptJson, promptNames, metaPromptString, displayPrompt, workflowText, imagePath: path } = info;
 
   return h('div', { class: 'lightbox-info-content' }, [
     // 文件信息
@@ -123,16 +123,16 @@ function InfoPanel({ info, loading, imagePath }) {
 
     path && h('div', { class: 'lightbox-info-copy-row' }, [h(CopyButton, { text: path, label: '路径' })]),
 
-    artistJson &&
+    promptJson &&
       h(
         InfoBlock,
         {
-          title: `Prompt (${artistNames.length})`,
+          title: `Prompt (${promptNames.length})`,
           icon: 'star',
-          copyText: artistJson,
+          copyText: promptJson,
           copyLabel: 'Prompt列表',
         },
-        [h('pre', { class: 'lightbox-info-pre' }, artistJson)],
+        [h('pre', { class: 'lightbox-info-pre' }, promptJson)],
       ),
 
     metaPromptString &&
@@ -171,7 +171,7 @@ function InfoPanel({ info, loading, imagePath }) {
         [h('pre', { class: 'lightbox-info-pre lightbox-info-workflow' }, workflowText)],
       ),
 
-    !artistNames?.length &&
+    !promptNames?.length &&
       !displayPrompt &&
       !metaPromptString &&
       !workflowText &&
@@ -179,21 +179,21 @@ function InfoPanel({ info, loading, imagePath }) {
   ]);
 }
 
-export function Lightbox({ isOpen, artist, imageIndex, onClose, onNavigate }) {
+export function Lightbox({ isOpen, prompt, imageIndex, onClose, onNavigate }) {
   const [showInfo, setShowInfo] = useState(true);
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  if (!isOpen || !artist) return null;
+  if (!isOpen || !prompt) return null;
 
-  const img = artist.images[imageIndex];
+  const img = prompt.images[imageIndex];
 
   // 获取图片信息
   useEffect(() => {
     if (isOpen && img?.path) {
       setLoading(true);
       setInfo(null);
-      fetch(`/artist_gallery/image/info?path=${encodeURIComponent(img.path)}`)
+      fetch(`/prompt_gallery/image/info?path=${encodeURIComponent(img.path)}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success) {
@@ -242,7 +242,7 @@ export function Lightbox({ isOpen, artist, imageIndex, onClose, onNavigate }) {
         h('img', {
           class: 'gallery-lightbox-img',
           src: buildImageUrl(img.path),
-          alt: artist.name || artist.value,
+          alt: prompt.name || prompt.value,
         }),
 
         h(
@@ -264,7 +264,7 @@ export function Lightbox({ isOpen, artist, imageIndex, onClose, onNavigate }) {
         ),
 
         h('div', { class: 'gallery-lightbox-info' }, [
-          h('span', {}, `${artist.name || artist.value} · ${imageIndex + 1} / ${artist.images.length}`),
+          h('span', {}, `${prompt.name || prompt.value} · ${imageIndex + 1} / ${prompt.images.length}`),
           h(
             'button',
             {

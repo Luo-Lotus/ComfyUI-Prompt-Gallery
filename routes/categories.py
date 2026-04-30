@@ -8,7 +8,7 @@ from ..storage import get_storage
 
 # ============ Category CRUD API ============
 
-@server.PromptServer.instance.routes.get("/artist_gallery/categories")
+@server.PromptServer.instance.routes.get("/prompt_gallery/categories")
 async def get_categories(request):
     """获取所有分类（树形结构）"""
     try:
@@ -19,7 +19,7 @@ async def get_categories(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.get("/artist_gallery/categories/{category_id}")
+@server.PromptServer.instance.routes.get("/prompt_gallery/categories/{category_id}")
 async def get_category(request):
     """获取单个分类详情"""
     try:
@@ -35,7 +35,7 @@ async def get_category(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/categories")
+@server.PromptServer.instance.routes.post("/prompt_gallery/categories")
 async def add_category(request):
     """添加分类"""
     try:
@@ -56,7 +56,7 @@ async def add_category(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.put("/artist_gallery/categories/{category_id}")
+@server.PromptServer.instance.routes.put("/prompt_gallery/categories/{category_id}")
 async def update_category(request):
     """更新分类"""
     try:
@@ -84,7 +84,7 @@ async def update_category(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.delete("/artist_gallery/categories/{category_id}")
+@server.PromptServer.instance.routes.delete("/prompt_gallery/categories/{category_id}")
 async def delete_category(request):
     """删除分类"""
     try:
@@ -103,7 +103,7 @@ async def delete_category(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/categories/{category_id}/move")
+@server.PromptServer.instance.routes.post("/prompt_gallery/categories/{category_id}/move")
 async def move_category(request):
     """移动分类到其他分类下"""
     try:

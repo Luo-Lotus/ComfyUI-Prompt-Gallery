@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Artist Gallery is a ComfyUI custom node plugin that provides:
+Prompt Gallery is a ComfyUI custom node plugin that provides:
 
-- **Floating gallery UI**: Draggable button (🎨) with modal interface for browsing artist reference images
-- **Storage system**: JSON-based persistence for artists, categories, combinations, and image-artist mappings
-- **Custom nodes**: ArtistGallery (UI), ArtistSelector (workflow integration), SaveToGallery (saving images)
-- **Combination system**: Group multiple artists into selectable units, auto-create on save
-- **Category system**: Hierarchical artist categorization with tree navigation
+- **Floating gallery UI**: Draggable button (🎨) with modal interface for browsing prompt reference images
+- **Storage system**: JSON-based persistence for prompts, categories, combinations, and image-prompt mappings
+- **Custom nodes**: PromptGallery (UI), PromptSelector (workflow integration), SaveToGallery (saving images)
+- **Combination system**: Group multiple prompts into selectable units, auto-create on save
+- **Category system**: Hierarchical prompt categorization with tree navigation
 - **Toast notification system**: Modern, non-blocking user feedback
 - **Dialog components**: Reusable modal dialog system
-- **Automatic detection**: Scans ComfyUI output directory for images matching `@artist_name,_number.ext` pattern
+- **Automatic detection**: Scans ComfyUI output directory for images matching `@prompt_name,_number.ext` pattern
 
 ## Architecture
 
@@ -26,29 +26,29 @@ Artist Gallery is a ComfyUI custom node plugin that provides:
 
 **`nodes.py`**: Node classes and output processing logic
 
-- **ArtistGallery**: Output node for UI (no workflow output)
-- **ArtistSelector**: Workflow node that provides artist selection widget
-    - Processes partitions, resolves artists from `artistKeys` and `categoryIds`
+- **PromptGallery**: Output node for UI (no workflow output)
+- **PromptSelector**: Workflow node that provides prompt selection widget
+    - Processes partitions, resolves prompts from `promptKeys` and `categoryIds`
     - Handles random/cycle mode, format templates, auto-create combination
-    - Tracks `partition_used_artists` (actual artists after random/cycle filtering)
+    - Tracks `partition_used_prompts` (actual prompts after random/cycle filtering)
     - Tracks `partition_formats` (per-partition format string)
 - **SaveToGallery**: Saves generated images to the gallery system
     - Supports two input sources (priority: `metadata_json` > `prompt_string`):
-        - `metadata_json`: from `ArtistSelector`, contains explicit artist selections
-        - `prompt_string`: auto-matches known artist names via regex substring matching
+        - `metadata_json`: from `PromptSelector`, contains explicit prompt selections
+        - `prompt_string`: auto-matches known prompt names via regex substring matching
     - Validates at least one input source is provided
-    - `_match_artists_from_prompt()`: Regex alternation-based matching with module-level cache
-    - Uses `collect_artist()` to register artist associations for saved images
-- **`_apply_format()`**: Applies format template (e.g., `@{content}`) to artist names
+    - `_match_prompts_from_prompt()`: Regex alternation-based matching with module-level cache
+    - Uses `collect_prompt()` to register prompt associations for saved images
+- **`_apply_format()`**: Applies format template (e.g., `@{content}`) to prompt names
 
 **`storage/`**: Data persistence layer (split into modules)
 
 | Module             | Class                 | Storage File         | Purpose                                        |
 | ------------------ | --------------------- | -------------------- | ---------------------------------------------- |
-| `artist.py`        | `ArtistStorage`       | `artists.json`       | Artist CRUD, batch operations                  |
+| `prompt.py`        | `PromptStorage`       | `prompts.json`       | Prompt CRUD, batch operations                  |
 | `category.py`      | `CategoryStorage`     | `categories.json`    | Hierarchical category tree                     |
 | `combination.py`   | `CombinationStorage`  | `combinations.json`  | Combination CRUD, duplicate, move              |
-| `image_mapping.py` | `ImageMappingStorage` | `image_artists.json` | Image-artist relationships, cover image lookup |
+| `image_mapping.py` | `ImageMappingStorage` | `image_prompts.json` | Image-prompt relationships, cover image lookup |
 | `migration.py`     | —                     | —                    | Data migration utilities                       |
 | `_resolve.py`      | —                     | —                    | Storage directory resolution                   |
 
@@ -58,22 +58,22 @@ All storage classes are thread-safe with locking mechanism. Access via `get_stor
 
 | Module             | Endpoints                                                                                        |
 | ------------------ | ------------------------------------------------------------------------------------------------ |
-| `gallery.py`       | `GET /data` — returns artists + combinations with `coverImagePath` (no full `images` array)      |
-| `artists.py`       | Artist CRUD, batch operations, `GET /artist_images` (lazy-load artist images), `PUT /{id}/cover` |
+| `gallery.py`       | `GET /data` — returns prompts + combinations with `coverImagePath` (no full `images` array)      |
+| `prompts.py`       | Prompt CRUD, batch operations, `GET /prompt_images` (lazy-load prompt images), `PUT /{id}/cover` |
 | `categories.py`    | Category CRUD, move                                                                              |
-| `combinations.py`  | Combination CRUD, duplicate, move, images (intersection of member artists), batch delete         |
+| `combinations.py`  | Combination CRUD, duplicate, move, images (intersection of member prompts), batch delete         |
 | `images.py`        | Image file serving, import                                                                       |
 | `batch.py`         | Batch delete operations                                                                          |
-| `import_export.py` | Artist/category data import/export                                                               |
+| `import_export.py` | Prompt/category data import/export                                                               |
 | `cycle_state.py`   | Cycle mode state persistence                                                                     |
 | `migration.py`     | Data migration endpoints                                                                         |
 
 **Key design decisions**:
 
 - Gallery list API (`/data`) returns `coverImagePath` only (no `images` array) for performance
-- Artist images are lazy-loaded via `/artist_images?name=` when entering detail view
+- Prompt images are lazy-loaded via `/prompt_images?name=` when entering detail view
 - `coverImageId` is the internal storage field; API responses compute and expose only `coverImagePath`
-- Combination images endpoint returns intersection of all member artists' images
+- Combination images endpoint returns intersection of all member prompts' images
 
 ### Frontend (JavaScript/Preact)
 
@@ -90,25 +90,25 @@ All storage classes are thread-safe with locking mechanism. Access via `get_stor
 
 ```
 web/
-├── artist_gallery.js              # Main entry point
-├── utils.js                       # Shared utilities (buildImageUrl, fetchArtistImages, setArtistCover)
+├── prompt_gallery.js              # Main entry point
+├── utils.js                       # Shared utilities (buildImageUrl, fetchPromptImages, setPromptCover)
 ├── Draggable.js                   # Drag-and-drop
 ├── lib/                           # Third-party libraries
 │   ├── preact.mjs                 # Preact core
 │   ├── hooks.mjs                  # Preact hooks
 │   └── icons.mjs                  # SVG icon system (Icon component + iconToSvg helper)
 ├── components/                    # Preact components
-│   ├── GalleryModal.js            # Main gallery container (lazy-loads artist images, "set as cover" menu)
-│   ├── GalleryGrid.js             # Artist grid layout
-│   ├── GalleryCard.js             # Individual artist card (uses coverImagePath)
+│   ├── GalleryModal.js            # Main gallery container (lazy-loads prompt images, "set as cover" menu)
+│   ├── GalleryGrid.js             # Prompt grid layout
+│   ├── GalleryCard.js             # Individual prompt card (uses coverImagePath)
 │   ├── CombinationCard.js         # Combination card (uses coverImagePath)
 │   ├── CombinationDialog.js       # Create/edit combination dialog
-│   ├── Lightbox.js                # Full-screen image viewer (shows artistNames tags)
+│   ├── Lightbox.js                # Full-screen image viewer (shows promptNames tags)
 │   ├── BaseCard.js                # Card base component (selection, context menu)
 │   ├── ContextMenu.js             # Right-click context menu
 │   ├── LazyList.js                # Virtual scroll list
 │   ├── Toast.js                   # Toast notification system
-│   ├── AddArtistDialog.js         # Add/Edit artist dialog
+│   ├── AddPromptDialog.js         # Add/Edit prompt dialog
 │   ├── DeleteConfirmDialog.js     # Delete confirmation dialog
 │   ├── CopyDialog.js              # Copy to category dialog
 │   ├── MoveDialog.js              # Move to category dialog
@@ -116,29 +116,29 @@ web/
 │   ├── ImportImagesDialog.js      # Image import dialog
 │   └── hooks/
 │       ├── useGalleryData.js      # Data fetching & caching
-│       ├── useFilteredArtists.js  # Filtering & sorting
+│       ├── useFilteredPrompts.js  # Filtering & sorting
 │       └── useFormatProcessor.js  # Format template processing
 ├── nodes/                         # Node-specific components
-│   ├── ArtistSelector.js          # Node extension entry (beforeRegisterNodeDef)
+│   ├── PromptSelector.js          # Node extension entry (beforeRegisterNodeDef)
 │   └── components/
-│       ├── ArtistSelectorWidget.js    # Preact widget (hover preview for artists & combinations)
+│       ├── PromptSelectorWidget.js    # Preact widget (hover preview for prompts & combinations)
 │       ├── PartitionList.js           # Partition list with drag-drop
 │       ├── PartitionItem.js           # Individual partition item
 │       ├── PartitionHeader.js         # Partition header (shows 🔗 badge for auto-create)
 │       ├── PartitionConfigPanel.js    # Per-partition config (format, random, cycle, saveToGallery, autoCreateCombination)
 │       └── hooks/
-│           ├── useArtistSelector.js   # Core selection logic (loads artists + combinations from /data)
+│           ├── usePromptSelector.js   # Core selection logic (loads prompts + combinations from /data)
 │           ├── useImagePreview.js     # Cover image hover preview (direct DOM, no fetch)
 │           ├── useNodeSync.js         # Node value synchronization
 │           └── usePartitionState.js   # Partition state management & persistence
 ├── services/
-│   └── artistApi.js               # API call functions
+│   └── promptApi.js               # API call functions
 └── styles/                        # Component styles
     ├── gallery.css                # Gallery modal styles
     ├── gallery-card.css           # Card styles
     ├── gallery-grid.css           # Grid layout styles
-    ├── lightbox.css               # Lightbox styles (flex column, artist tags)
-    ├── artist-selector.css        # Selector styles
+    ├── lightbox.css               # Lightbox styles (flex column, prompt tags)
+    ├── prompt-selector.css        # Selector styles
     ├── combination.css            # Combination styles
     ├── toast.css                  # Notification styles
     ├── dialogs.css                # Dialog styles
@@ -163,26 +163,26 @@ web/
 **Custom Hooks**:
 
 - `useGalleryData`: Fetches and caches gallery data
-- `useFilteredArtists`: Filters and sorts artist list with `useMemo`
-- `useArtistSelector`: Core selection state, loads data from `/data` endpoint (artists + combinations in one call)
+- `useFilteredPrompts`: Filters and sorts prompt list with `useMemo`
+- `usePromptSelector`: Core selection state, loads data from `/data` endpoint (prompts + combinations in one call)
 - `useImagePreview`: Direct DOM preview popup using `coverImagePath` (no API fetch)
-- `usePartitionState`: Partition CRUD, artist/category/combination mapping, persistence
+- `usePartitionState`: Partition CRUD, prompt/category/combination mapping, persistence
 
 **Cover Image System**:
 
 - Storage field: `coverImageId` (path stored in JSON)
 - API response field: `coverImagePath` (computed: `coverImageId || first_mapping_image`)
 - Frontend uses only `coverImagePath` — `coverImageId` is not exposed in API responses
-- Set via right-click menu → "设为封面", calls `setArtistCover()` or `updateCombinationApi()`
+- Set via right-click menu → "设为封面", calls `setPromptCover()` or `updateCombinationApi()`
 
 **Combination System**:
 
 - `CombinationStorage`: CRUD in `combinations.json`
-- Fields: `id`, `name`, `categoryId`, `artistKeys[]`, `outputContent`, `coverImageId`
+- Fields: `id`, `name`, `categoryId`, `promptKeys[]`, `outputContent`, `coverImageId`
 - Auto-create: When partition has `autoCreateCombination` enabled, `SaveToGallery` creates a combination with:
-    - `name` = comma-joined artist names
-    - `outputContent` = formatted content (e.g., `@artist_one,@artist_two` if format is `@{content}`)
-    - `artistKeys` = actually used artists (after random/cycle filtering)
+    - `name` = comma-joined prompt names
+    - `outputContent` = formatted content (e.g., `@prompt_one,@prompt_two` if format is `@{content}`)
+    - `promptKeys` = actually used prompts (after random/cycle filtering)
 - Auto-create requires `saveToGallery` enabled on the partition
 
 **Partition System**:
@@ -215,13 +215,13 @@ web/
 - **Node Widgets**: Uses dark theme (`#1e1e1e` / `#6c5ce7`) matching ComfyUI editor
 - **Always check `STYLE_GUIDE.md` before writing new CSS or creating new components**
 - Each component has its own CSS file under `web/styles/`, imported via `gallery.css`
-- CSS class naming: `gallery-` prefix for gallery UI, `artist-selector-` for node widgets
+- CSS class naming: `gallery-` prefix for gallery UI, `prompt-selector-` for node widgets
 
 ### Debugging
 
 - **Backend errors**: Check ComfyUI console/terminal output
 - **Frontend errors**: Open browser DevTools (F12) → Console tab
-- **Network issues**: DevTools → Network tab, filter by `/artist_gallery/`
+- **Network issues**: DevTools → Network tab, filter by `/prompt_gallery/`
 
 ## Common Tasks
 
@@ -281,7 +281,7 @@ export function useMyHook() {
 **Backend** (`routes/`):
 
 ```python
-@server.PromptServer.instance.routes.get("/artist_gallery/your-endpoint")
+@server.PromptServer.instance.routes.get("/prompt_gallery/your-endpoint")
 async def your_handler(request):
     # For query params:
     param = request.query.get("param", "")
@@ -294,7 +294,7 @@ async def your_handler(request):
 
 ```javascript
 export async function yourApiCall(data) {
-    const response = await fetch('/artist_gallery/your-endpoint', {
+    const response = await fetch('/prompt_gallery/your-endpoint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -346,13 +346,13 @@ showToast('数据已更新', 'info');
 - **Frontend Loading**: ComfyUI auto-loads ES modules from `WEB_DIRECTORY` path
 - **Preact Integration**: Loads from `./lib/` directory with standard ES6 imports
 - **Node Widgets**: Uses `app.registerExtension()` with `beforeRegisterNodeDef()` hook for custom widgets
-- **collect_artist()**: Registers artist associations for SaveToGallery images, handles combination artist expansion
+- **collect_prompt()**: Registers prompt associations for SaveToGallery images, handles combination prompt expansion
 
 ## Data Persistence
 
 The plugin maintains JSON files in the plugin storage directory:
 
-**`artists.json`**: Artist metadata (ArtistStorage)
+**`prompts.json`**: Prompt metadata (PromptStorage)
 
 - Fields: id, name, displayName, categoryId, coverImageId, createdAt
 
@@ -362,21 +362,21 @@ The plugin maintains JSON files in the plugin storage directory:
 
 **`combinations.json`**: Combination data (CombinationStorage)
 
-- Fields: id, name, categoryId, artistKeys[], outputContent, coverImageId, createdAt
+- Fields: id, name, categoryId, promptKeys[], outputContent, coverImageId, createdAt
 
-**`image_artists.json`**: Image-to-artist mappings (ImageMappingStorage)
+**`image_prompts.json`**: Image-to-prompt mappings (ImageMappingStorage)
 
-- Fields: imagePath, artistNames[], dimensions, saveTimestamp
+- Fields: imagePath, promptNames[], dimensions, saveTimestamp
 
 ## Image Filename Pattern
 
 Images are automatically detected by filename pattern:
 
 ```
-@artist_name,_number.extension
+@prompt_name,_number.extension
 ```
 
-Examples: `@mike,_1.png`, `@sarah,_2.jpg`, `@artist_name,_1.webp`
+Examples: `@mike,_1.png`, `@sarah,_2.jpg`, `@prompt_name,_1.webp`
 
 Supported formats: `.png`, `.jpg`, `.jpeg`, `.webp`
 
@@ -492,7 +492,7 @@ svg.spin {
 
 ### Exceptions (Emoji Allowed)
 
-- **Floating button label**: `'🎨'` in `artist_gallery.js` entry point
+- **Floating button label**: `'🎨'` in `prompt_gallery.js` entry point
 - **Modal title**: `'🎨 Prompt图库'` in `GalleryModal.js` header
 
 ## Component Guidelines
@@ -534,15 +534,15 @@ svg.spin {
 ### Implemented
 
 - **Gallery list API**: Returns only `coverImagePath` + `imageCount` (no full images array)
-- **Lazy image loading**: Artist images fetched on-demand when entering detail view
+- **Lazy image loading**: Prompt images fetched on-demand when entering detail view
 - **Cover image preview**: Hover preview uses `coverImagePath` directly (no API call)
-- **Single data endpoint**: `/artist_gallery/data` returns both artists and combinations in one call
+- **Single data endpoint**: `/prompt_gallery/data` returns both prompts and combinations in one call
 - **Pre-computed maxTime**: Calculated during data fetch for faster sorting
-- **Memoized filtering**: `useFilteredArtists` with `useMemo`
+- **Memoized filtering**: `useFilteredPrompts` with `useMemo`
 - **Image lazy loading**: `loading="lazy"` attribute on images
 - **Event listener cleanup**: Proper cleanup in `useEffect` return functions
 - **Virtual scroll**: `LazyList` component for large lists
-- **Prompt string artist matching**: SaveToGallery matches artist names via compiled regex alternation pattern (longest-first, case-insensitive), cached at module level with frozenset fingerprint invalidation
+- **Prompt string prompt matching**: SaveToGallery matches prompt names via compiled regex alternation pattern (longest-first, case-insensitive), cached at module level with frozenset fingerprint invalidation
 
 ### Best Practices
 

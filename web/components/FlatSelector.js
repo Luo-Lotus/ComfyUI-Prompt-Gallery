@@ -9,9 +9,9 @@ import { LazyList } from './LazyList.js';
 import { Icon } from '../lib/icons.mjs';
 
 export function FlatSelector({
-  type, // 'category' | 'artist'
+  type, // 'category' | 'prompt'
   categories,
-  artists,
+  prompts,
   currentId,
   onSelect,
   excludeIds = [],
@@ -58,49 +58,49 @@ export function FlatSelector({
     });
   }, [flattenedCategories, excludeIds, searchQuery]);
 
-  const getArtistKey = (artist) => artist.id || `${artist.categoryId}:${artist.value}`;
+  const getPromptKey = (prompt) => prompt.id || `${prompt.categoryId}:${prompt.value}`;
 
-  const filteredArtists = useMemo(() => {
-    if (!artists || artists.length === 0) return [];
-    return artists.filter((artist) => {
-      if (excludeIds.includes(getArtistKey(artist))) return false;
+  const filteredPrompts = useMemo(() => {
+    if (!prompts || prompts.length === 0) return [];
+    return prompts.filter((prompt) => {
+      if (excludeIds.includes(getPromptKey(prompt))) return false;
       if (searchQuery) {
-        const name = (artist.name || artist.value).toLowerCase();
+        const name = (prompt.name || prompt.value).toLowerCase();
         return name.includes(searchQuery.toLowerCase());
       }
       return true;
     });
-  }, [artists, excludeIds, searchQuery]);
+  }, [prompts, excludeIds, searchQuery]);
 
-  const items = type === 'category' ? filteredCategories : filteredArtists;
+  const items = type === 'category' ? filteredCategories : filteredPrompts;
 
   const handleClick = (item) => {
     if (multiSelect) {
-      const key = type === 'category' ? item.id : getArtistKey(item);
+      const key = type === 'category' ? item.id : getPromptKey(item);
       onToggleItem && onToggleItem(key, item);
     } else {
       if (type === 'category') {
         onSelect({ type: 'category', ...item });
       } else {
-        onSelect({ type: 'artist', ...item });
+        onSelect({ type: 'prompt', ...item });
       }
     }
   };
 
   const isSelected = (item) => {
     if (multiSelect) {
-      const key = type === 'category' ? item.id : getArtistKey(item);
+      const key = type === 'category' ? item.id : getPromptKey(item);
       return selectedIds.has(key);
     }
     if (type === 'category') {
       return currentId === item.id;
     }
-    return currentId === getArtistKey(item);
+    return currentId === getPromptKey(item);
   };
 
   const renderItem = (item) => {
     const selected = isSelected(item);
-    const key = type === 'category' ? item.id : getArtistKey(item);
+    const key = type === 'category' ? item.id : getPromptKey(item);
 
     const children = [];
     if (multiSelect) {
@@ -128,7 +128,7 @@ export function FlatSelector({
       h('span', { class: 'flat-selector-name' }, type === 'category' ? item.name : item.name || item.value),
     );
 
-    if (type === 'artist') {
+    if (type === 'prompt') {
       children.push(h('span', { class: 'flat-selector-count' }, `${item.imageCount || 0}张`));
     }
 

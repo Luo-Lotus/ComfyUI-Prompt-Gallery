@@ -59,34 +59,34 @@ function WeightSliderPopup({ weight, style, onChange, onMouseEnter, onMouseLeave
 
 export function PartitionItem({
   partition,
-  artists,
+  prompts,
   partitionCategories,
   partitionCombinations,
-  artistWeights,
+  promptWeights,
   onPartitionAction,
-  onArtistMove,
+  onPromptMove,
   onCategoryMove,
-  onArtistRemove,
+  onPromptRemove,
   onCategoryRemove,
   onCombinationMove,
   onCombinationRemove,
-  onArtistWeightChange,
+  onPromptWeightChange,
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [hoveredKey, setHoveredKey] = useState(null);
   const hideTimerRef = useRef(null);
 
-  const weightsRef = useRef(artistWeights);
-  weightsRef.current = artistWeights;
-  const weightChangeRef = useRef(onArtistWeightChange);
-  weightChangeRef.current = onArtistWeightChange;
+  const weightsRef = useRef(promptWeights);
+  weightsRef.current = promptWeights;
+  const weightChangeRef = useRef(onPromptWeightChange);
+  weightChangeRef.current = onPromptWeightChange;
 
   // body 级渲染（不受节点 transform 影响）
   const { renderToBody, clear: clearSlider } = useBodyRender();
 
   // 当标签被删除时清除悬浮状态
   const allKeys = new Set([
-    ...artists.map((a) => (a._orphaned ? a._orphanedKey : `${a.categoryId}:${a.name}`)),
+    ...prompts.map((a) => (a._orphaned ? a._orphanedKey : `${a.categoryId}:${a.value}`)),
     ...(partitionCategories || []).map((c) => c.id),
     ...(partitionCombinations || []).map((c) => `combination:${c.id}`),
   ]);
@@ -94,7 +94,7 @@ export function PartitionItem({
     setHoveredKey(null);
   }
 
-  const totalCount = artists.length + partitionCategories.length + (partitionCombinations || []).length;
+  const totalCount = prompts.length + partitionCategories.length + (partitionCombinations || []).length;
   const partitionClass = `partition-item ${partition.isDefault ? 'is-default' : ''} ${!partition.enabled ? 'disabled' : ''} ${isDragOver ? 'drag-over' : ''}`;
 
   const scheduleHide = () => {
@@ -166,8 +166,8 @@ export function PartitionItem({
       // 分区拖拽由 PartitionList 处理
       if (draggedData.type === 'partition') return;
 
-      if (draggedData.type === 'artist') {
-        onArtistMove && onArtistMove(draggedData.key, partition.id);
+      if (draggedData.type === 'prompt') {
+        onPromptMove && onPromptMove(draggedData.key, partition.id);
       } else if (draggedData.type === 'category') {
         onCategoryMove && onCategoryMove(draggedData.id, partition.id);
       } else if (draggedData.type === 'combination') {
@@ -188,7 +188,7 @@ export function PartitionItem({
         'span',
         {
           key: combKey,
-          class: 'artist-selector-tag combination-tag',
+          class: 'prompt-selector-tag combination-tag',
           draggable: true,
           onDragStart: (e) => {
             e.dataTransfer.setData(
@@ -202,12 +202,12 @@ export function PartitionItem({
           },
         },
         [
-          h('span', { class: 'artist-selector-tag-icon' }, h(Icon, { name: 'link', size: 12 })),
+          h('span', { class: 'prompt-selector-tag-icon' }, h(Icon, { name: 'link', size: 12 })),
           combination.name,
           h(
             'button',
             {
-              class: 'artist-remove-btn',
+              class: 'prompt-remove-btn',
               onClick: (e) => {
                 e.stopPropagation();
                 onCombinationRemove && onCombinationRemove(combKey);
@@ -232,7 +232,7 @@ export function PartitionItem({
       h(
         'div',
         {
-          class: 'partition-artists',
+          class: 'partition-prompts',
           onDragOver: handleDragOver,
           onDragLeave: handleDragLeave,
           onDrop: handleDrop,
@@ -247,7 +247,7 @@ export function PartitionItem({
               'span',
               {
                 key: `cat-${category.id}`,
-                class: 'artist-selector-tag category-tag',
+                class: 'prompt-selector-tag category-tag',
                 draggable: true,
                 onDragStart: (e) => {
                   e.dataTransfer.setData(
@@ -261,12 +261,12 @@ export function PartitionItem({
                 },
               },
               [
-                h('span', { class: 'artist-selector-tag-icon' }, h(Icon, { name: 'folder', size: 12 })),
+                h('span', { class: 'prompt-selector-tag-icon' }, h(Icon, { name: 'folder', size: 12 })),
                 category.name,
                 h(
                   'button',
                   {
-                    class: 'artist-remove-btn',
+                    class: 'prompt-remove-btn',
                     onClick: (e) => {
                       e.stopPropagation();
                       onCategoryRemove && onCategoryRemove(category.id);
@@ -279,49 +279,49 @@ export function PartitionItem({
           }),
 
           // 渲染该分区的Prompt（含孤立项）
-          ...artists.map((artist) => {
-            const key = artist._orphaned ? artist._orphanedKey : `${artist.categoryId}:${artist.name}`;
-            const weight = artistWeights && artistWeights[key] != null ? artistWeights[key] : 1.0;
-            const showWeight = !artist._orphaned && Math.abs(weight - 1.0) > 0.001;
-            const tagStyle = artist._orphaned ? {} : { background: getWeightColor(weight) };
+          ...prompts.map((prompt) => {
+            const key = prompt._orphaned ? prompt._orphanedKey : `${prompt.categoryId}:${prompt.value}`;
+            const weight = promptWeights && promptWeights[key] != null ? promptWeights[key] : 1.0;
+            const showWeight = !prompt._orphaned && Math.abs(weight - 1.0) > 0.001;
+            const tagStyle = prompt._orphaned ? {} : { background: getWeightColor(weight) };
             return h(
               'span',
               {
                 key: key,
                 'data-weight-key': key,
-                class: `artist-selector-tag ${artist._orphaned ? 'orphaned' : ''} ${hoveredKey === key ? 'weight-focused' : ''}`,
+                class: `prompt-selector-tag ${prompt._orphaned ? 'orphaned' : ''} ${hoveredKey === key ? 'weight-focused' : ''}`,
                 style: tagStyle,
-                draggable: !artist._orphaned,
-                onDragStart: artist._orphaned
+                draggable: !prompt._orphaned,
+                onDragStart: prompt._orphaned
                   ? undefined
                   : (e) => {
                       e.dataTransfer.setData(
                         'text/plain',
                         JSON.stringify({
-                          type: 'artist',
+                          type: 'prompt',
                           key: key,
                         }),
                       );
                       e.dataTransfer.effectAllowed = 'move';
                     },
-                onMouseEnter: artist._orphaned
+                onMouseEnter: prompt._orphaned
                   ? undefined
                   : () => {
                       cancelHide();
                       setHoveredKey(key);
                     },
-                onMouseLeave: artist._orphaned
+                onMouseLeave: prompt._orphaned
                   ? undefined
                   : () => {
                       scheduleHide();
                     },
               },
               [
-                showWeight && h('span', { class: 'artist-weight-value' }, weight.toFixed(1)),
-                artist._orphaned &&
+                showWeight && h('span', { class: 'prompt-weight-value' }, weight.toFixed(1)),
+                prompt._orphaned &&
                   h(
                     'span',
-                    { class: 'artist-selector-tag-icon' },
+                    { class: 'prompt-selector-tag-icon' },
                     h(Icon, {
                       name: 'alert-triangle',
                       size: 12,
@@ -329,16 +329,16 @@ export function PartitionItem({
                   ),
                 h(
                   'span',
-                  { class: 'artist-name' },
-                  (artist.name || artist.value) + (artist._orphaned ? ' (未找到)' : ''),
+                  { class: 'prompt-name' },
+                  (prompt.name || prompt.value) + (prompt._orphaned ? ' (未找到)' : ''),
                 ),
                 h(
                   'button',
                   {
-                    class: 'artist-remove-btn',
+                    class: 'prompt-remove-btn',
                     onClick: (e) => {
                       e.stopPropagation();
-                      onArtistRemove && onArtistRemove(key);
+                      onPromptRemove && onPromptRemove(key);
                     },
                   },
                   h(Icon, { name: 'x', size: 12 }),

@@ -1,11 +1,11 @@
 /**
- * Artist Selector Preact 组件
+ * Prompt Selector Preact 组件
  * Prompt选择器的 UI 渲染部分
  */
 import { h } from '../../lib/preact.mjs';
 import { useState, useMemo, useCallback } from '../../lib/hooks.mjs';
 import { Icon } from '../../lib/icons.mjs';
-import { useArtistSelector } from './hooks/useArtistSelector.js';
+import { usePromptSelector } from './hooks/usePromptSelector.js';
 import { useImagePreview } from './hooks/useImagePreview.js';
 import { useContextMenu } from '../../components/ContextMenu.js';
 import { PartitionList } from './PartitionList.js';
@@ -13,34 +13,34 @@ import { PartitionConfigPanel } from './PartitionConfigPanel.js';
 import { LazyList } from '../../components/LazyList.js';
 import { showToast } from '../../components/Toast.js';
 
-export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInput }) {
+export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInput }) {
   const {
-    artists,
+    prompts,
     categories,
     combinations,
     selectedKeys,
     selectedCategories,
     selectedCombinationKeys,
-    selectedArtistsCache,
+    selectedPromptsCache,
     loading,
     searchQuery,
     sortBy,
     sortOrder,
     currentCategory,
-    filteredArtists,
-    selectedArtistsList,
+    filteredPrompts,
+    selectedPromptsList,
     selectedCategoriesList,
     refreshing,
     breadcrumbPath,
     partitionData,
-    getArtistsByPartition,
+    getPromptsByPartition,
     getCategoriesByPartition,
     getCombinationsByPartition,
     addPartition,
     deletePartition,
     updatePartition,
-    moveArtistToPartition,
-    setArtistWeight,
+    movePromptToPartition,
+    setPromptWeight,
     moveCategoryToPartition,
     moveCombinationToPartition,
     togglePartition,
@@ -54,10 +54,10 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
     toggleCombinationSelection,
     handleCategoryChange,
     handleRefresh,
-    makeArtistKey,
-    parseArtistKey,
+    makePromptKey,
+    parsePromptKey,
     updateNodeValue,
-  } = useArtistSelector(nodeInstance, selectedInput, metadataInput);
+  } = usePromptSelector(nodeInstance, selectedInput, metadataInput);
 
   // 使用图片预览 hook
   const { showPreview, removePreview } = useImagePreview();
@@ -79,8 +79,8 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
 
     return h(
       'div',
-      { class: 'artist-selector-breadcrumb' },
-      h('div', { class: 'artist-selector-breadcrumb-list' }, [
+      { class: 'prompt-selector-breadcrumb' },
+      h('div', { class: 'prompt-selector-breadcrumb-list' }, [
         // 只显示子分类路径
         breadcrumbPath.map((cat, index) => [
           index > 0 &&
@@ -88,7 +88,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
               'span',
               {
                 key: `sep-${index}`,
-                class: 'artist-selector-breadcrumb-separator',
+                class: 'prompt-selector-breadcrumb-separator',
               },
               '/',
             ),
@@ -96,7 +96,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
             'span',
             {
               key: cat.id,
-              class: `artist-selector-breadcrumb-item ${currentCategory === cat.id ? 'active' : ''}`,
+              class: `prompt-selector-breadcrumb-item ${currentCategory === cat.id ? 'active' : ''}`,
               onClick: () => handleCategoryChange(cat.id),
             },
             cat.name,
@@ -107,8 +107,8 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   };
 
   // 鼠标悬停处理
-  const handleMouseEnter = (artist, event) => {
-    showPreview(artist, event);
+  const handleMouseEnter = (prompt, event) => {
+    showPreview(prompt, event);
   };
 
   // 鼠标离开处理
@@ -119,13 +119,13 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   /**
    * 渲染已选择的Prompt和分类标签列表
    */
-  const renderSelectedArtists = () => {
+  const renderSelectedPrompts = () => {
     return h(PartitionList, {
       partitions: partitionData.partitions,
-      artistsByPartition: getArtistsByPartition,
+      promptsByPartition: getPromptsByPartition,
       categoriesByPartition: getCategoriesByPartition,
       combinationsByPartition: getCombinationsByPartition,
-      artistWeights: partitionData.artistWeights,
+      promptWeights: partitionData.promptWeights,
       selectedCategories: selectedCategoriesList,
       categories: categories,
       onPartitionAction: (action, data) => {
@@ -143,12 +143,12 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         }
       },
       onPartitionReorder: reorderPartitions,
-      onArtistMove: (artistKey, partitionId) => {
-        moveArtistToPartition(artistKey, partitionId);
+      onPromptMove: (promptKey, partitionId) => {
+        movePromptToPartition(promptKey, partitionId);
       },
-      onArtistRemove: (artistKey) => {
-        const { categoryId, name } = parseArtistKey(artistKey);
-        toggleSelection(categoryId, name);
+      onPromptRemove: (promptKey) => {
+        const { categoryId, value } = parsePromptKey(promptKey);
+        toggleSelection(categoryId, value);
       },
       onCategoryMove: (categoryId, partitionId) => {
         moveCategoryToPartition(categoryId, partitionId);
@@ -164,8 +164,8 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         const combId = combinationKey.replace('combination:', '');
         toggleCombinationSelection(combId);
       },
-      onArtistWeightChange: (artistKey, weight) => {
-        setArtistWeight(artistKey, weight);
+      onPromptWeightChange: (promptKey, weight) => {
+        setPromptWeight(promptKey, weight);
       },
     });
   };
@@ -179,7 +179,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
       'div',
       {
         key: cat.id,
-        class: `artist-selector-category-card ${currentCategory === cat.id ? 'active' : ''} ${isSelected ? 'selected' : ''}`,
+        class: `prompt-selector-category-card ${currentCategory === cat.id ? 'active' : ''} ${isSelected ? 'selected' : ''}`,
         onClick: (e) => {
           // 点击分类卡片选择/取消选择分类
           toggleCategorySelection(cat.id);
@@ -199,8 +199,8 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
               icon: 'image',
               label: '在画廊中打开',
               action: () => {
-                if (window.__openArtistGalleryTo) {
-                  window.__openArtistGalleryTo({
+                if (window.__openPromptGalleryTo) {
+                  window.__openPromptGalleryTo({
                     type: 'category',
                     categoryId: cat.id,
                   });
@@ -212,12 +212,12 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         title: '点击选择分类，点击 > 进入分类',
       },
       [
-        h('span', { class: 'artist-selector-category-icon' }, h(Icon, { name: 'folder', size: 16 })),
-        h('span', { class: 'artist-selector-category-name' }, cat.name),
+        h('span', { class: 'prompt-selector-category-icon' }, h(Icon, { name: 'folder', size: 16 })),
+        h('span', { class: 'prompt-selector-category-name' }, cat.name),
         h(
           'span',
           {
-            class: 'artist-selector-category-enter',
+            class: 'prompt-selector-category-enter',
             onClick: (e) => {
               e.stopPropagation();
               handleCategoryChange(cat.id);
@@ -234,19 +234,19 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
    * 渲染搜索和排序控件（同一行）
    */
   const renderControls = () => {
-    return h('div', { class: 'artist-selector-controls-row' }, [
+    return h('div', { class: 'prompt-selector-controls-row' }, [
       h('input', {
         type: 'text',
-        class: 'artist-selector-search',
+        class: 'prompt-selector-search',
         placeholder: '搜索Prompt...',
         value: searchQuery,
         onInput: (e) => setSearchQuery(e.target.value),
       }),
-      h('div', { class: 'artist-selector-sort-controls' }, [
+      h('div', { class: 'prompt-selector-sort-controls' }, [
         h(
           'select',
           {
-            class: 'artist-selector-sort-select',
+            class: 'prompt-selector-sort-select',
             value: sortBy,
             onChange: (e) => setSortBy(e.target.value),
           },
@@ -259,7 +259,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         h(
           'button',
           {
-            class: 'artist-selector-sort-button',
+            class: 'prompt-selector-sort-button',
             onClick: () => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'),
           },
           sortOrder === 'asc'
@@ -269,7 +269,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         h(
           'button',
           {
-            class: 'artist-selector-refresh-button',
+            class: 'prompt-selector-refresh-button',
             onClick: handleRefresh,
             disabled: refreshing,
             title: '刷新',
@@ -283,20 +283,20 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   /**
    * 渲染单个Prompt项
    */
-  const renderArtistItem = (artist) => {
-    const key = makeArtistKey(artist.categoryId, artist.name);
+  const renderPromptItem = (prompt) => {
+    const key = makePromptKey(prompt.categoryId, prompt.value);
     const isSelected = selectedKeys.has(key);
     return h(
       'div',
       {
         key: key,
-        class: `artist-selector-item ${isSelected ? 'selected' : ''}`,
-        onClick: () => toggleSelection(artist.categoryId, artist.name),
-        onMouseEnter: (e) => handleMouseEnter(artist, e),
+        class: `prompt-selector-item ${isSelected ? 'selected' : ''}`,
+        onClick: () => toggleSelection(prompt.categoryId, prompt.value),
+        onMouseEnter: (e) => handleMouseEnter(prompt, e),
         onMouseLeave: () => handleMouseLeave(),
         onContextMenu: (e) => {
           e.preventDefault();
-          const text = artist.name || artist.value;
+          const text = prompt.name || prompt.value;
           showContextMenu(e, [
             {
               icon: 'copy',
@@ -310,11 +310,11 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
               icon: 'image',
               label: '在画廊中打开',
               action: () => {
-                if (window.__openArtistGalleryTo) {
-                  window.__openArtistGalleryTo({
-                    type: 'artist',
-                    categoryId: artist.categoryId,
-                    artistName: artist.name,
+                if (window.__openPromptGalleryTo) {
+                  window.__openPromptGalleryTo({
+                    type: 'prompt',
+                    categoryId: prompt.categoryId,
+                    promptName: prompt.name,
                   });
                 }
               },
@@ -322,7 +322,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
           ]);
         },
       },
-      [h('span', { class: 'artist-selector-item-name' }, artist.name || artist.value)],
+      [h('span', { class: 'prompt-selector-item-name' }, prompt.name || prompt.value)],
     );
   };
 
@@ -336,7 +336,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
       'div',
       {
         key: key,
-        class: `artist-selector-item combination-item ${isSelected ? 'selected' : ''}`,
+        class: `prompt-selector-item combination-item ${isSelected ? 'selected' : ''}`,
         onClick: () => toggleCombinationSelection(combination.id),
         onMouseEnter: (e) => handleMouseEnter(combination, e),
         onMouseLeave: () => handleMouseLeave(),
@@ -355,8 +355,8 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
               icon: 'image',
               label: '在画廊中打开',
               action: () => {
-                if (window.__openArtistGalleryTo) {
-                  window.__openArtistGalleryTo({
+                if (window.__openPromptGalleryTo) {
+                  window.__openPromptGalleryTo({
                     type: 'combination',
                     categoryId: combination.categoryId || currentCategory,
                     combinationId: combination.id,
@@ -368,9 +368,9 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         },
       },
       [
-        h('span', { class: 'artist-selector-item-icon' }, h(Icon, { name: 'link', size: 14 })),
-        h('span', { class: 'artist-selector-item-name' }, combination.name),
-        h('span', { class: 'artist-selector-combination-count' }, `${(combination.prompts || []).length}人`),
+        h('span', { class: 'prompt-selector-item-icon' }, h(Icon, { name: 'link', size: 14 })),
+        h('span', { class: 'prompt-selector-item-name' }, combination.name),
+        h('span', { class: 'prompt-selector-combination-count' }, `${(combination.prompts || []).length}人`),
       ],
     );
   };
@@ -378,9 +378,9 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   /**
    * 渲染Prompt列表（包含分类和Prompt）- 使用 LazyList 懒加载
    */
-  const renderArtistList = () => {
+  const renderPromptList = () => {
     if (loading) {
-      return h('div', { class: 'artist-selector-list' }, h('div', { class: 'artist-selector-loading' }, '加载中...'));
+      return h('div', { class: 'prompt-selector-list' }, h('div', { class: 'prompt-selector-loading' }, '加载中...'));
     }
 
     // 获取当前分类的子分类（从扁平列表中按 parentId 过滤）
@@ -396,35 +396,35 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         type: 'combination',
         data: comb,
       })),
-      ...filteredArtists.map((artist) => ({
-        type: 'artist',
-        data: artist,
+      ...filteredPrompts.map((prompt) => ({
+        type: 'prompt',
+        data: prompt,
       })),
     ];
 
     const renderListItem = (item, index) => {
       if (item.type === 'category') return renderCategoryCard(item.data);
       if (item.type === 'combination') return renderCombinationItem(item.data);
-      return renderArtistItem(item.data);
+      return renderPromptItem(item.data);
     };
 
     return h(LazyList, {
       items: listItems,
       renderItem: renderListItem,
       layout: 'flex',
-      className: 'artist-selector-list',
+      className: 'prompt-selector-list',
       scrollContainer: 'self',
-      emptyMessage: h('div', { class: 'artist-selector-empty-artists' }, '没有找到Prompt'),
+      emptyMessage: h('div', { class: 'prompt-selector-empty-prompts' }, '没有找到Prompt'),
     });
   };
 
   // ============ 主渲染 ============
 
   // 处理全局配置保存
-  return h('div', { class: 'artist-selector-container' }, [
+  return h('div', { class: 'prompt-selector-container' }, [
     // 分区配置面板（覆盖在内容之上）
     showPartitionConfig &&
-      h('div', { class: 'artist-selector-config-overlay' }, [
+      h('div', { class: 'prompt-selector-config-overlay' }, [
         h(PartitionConfigPanel, {
           partition: partitionData.partitions.find((p) => p.id === editingPartitionId) || partitionData.partitions[0],
           globalConfig: partitionData.globalConfig,
@@ -436,10 +436,10 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
     // 主内容
     !showPartitionConfig && [
       // 已选择区域（分区列表）
-      h('div', { class: 'artist-selector-section' }, [renderSelectedArtists()]),
+      h('div', { class: 'prompt-selector-section' }, [renderSelectedPrompts()]),
 
       // 浏览区域
-      h('div', { class: 'artist-selector-section' }, [
+      h('div', { class: 'prompt-selector-section' }, [
         // 面包屑导航
         renderBreadcrumb(),
 
@@ -447,7 +447,7 @@ export function ArtistSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         renderControls(),
 
         // Prompt列表（包含分类和Prompt）
-        renderArtistList(),
+        renderPromptList(),
       ]),
     ],
   ]);

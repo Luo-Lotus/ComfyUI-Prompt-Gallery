@@ -5,16 +5,16 @@
 import { useState, useEffect, useMemo } from '../../lib/hooks.mjs';
 import {
   fetchCategories,
-  fetchAllArtists,
+  fetchAllPrompts,
   buildBreadcrumbPath,
   addCategory,
   updateCategory,
   deleteCategory,
 } from '../../utils.js';
 
-export function useCategoryManager({ viewMode, currentArtist, viewModeCombination, onNavigateToGallery }) {
+export function useCategoryManager({ viewMode, currentPrompt, viewModeCombination, onNavigateToGallery }) {
   const [categories, setCategories] = useState([]);
-  const [allArtists, setAllArtists] = useState([]);
+  const [allPrompts, setAllPrompts] = useState([]);
   const [currentCategory, setCurrentCategory] = useState('root');
   const [categoryPath, setCategoryPath] = useState([]);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
@@ -27,8 +27,8 @@ export function useCategoryManager({ viewMode, currentArtist, viewModeCombinatio
       try {
         const result = await fetchCategories();
         setCategories(result.categories || []);
-        const artistsData = await fetchAllArtists();
-        setAllArtists(artistsData.artists || []);
+        const promptsData = await fetchAllPrompts();
+        setAllPrompts(promptsData.prompts || []);
       } catch (err) {
         console.error('加载数据失败:', err);
       }
@@ -41,13 +41,13 @@ export function useCategoryManager({ viewMode, currentArtist, viewModeCombinatio
     if (categories.length > 0) {
       let path = buildBreadcrumbPath(currentCategory, categories);
 
-      if (viewMode === 'artist' && currentArtist) {
+      if (viewMode === 'prompt' && currentPrompt) {
         path = [
           ...path,
           {
-            id: currentArtist.id,
-            name: currentArtist.name || currentArtist.value,
-            type: 'artist',
+            id: currentPrompt.id,
+            name: currentPrompt.name || currentPrompt.value,
+            type: 'prompt',
           },
         ];
       }
@@ -65,7 +65,7 @@ export function useCategoryManager({ viewMode, currentArtist, viewModeCombinatio
 
       setCategoryPath(path);
     }
-  }, [currentCategory, categories, viewMode, currentArtist, viewModeCombination]);
+  }, [currentCategory, categories, viewMode, currentPrompt, viewModeCombination]);
 
   // 获取当前分类的子分类
   const currentCategoryChildren = useMemo(() => {
@@ -89,8 +89,8 @@ export function useCategoryManager({ viewMode, currentArtist, viewModeCombinatio
   const refreshCategories = async () => {
     const result = await fetchCategories();
     setCategories(result.categories || []);
-    const artistsData = await fetchAllArtists();
-    setAllArtists(artistsData.artists || []);
+    const promptsData = await fetchAllPrompts();
+    setAllPrompts(promptsData.prompts || []);
   };
 
   const handleCategorySelect = (category) => {
@@ -98,7 +98,7 @@ export function useCategoryManager({ viewMode, currentArtist, viewModeCombinatio
   };
 
   const handleBreadcrumbNavigate = (item) => {
-    if (item.type === 'artist' || item.type === 'combination') {
+    if (item.type === 'prompt' || item.type === 'combination') {
       return;
     }
     setCurrentCategory(item.id);
@@ -146,7 +146,7 @@ export function useCategoryManager({ viewMode, currentArtist, viewModeCombinatio
 
   return {
     categories,
-    allArtists,
+    allPrompts,
     currentCategory,
     categoryPath,
     showCategoryDialog,
@@ -155,7 +155,7 @@ export function useCategoryManager({ viewMode, currentArtist, viewModeCombinatio
     currentCategoryChildren,
     setCurrentCategory,
     setCategories,
-    setAllArtists,
+    setAllPrompts,
     refreshCategories,
     handleCategorySelect,
     handleBreadcrumbNavigate,

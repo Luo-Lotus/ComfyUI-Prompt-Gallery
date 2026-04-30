@@ -1,4 +1,4 @@
-# Artist Gallery - ComfyUI Prompt图库插件
+# Prompt Gallery - ComfyUI Prompt图库插件
 
 一个 ComfyUI 自定义节点插件，提供Prompt图库管理、Prompt选择和图片保存功能。
 
@@ -28,10 +28,10 @@
 
 ### 方法一：手动安装
 
-1. 将 `artist_gallery` 文件夹复制到 ComfyUI 的 `custom_nodes` 目录：
+1. 将 `prompt_gallery` 文件夹复制到 ComfyUI 的 `custom_nodes` 目录：
 
 ```
-ComfyUI/custom_nodes/artist_gallery/
+ComfyUI/custom_nodes/prompt_gallery/
 ```
 
 2. 重启 ComfyUI
@@ -40,14 +40,14 @@ ComfyUI/custom_nodes/artist_gallery/
 
 ```bash
 cd ComfyUI/custom_nodes/
-git clone <repository-url> artist_gallery
+git clone <repository-url> prompt_gallery
 ```
 
 然后重启 ComfyUI。
 
 ### 验证安装
 
-重启后打开 ComfyUI 界面，在节点搜索中输入 `Artist` 或 `Prompt`，应能看到以下三个节点：
+重启后打开 ComfyUI 界面，在节点搜索中输入 `Prompt` 或 `Prompt`，应能看到以下三个节点：
 
 - 🎨 Prompt图库
 - 🎨 Prompt选择
@@ -55,7 +55,7 @@ git clone <repository-url> artist_gallery
 
 ## 节点说明
 
-### 🎨 Prompt图库 (ArtistGallery)
+### 🎨 Prompt图库 (PromptGallery)
 
 管理Prompt图库的 UI 入口节点。
 
@@ -64,13 +64,13 @@ git clone <repository-url> artist_gallery
     - `action`: 操作选项（打开画廊 / 刷新数据 / 统计信息）
 - **使用**: 添加到工作流后，点击页面右下角的 🎨 悬浮按钮打开图库管理界面
 
-### 🎨 Prompt选择 (ArtistSelector)
+### 🎨 Prompt选择 (PromptSelector)
 
 在工作流中选择Prompt并输出Prompt名称字符串。
 
 - **类型**: 功能节点
 - **输出**:
-    - `artists_string`: 逗号分隔的Prompt名称字符串
+    - `prompts_string`: 逗号分隔的Prompt名称字符串
     - `metadata_json`: 包含分区配置的 JSON 元数据
 - **功能**:
     - 前端交互式选择Prompt
@@ -89,10 +89,10 @@ git clone <repository-url> artist_gallery
 - **类型**: 输出节点
 - **输入**:
     - `images`: ComfyUI 图片张量
-    - `metadata_json`: Prompt元数据 JSON（可连接 ArtistSelector 的输出，优先级高）
+    - `metadata_json`: Prompt元数据 JSON（可连接 PromptSelector 的输出，优先级高）
     - `filename_prefix`: 文件名前缀（默认 `AG`）
-    - `prompt_string`: 提示词字符串（自动匹配已知Prompt名，无需连接 ArtistSelector）
-- **输出**: 图片保存到 `output/artist_gallery/` 目录
+    - `prompt_string`: 提示词字符串（自动匹配已知Prompt名，无需连接 PromptSelector）
+- **输出**: 图片保存到 `output/prompt_gallery/` 目录
 - **说明**:
     - `metadata_json` 和 `prompt_string` 至少提供一个
     - 两者都提供时，优先使用 `metadata_json`
@@ -134,7 +134,7 @@ git clone <repository-url> artist_gallery
 1. 在工作流中添加 **保存到画廊** 节点
 2. 将图片生成节点的输出连接到 `images` 输入
 3. 将Prompt选择节点的 `metadata_json` 输出连接到 `metadata_json` 输入
-4. 图片将保存到 `output/artist_gallery/` 并自动关联Prompt信息
+4. 图片将保存到 `output/prompt_gallery/` 并自动关联Prompt信息
 5. 如果分区启用了自动创建组合，保存时会自动创建组合
 
 **方式二：通过提示词字符串**
@@ -152,15 +152,15 @@ git clone <repository-url> artist_gallery
 
 | 变量                     | 说明       | 示例                            |
 | ------------------------ | ---------- | ------------------------------- |
-| `{content}`              | Prompt名称 | `artist_name`                   |
+| `{content}`              | Prompt名称 | `prompt_name`                   |
 | `{random(min,max,step)}` | 随机数     | `{random(0.5,2.0,0.1)}` → `1.3` |
 
 格式示例：
 
-- 默认: `{content}` → `artist_name`
-- 加权重: `({content}:{random(0.5,2.0,0.1)})` → `(artist_name:1.3)`
-- 自定义前缀: `by {content}` → `by artist_name`
-- 组合格式: `@{content}` → 自动创建组合时使用 `@artist_one,@artist_two`
+- 默认: `{content}` → `prompt_name`
+- 加权重: `({content}:{random(0.5,2.0,0.1)})` → `(prompt_name:1.3)`
+- 自定义前缀: `by {content}` → `by prompt_name`
+- 组合格式: `@{content}` → 自动创建组合时使用 `@prompt_one,@prompt_two`
 
 ### Prompt权重
 
@@ -168,10 +168,10 @@ git clone <repository-url> artist_gallery
 
 | 格式模板      | 权重 | 输出                  |
 | ------------- | ---- | --------------------- |
-| `{content}`   | 1.0  | `artist_name`         |
-| `{content}`   | 1.5  | `(artist_name:1.5)`   |
-| `({content})` | 1.5  | `((artist_name):1.5)` |
-| `@{content}`  | 1.5  | `(@artist_name:1.5)`  |
+| `{content}`   | 1.0  | `prompt_name`         |
+| `{content}`   | 1.5  | `(prompt_name:1.5)`   |
+| `({content})` | 1.5  | `((prompt_name):1.5)` |
+| `@{content}`  | 1.5  | `(@prompt_name:1.5)`  |
 
 - 鼠标悬浮在已选Prompt标签上，标签上方会出现滑块
 - 权重为 1.0 时不显示权重数字，也不包裹输出
@@ -190,21 +190,21 @@ git clone <repository-url> artist_gallery
 
 - `@mike,_1.png`
 - `@sarah,_2.jpg`
-- `@artist_name,_1.webp`
+- `@prompt_name,_1.webp`
 
 支持的图片格式：`.png`、`.jpg`、`.jpeg`、`.webp`
 
 ## 项目结构
 
 ```
-artist_gallery/
+prompt_gallery/
 ├── __init__.py                  # 插件入口，注册节点
 ├── nodes.py                     # 节点类定义 & 输出处理逻辑
 ├── utils.py                     # 工具函数（文件扫描、辅助方法）
 ├── import_handler.py            # 图片导入处理
 ├── storage/                     # 数据持久化层
 │   ├── __init__.py              # 存储模块导出
-│   ├── artist.py                # Prompt存储 (ArtistStorage)
+│   ├── prompt.py                # Prompt存储 (PromptStorage)
 │   ├── category.py              # 分类存储 (CategoryStorage)
 │   ├── combination.py           # 组合存储 (CombinationStorage)
 │   ├── image_mapping.py         # 图片-Prompt映射 (ImageMappingStorage)
@@ -212,7 +212,7 @@ artist_gallery/
 │   └── _resolve.py              # 存储目录解析
 ├── routes/                      # HTTP API 端点
 │   ├── __init__.py              # 路由注册入口
-│   ├── artists.py               # Prompt CRUD API
+│   ├── prompts.py               # Prompt CRUD API
 │   ├── categories.py            # 分类 CRUD API
 │   ├── combinations.py          # 组合 CRUD API
 │   ├── gallery.py               # 图库数据 API
@@ -221,12 +221,12 @@ artist_gallery/
 │   ├── import_export.py         # 导入导出 API
 │   ├── cycle_state.py           # 循环状态 API
 │   └── migration.py             # 数据迁移 API
-├── artists.json                 # Prompt数据（自动生成）
+├── prompts.json                 # Prompt数据（自动生成）
 ├── categories.json              # 分类数据（自动生成）
 ├── combinations.json            # 组合数据（自动生成）
-├── image_artists.json           # 图片-Prompt映射（自动生成）
+├── image_prompts.json           # 图片-Prompt映射（自动生成）
 └── web/                         # 前端资源
-    ├── artist_gallery.js        # 图库前端入口
+    ├── prompt_gallery.js        # 图库前端入口
     ├── utils.js                 # 共享工具函数
     ├── Draggable.js             # 拖拽功能
     ├── lib/                     # 第三方库
@@ -243,7 +243,7 @@ artist_gallery/
     │   ├── ContextMenu.js       # 右键菜单组件
     │   ├── LazyList.js          # 虚拟滚动列表
     │   ├── Toast.js             # 通知提示系统
-    │   ├── AddArtistDialog.js   # 添加Prompt对话框
+    │   ├── AddPromptDialog.js   # 添加Prompt对话框
     │   ├── DeleteConfirmDialog.js # 删除确认对话框
     │   ├── CopyDialog.js        # 复制对话框
     │   ├── MoveDialog.js        # 移动对话框
@@ -251,30 +251,30 @@ artist_gallery/
     │   ├── ImportImagesDialog.js # 导入图片对话框
     │   └── hooks/               # 自定义 Hooks
     │       ├── useGalleryData.js      # 数据获取
-    │       ├── useFilteredArtists.js  # 过滤排序
+    │       ├── useFilteredPrompts.js  # 过滤排序
     │       └── useFormatProcessor.js  # 格式处理
     ├── nodes/                   # 节点专用组件
-    │   ├── ArtistSelector.js    # 选择器节点入口
+    │   ├── PromptSelector.js    # 选择器节点入口
     │   └── components/
-    │       ├── ArtistSelectorWidget.js  # 选择器主组件
+    │       ├── PromptSelectorWidget.js  # 选择器主组件
     │       ├── PartitionList.js         # 分区列表
     │       ├── PartitionItem.js         # 分区项
     │       ├── PartitionHeader.js       # 分区标题
     │       ├── PartitionConfigPanel.js  # 分区配置面板
     │       └── hooks/
-    │           ├── useArtistSelector.js  # 选择器逻辑
+    │           ├── usePromptSelector.js  # 选择器逻辑
     │           ├── useBodyRender.js      # Body 级 Preact 渲染
     │           ├── useImagePreview.js    # 图片预览
     │           ├── useNodeSync.js        # 节点同步
     │           └── usePartitionState.js  # 分区状态管理
     ├── services/
-    │   └── artistApi.js         # API 调用封装
+    │   └── promptApi.js         # API 调用封装
     └── styles/                  # 样式文件
         ├── gallery.css          # 图库样式
         ├── gallery-card.css     # 卡片样式
         ├── gallery-grid.css     # 网格样式
         ├── lightbox.css         # Lightbox 样式
-        ├── artist-selector.css  # 选择器样式
+        ├── prompt-selector.css  # 选择器样式
         ├── combination.css      # 组合样式
         ├── toast.css            # 通知样式
         ├── dialogs.css          # 对话框样式
@@ -288,56 +288,56 @@ artist_gallery/
 
 | 方法 | 路径                   | 说明                                           |
 | ---- | ---------------------- | ---------------------------------------------- |
-| GET  | `/artist_gallery/data` | 获取Prompt和组合数据（支持 `?category=` 过滤） |
-| GET  | `/artist_gallery/html` | 图库 HTML 页面                                 |
+| GET  | `/prompt_gallery/data` | 获取Prompt和组合数据（支持 `?category=` 过滤） |
+| GET  | `/prompt_gallery/html` | 图库 HTML 页面                                 |
 
 ### Prompt管理
 
 | 方法   | 路径                                 | 说明                         |
 | ------ | ------------------------------------ | ---------------------------- |
-| GET    | `/artist_gallery/artists`            | 获取所有Prompt列表           |
-| POST   | `/artist_gallery/artists`            | 添加Prompt                   |
-| PUT    | `/artist_gallery/artists/{id}`       | 更新Prompt                   |
-| DELETE | `/artist_gallery/artists/{id}`       | 删除Prompt                   |
-| POST   | `/artist_gallery/artists/batch`      | 批量添加Prompt               |
-| GET    | `/artist_gallery/artist/{id}/images` | 获取Prompt图片列表           |
-| GET    | `/artist_gallery/artist_images`      | 获取Prompt图片（按名称查询） |
-| PUT    | `/artist_gallery/artists/{id}/cover` | 设置Prompt封面图             |
+| GET    | `/prompt_gallery/prompts`            | 获取所有Prompt列表           |
+| POST   | `/prompt_gallery/prompts`            | 添加Prompt                   |
+| PUT    | `/prompt_gallery/prompts/{id}`       | 更新Prompt                   |
+| DELETE | `/prompt_gallery/prompts/{id}`       | 删除Prompt                   |
+| POST   | `/prompt_gallery/prompts/batch`      | 批量添加Prompt               |
+| GET    | `/prompt_gallery/prompt/{id}/images` | 获取Prompt图片列表           |
+| GET    | `/prompt_gallery/prompt_images`      | 获取Prompt图片（按名称查询） |
+| PUT    | `/prompt_gallery/prompts/{id}/cover` | 设置Prompt封面图             |
 
 ### 分类管理
 
 | 方法   | 路径                                   | 说明       |
 | ------ | -------------------------------------- | ---------- |
-| GET    | `/artist_gallery/categories`           | 获取分类树 |
-| POST   | `/artist_gallery/categories`           | 创建分类   |
-| PUT    | `/artist_gallery/categories/{id}`      | 更新分类   |
-| DELETE | `/artist_gallery/categories/{id}`      | 删除分类   |
-| POST   | `/artist_gallery/categories/{id}/move` | 移动分类   |
+| GET    | `/prompt_gallery/categories`           | 获取分类树 |
+| POST   | `/prompt_gallery/categories`           | 创建分类   |
+| PUT    | `/prompt_gallery/categories/{id}`      | 更新分类   |
+| DELETE | `/prompt_gallery/categories/{id}`      | 删除分类   |
+| POST   | `/prompt_gallery/categories/{id}/move` | 移动分类   |
 
 ### 组合管理
 
 | 方法   | 路径                                          | 说明                                   |
 | ------ | --------------------------------------------- | -------------------------------------- |
-| GET    | `/artist_gallery/combinations`                | 获取组合列表（支持 `?category=` 过滤） |
-| GET    | `/artist_gallery/combinations/all`            | 获取所有组合                           |
-| GET    | `/artist_gallery/combinations/{id}`           | 获取单个组合                           |
-| POST   | `/artist_gallery/combinations`                | 创建组合                               |
-| PUT    | `/artist_gallery/combinations/{id}`           | 更新组合                               |
-| DELETE | `/artist_gallery/combinations/{id}`           | 删除组合                               |
-| POST   | `/artist_gallery/combinations/{id}/duplicate` | 复制组合                               |
-| POST   | `/artist_gallery/combinations/{id}/move`      | 移动组合                               |
-| GET    | `/artist_gallery/combinations/{id}/images`    | 获取组合图片                           |
-| DELETE | `/artist_gallery/combinations/batch`          | 批量删除组合                           |
+| GET    | `/prompt_gallery/combinations`                | 获取组合列表（支持 `?category=` 过滤） |
+| GET    | `/prompt_gallery/combinations/all`            | 获取所有组合                           |
+| GET    | `/prompt_gallery/combinations/{id}`           | 获取单个组合                           |
+| POST   | `/prompt_gallery/combinations`                | 创建组合                               |
+| PUT    | `/prompt_gallery/combinations/{id}`           | 更新组合                               |
+| DELETE | `/prompt_gallery/combinations/{id}`           | 删除组合                               |
+| POST   | `/prompt_gallery/combinations/{id}/duplicate` | 复制组合                               |
+| POST   | `/prompt_gallery/combinations/{id}/move`      | 移动组合                               |
+| GET    | `/prompt_gallery/combinations/{id}/images`    | 获取组合图片                           |
+| DELETE | `/prompt_gallery/combinations/batch`          | 批量删除组合                           |
 
 ### 图片与导入导出
 
 | 方法 | 路径                            | 说明           |
 | ---- | ------------------------------- | -------------- |
-| GET  | `/artist_gallery/image/{path}`  | 获取图片文件   |
-| POST | `/artist_gallery/import`        | 导入Prompt数据 |
-| GET  | `/artist_gallery/export`        | 导出Prompt数据 |
-| POST | `/artist_gallery/images/import` | 导入图片       |
-| POST | `/artist_gallery/batch/delete`  | 批量删除       |
+| GET  | `/prompt_gallery/image/{path}`  | 获取图片文件   |
+| POST | `/prompt_gallery/import`        | 导入Prompt数据 |
+| GET  | `/prompt_gallery/export`        | 导出Prompt数据 |
+| POST | `/prompt_gallery/images/import` | 导入图片       |
+| POST | `/prompt_gallery/batch/delete`  | 批量删除       |
 
 ## 故障排除
 

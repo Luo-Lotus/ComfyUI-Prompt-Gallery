@@ -19,12 +19,12 @@ export function useGalleryData(categoryId = 'root') {
     try {
       const result = await fetchGalleryData(categoryIdRef.current);
       // 预计算最大时间用于排序优化
-      result.artists = result.artists.map((artist) => ({
-        ...artist,
+      result.prompts = result.prompts.map((prompt) => ({
+        ...prompt,
         maxTime:
-          artist.images && artist.images.length > 0
-            ? Math.max(...artist.images.map((img) => img.mtime))
-            : artist.createdAt || 0,
+          prompt.images && prompt.images.length > 0
+            ? Math.max(...prompt.images.map((img) => img.mtime))
+            : prompt.createdAt || 0,
       }));
       setData(result);
     } catch (err) {

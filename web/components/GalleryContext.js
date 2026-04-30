@@ -6,19 +6,19 @@ import { h, createContext } from '../lib/preact.mjs';
 import { useState, useEffect, useMemo, useRef, useCallback, useContext } from '../lib/hooks.mjs';
 import {
   Storage,
-  importArtists,
+  importPrompts,
   createCombination as createCombinationApi,
   updateCombination as updateCombinationApi,
   deleteCombination as deleteCombinationApi,
   moveCombination as moveCombinationApi,
   fetchCombinationImages,
   fetchGalleryData,
-  exportArtists,
+  exportPrompts,
   exportCategory,
 } from '../utils.js';
 import { useCategoryManager } from './hooks/useCategoryManager.js';
 import { useGalleryData } from './hooks/useGalleryData.js';
-import { useFilteredArtists } from './hooks/useFilteredArtists.js';
+import { useFilteredPrompts } from './hooks/useFilteredPrompts.js';
 import { useSelection } from './hooks/useSelection.js';
 import { useItemOperations } from './hooks/useItemOperations.js';
 import { showToast } from './Toast.js';
@@ -39,21 +39,21 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   const [favorites, setFavorites] = useState(Storage.getFavorites());
   const [cardSize, setCardSize] = useState(() => Storage.getCardSize());
   const [viewMode, setViewMode] = useState('gallery');
-  const [currentArtist, setCurrentArtist] = useState(null);
+  const [currentPrompt, setCurrentPrompt] = useState(null);
   const [imageSearchQuery, setImageSearchQuery] = useState('');
   const [imageSortBy, setImageSortBy] = useState('name');
   const [imageSortOrder, setImageSortOrder] = useState('asc');
   const [lightbox, setLightbox] = useState({
     open: false,
-    artist: null,
+    prompt: null,
     imageIndex: 0,
   });
 
   // ============ 对话框状态 ============
-  const [showAddArtistDialog, setShowAddArtistDialog] = useState(false);
+  const [showAddPromptDialog, setShowAddPromptDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [artistToDelete, setArtistToDelete] = useState(null);
-  const [editModeArtist, setEditModeArtist] = useState(null);
+  const [promptToDelete, setPromptToDelete] = useState(null);
+  const [editModePrompt, setEditModePrompt] = useState(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
 
   // ============ 组合相关状态 ============
@@ -71,7 +71,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   // 返回画廊视图
   const navigateToGallery = useCallback(() => {
     setViewMode('gallery');
-    setCurrentArtist(null);
+    setCurrentPrompt(null);
     setViewModeCombination(null);
     setImageSearchQuery('');
   }, []);
@@ -79,7 +79,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   // 分类管理
   const categoryMgr = useCategoryManager({
     viewMode,
-    currentArtist,
+    currentPrompt,
     viewModeCombination,
     onNavigateToGallery: navigateToGallery,
   });
@@ -95,7 +95,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   }, [currentCategory, isOpen]);
 
   // 过滤排序
-  const filteredArtists = useFilteredArtists(data, searchQuery, sortBy, sortOrder, showFavoritesOnly, favorites);
+  const filteredPrompts = useFilteredPrompts(data, searchQuery, sortBy, sortOrder, showFavoritesOnly, favorites);
 
   // 打开批量导出对话框
   const handleOpenBatchExportDialog = useCallback(() => {
@@ -106,23 +106,23 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   // 多选管理
   const selection = useSelection({
     categories: categoryMgr.categories,
-    filteredArtists,
-    currentArtist,
+    filteredPrompts,
+    currentPrompt,
     currentCategory,
     loadData,
-    setCurrentArtist,
+    setCurrentPrompt,
     refreshCategories: categoryMgr.refreshCategories,
     openBatchExportDialog: handleOpenBatchExportDialog,
   });
 
   // 移动/复制操作
   const itemOps = useItemOperations({
-    currentArtist,
+    currentPrompt,
     currentCategory,
     viewMode,
     loadData,
     refreshCategories: categoryMgr.refreshCategories,
-    setCurrentArtist,
+    setCurrentPrompt,
     setViewMode,
     getSelectedDetails: selection.getSelectedDetails,
     batchOperation: selection.batchOperation,
@@ -135,8 +135,8 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     return data?.combinations || [];
   }, [data]);
 
-  const filteredArtistImages = useMemo(() => {
-    let images = [...(currentArtist?.images || [])];
+  const filteredPromptImages = useMemo(() => {
+    let images = [...(currentPrompt?.images || [])];
     if (imageSearchQuery) {
       const q = imageSearchQuery.toLowerCase();
       images = images.filter((img) => {
@@ -154,7 +154,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       return imageSortOrder === 'asc' ? cmp : -cmp;
     });
     return images;
-  }, [currentArtist?.images, imageSearchQuery, imageSortBy, imageSortOrder]);
+  }, [currentPrompt?.images, imageSearchQuery, imageSortBy, imageSortOrder]);
 
   const filteredCombinationImages = useMemo(() => {
     let images = [...(viewModeCombination?.images || [])];
@@ -185,15 +185,15 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     currentCombinations.forEach((comb) => {
       keys.push(`combination:${comb.id}`);
     });
-    filteredArtists.forEach((artist) => {
-      keys.push(`artist:${artist.categoryId}:${artist.value}`);
+    filteredPrompts.forEach((prompt) => {
+      keys.push(`prompt:${prompt.categoryId}:${prompt.value}`);
     });
     return keys;
-  }, [categoryMgr.currentCategoryChildren, currentCombinations, filteredArtists]);
+  }, [categoryMgr.currentCategoryChildren, currentCombinations, filteredPrompts]);
 
-  const artistOrderedKeys = useMemo(() => {
-    return filteredArtistImages.map((img) => `image:${img.path}`);
-  }, [filteredArtistImages]);
+  const promptOrderedKeys = useMemo(() => {
+    return filteredPromptImages.map((img) => `image:${img.path}`);
+  }, [filteredPromptImages]);
 
   const combinationOrderedKeys = useMemo(() => {
     return filteredCombinationImages.map((img) => `image:${img.path}`);
@@ -202,64 +202,64 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   // ============ 事件处理 ============
 
   const handleFavoriteToggle = useCallback(
-    (artistName) => {
-      const updated = Storage.toggleFavorite(artistName, favorites);
+    (promptName) => {
+      const updated = Storage.toggleFavorite(promptName, favorites);
       setFavorites(new Set(updated));
     },
     [favorites],
   );
 
   const handleCardClick = useCallback(
-    async (artistIndex) => {
-      const artist = filteredArtists[artistIndex];
-      setCurrentArtist(artist);
-      setViewMode('artist');
-      if (!artist.images || artist.images.length === 0) {
+    async (promptIndex) => {
+      const prompt = filteredPrompts[promptIndex];
+      setCurrentPrompt(prompt);
+      setViewMode('prompt');
+      if (!prompt.images || prompt.images.length === 0) {
         try {
-          const res = await fetch(`/artist_gallery/artist_images?value=${encodeURIComponent(artist.value)}`);
+          const res = await fetch(`/prompt_gallery/prompt_images?value=${encodeURIComponent(prompt.value)}`);
           const result = await res.json();
           if (result.success && result.images) {
-            setCurrentArtist((prev) => (prev === artist ? { ...prev, images: result.images } : prev));
+            setCurrentPrompt((prev) => (prev === prompt ? { ...prev, images: result.images } : prev));
           }
         } catch (err) {
-          console.error('Failed to load artist images:', err);
+          console.error('Failed to load prompt images:', err);
         }
       }
     },
-    [filteredArtists],
+    [filteredPrompts],
   );
 
   const handleLightboxNavigate = useCallback((direction) => {
     setLightbox((prev) => {
-      if (!prev.artist?.images) return prev;
+      if (!prev.prompt?.images) return prev;
       let newIndex = prev.imageIndex + direction;
-      if (newIndex < 0) newIndex = prev.artist.images.length - 1;
-      if (newIndex >= prev.artist.images.length) newIndex = 0;
+      if (newIndex < 0) newIndex = prev.prompt.images.length - 1;
+      if (newIndex >= prev.prompt.images.length) newIndex = 0;
       return { ...prev, imageIndex: newIndex };
     });
   }, []);
 
-  const openLightbox = useCallback((artist, imageIndex) => {
-    setLightbox({ open: true, artist, imageIndex });
+  const openLightbox = useCallback((prompt, imageIndex) => {
+    setLightbox({ open: true, prompt, imageIndex });
   }, []);
 
   const closeLightbox = useCallback(() => {
-    setLightbox({ open: false, artist: null, imageIndex: 0 });
+    setLightbox({ open: false, prompt: null, imageIndex: 0 });
   }, []);
 
   // 对话框打开
   const openAddDialog = useCallback(() => {
-    setEditModeArtist(null);
-    setShowAddArtistDialog(true);
+    setEditModePrompt(null);
+    setShowAddPromptDialog(true);
   }, []);
 
-  const openEditDialog = useCallback((artist) => {
-    setEditModeArtist(artist);
-    setShowAddArtistDialog(true);
+  const openEditDialog = useCallback((prompt) => {
+    setEditModePrompt(prompt);
+    setShowAddPromptDialog(true);
   }, []);
 
-  const openDeleteConfirm = useCallback((artist) => {
-    setArtistToDelete(artist);
+  const openDeleteConfirm = useCallback((prompt) => {
+    setPromptToDelete(prompt);
     setShowDeleteConfirm(true);
   }, []);
 
@@ -336,8 +336,8 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   }, []);
 
   // 导出
-  const handleExportArtist = useCallback((artist) => {
-    setExportPayload({ type: 'artist', artist });
+  const handleExportPrompt = useCallback((prompt) => {
+    setExportPayload({ type: 'prompt', prompt });
     setShowExportDialog(true);
   }, []);
 
@@ -351,35 +351,35 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   const handleExportConfirm = useCallback(
     async (includeImages, maxImages) => {
       if (!exportPayload) return;
-      const opts = { includeImages, maxImagesPerArtist: maxImages };
+      const opts = { includeImages, maxImagesPerPrompt: maxImages };
 
       try {
         if (exportPayload.type === 'category') {
           await exportCategory(exportPayload.category.id, opts);
           showToast(`已导出分类: ${exportPayload.category.name}${includeImages ? '' : ' (仅结构)'}`, 'success');
-        } else if (exportPayload.type === 'artist') {
-          await exportArtists(
+        } else if (exportPayload.type === 'prompt') {
+          await exportPrompts(
             [
               {
-                categoryId: exportPayload.artist.categoryId,
-                value: exportPayload.artist.value,
+                categoryId: exportPayload.prompt.categoryId,
+                value: exportPayload.prompt.value,
               },
             ],
             opts,
           );
-          showToast(`已导出Prompt: ${exportPayload.artist.name || exportPayload.artist.value}`, 'success');
+          showToast(`已导出Prompt: ${exportPayload.prompt.name || exportPayload.prompt.value}`, 'success');
         } else if (exportPayload.type === 'batch') {
           const details = selection.getSelectedDetails();
-          const artistKeys = details.artists.map((a) => ({
+          const promptKeys = details.prompts.map((a) => ({
             categoryId: a.categoryId,
             value: a.value,
           }));
-          if (artistKeys.length === 0) {
+          if (promptKeys.length === 0) {
             showToast('请选择Prompt后导出', 'warning');
             return;
           }
-          await exportArtists(artistKeys, opts);
-          showToast(`已导出 ${artistKeys.length} 个Prompt`, 'success');
+          await exportPrompts(promptKeys, opts);
+          showToast(`已导出 ${promptKeys.length} 个Prompt`, 'success');
         }
       } catch (error) {
         showToast('导出失败: ' + error.message, 'error');
@@ -389,16 +389,16 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   );
 
   // 导入Prompt
-  const handleImportArtists = useCallback(
+  const handleImportPrompts = useCallback(
     async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
       try {
-        const result = await importArtists(file, currentCategory);
+        const result = await importPrompts(file, currentCategory);
         if (result.success) {
           const parts = [];
           if (result.addedCategories > 0) parts.push(`${result.addedCategories} 个分类`);
-          if (result.addedArtists > 0) parts.push(`${result.addedArtists} 个Prompt`);
+          if (result.addedPrompts > 0) parts.push(`${result.addedPrompts} 个Prompt`);
           if (result.addedCombinations > 0) parts.push(`${result.addedCombinations} 个组合`);
           if (result.addedImages > 0) parts.push(`${result.addedImages} 张图片`);
           showToast(`导入成功: ${parts.join(', ') || '无新增内容'}`, 'success');
@@ -416,20 +416,20 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   );
 
   // Prompt详情回调
-  const handleArtistDeleteImageSuccess = useCallback(async () => {
+  const handlePromptDeleteImageSuccess = useCallback(async () => {
     await loadData();
-    const updatedData = await fetch(`/artist_gallery/data?category=${currentCategory}`);
+    const updatedData = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
     const result = await updatedData.json();
-    const updatedArtist = result.artists?.find(
-      (a) => a.categoryId === currentArtist?.categoryId && a.value === currentArtist?.value,
+    const updatedPrompt = result.prompts?.find(
+      (a) => a.categoryId === currentPrompt?.categoryId && a.value === currentPrompt?.value,
     );
-    if (updatedArtist) {
-      setCurrentArtist(updatedArtist);
+    if (updatedPrompt) {
+      setCurrentPrompt(updatedPrompt);
     }
-  }, [currentCategory, currentArtist, loadData]);
+  }, [currentCategory, currentPrompt, loadData]);
 
-  const handleArtistSetCoverSuccess = useCallback((imagePath) => {
-    setCurrentArtist((prev) => ({
+  const handlePromptSetCoverSuccess = useCallback((imagePath) => {
+    setCurrentPrompt((prev) => ({
       ...prev,
       coverImagePath: imagePath,
     }));
@@ -463,11 +463,11 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     [selection, galleryOrderedKeys],
   );
 
-  const handleArtistSelect = useCallback(
+  const handlePromptSelect = useCallback(
     (key, shiftKey) => {
-      selection.handleSelectItem(key, shiftKey, artistOrderedKeys);
+      selection.handleSelectItem(key, shiftKey, promptOrderedKeys);
     },
-    [selection, artistOrderedKeys],
+    [selection, promptOrderedKeys],
   );
 
   const handleCombinationSelect = useCallback(
@@ -479,9 +479,9 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
 
   // 全选（按当前视图）
   const handleSelectAllInView = useCallback(() => {
-    if (viewMode === 'artist' && currentArtist?.images) {
+    if (viewMode === 'prompt' && currentPrompt?.images) {
       const newSet = new Set();
-      filteredArtistImages.forEach((img) => newSet.add(`image:${img.path}`));
+      filteredPromptImages.forEach((img) => newSet.add(`image:${img.path}`));
       selection.setSelectedItems(newSet);
     } else if (viewMode === 'combination' && viewModeCombination?.images) {
       const newSet = new Set();
@@ -490,7 +490,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     } else {
       selection.handleSelectAll();
     }
-  }, [viewMode, currentArtist, viewModeCombination, filteredArtistImages, filteredCombinationImages, selection]);
+  }, [viewMode, currentPrompt, viewModeCombination, filteredPromptImages, filteredCombinationImages, selection]);
 
   // 批量移动/复制（封装 itemOps setter 注入）
   const handleBatchMoveAction = useCallback(() => {
@@ -538,35 +538,35 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
 
     categoryMgr.setCurrentCategory(targetCategoryId);
     setViewMode('gallery');
-    setCurrentArtist(null);
+    setCurrentPrompt(null);
     setViewModeCombination(null);
     setImageSearchQuery('');
 
     const loadDataAndNavigate = async () => {
       const result = await fetchGalleryData(targetCategoryId);
-      result.artists = result.artists.map((artist) => ({
-        ...artist,
+      result.prompts = result.prompts.map((prompt) => ({
+        ...prompt,
         maxTime:
-          artist.images && artist.images.length > 0
-            ? Math.max(...artist.images.map((img) => img.mtime))
-            : artist.createdAt || 0,
+          prompt.images && prompt.images.length > 0
+            ? Math.max(...prompt.images.map((img) => img.mtime))
+            : prompt.createdAt || 0,
       }));
 
       navRef.current = initialNavigation;
       setData(result);
 
-      if (nav.type === 'artist' && nav.artistName) {
-        const artist = result.artists?.find((a) => a.value === nav.artistName && a.categoryId === targetCategoryId);
-        if (artist) {
-          setCurrentArtist(artist);
-          setViewMode('artist');
-          if (!artist.images || artist.images.length === 0) {
-            fetch(`/artist_gallery/artist_images?value=${encodeURIComponent(artist.value)}`)
+      if (nav.type === 'prompt' && nav.promptName) {
+        const prompt = result.prompts?.find((a) => a.value === nav.promptName && a.categoryId === targetCategoryId);
+        if (prompt) {
+          setCurrentPrompt(prompt);
+          setViewMode('prompt');
+          if (!prompt.images || prompt.images.length === 0) {
+            fetch(`/prompt_gallery/prompt_images?value=${encodeURIComponent(prompt.value)}`)
               .then((res) => res.json())
               .then((imgResult) => {
                 if (imgResult.success && imgResult.images) {
-                  setCurrentArtist((prev) =>
-                    prev?.value === artist.value
+                  setCurrentPrompt((prev) =>
+                    prev?.value === prompt.value
                       ? {
                           ...prev,
                           images: imgResult.images,
@@ -575,7 +575,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
                   );
                 }
               })
-              .catch((err) => console.error('Failed to load artist images:', err));
+              .catch((err) => console.error('Failed to load prompt images:', err));
           }
         }
       } else if (nav.type === 'combination' && nav.combinationId) {
@@ -595,8 +595,8 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       // Navigation
       viewMode,
       setViewMode,
-      currentArtist,
-      setCurrentArtist,
+      currentPrompt,
+      setCurrentPrompt,
       viewModeCombination,
       setViewModeCombination,
       currentCategory,
@@ -610,7 +610,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
 
       // Categories
       categories: categoryMgr.categories,
-      allArtists: categoryMgr.allArtists,
+      allPrompts: categoryMgr.allPrompts,
       categoryPath: categoryMgr.categoryPath,
       currentCategoryChildren: categoryMgr.currentCategoryChildren,
       refreshCategories: categoryMgr.refreshCategories,
@@ -626,7 +626,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       setShowCategoryDialog: categoryMgr.setShowCategoryDialog,
 
       // Filtering
-      filteredArtists,
+      filteredPrompts,
       searchQuery,
       setSearchQuery,
       sortBy,
@@ -645,7 +645,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       setImageSortBy,
       imageSortOrder,
       setImageSortOrder,
-      filteredArtistImages,
+      filteredPromptImages,
       filteredCombinationImages,
       currentCombinations,
 
@@ -655,7 +655,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       getSelectionType: selection.getSelectionType,
       handleToggleSelectionMode: selection.handleToggleSelectionMode,
       handleGallerySelect,
-      handleArtistSelect,
+      handlePromptSelect,
       handleCombinationSelect,
       handleSelectAllInView,
       handleDeselectAll: selection.handleDeselectAll,
@@ -688,16 +688,16 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       handleCopy: itemOps.handleCopy,
 
       // Dialog state
-      showAddArtistDialog,
-      setShowAddArtistDialog,
-      editModeArtist,
-      setEditModeArtist,
+      showAddPromptDialog,
+      setShowAddPromptDialog,
+      editModePrompt,
+      setEditModePrompt,
       openAddDialog,
       openEditDialog,
       showDeleteConfirm,
       setShowDeleteConfirm,
-      artistToDelete,
-      setArtistToDelete,
+      promptToDelete,
+      setPromptToDelete,
       openDeleteConfirm,
       showImportDialog,
       setShowImportDialog,
@@ -727,13 +727,13 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       handleCombinationDelete,
       handleCombinationMove,
       handleCombinationDialogSave,
-      handleExportArtist,
+      handleExportPrompt,
       handleOpenExportDialog,
       handleOpenBatchExportDialog,
       handleExportConfirm,
-      handleImportArtists,
-      handleArtistDeleteImageSuccess,
-      handleArtistSetCoverSuccess,
+      handleImportPrompts,
+      handlePromptDeleteImageSuccess,
+      handlePromptSetCoverSuccess,
       handleCombinationDeleteImageSuccess,
       handleCombinationSetCoverSuccess,
 
@@ -743,21 +743,21 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     }),
     [
       viewMode,
-      currentArtist,
+      currentPrompt,
       viewModeCombination,
       currentCategory,
       data,
       loading,
       error,
       categoryMgr.categories,
-      categoryMgr.allArtists,
+      categoryMgr.allPrompts,
       categoryMgr.categoryPath,
       categoryMgr.currentCategoryChildren,
       categoryMgr.refreshCategories,
       categoryMgr.showCategoryDialog,
       categoryMgr.categoryDialogMode,
       categoryMgr.editingCategory,
-      filteredArtists,
+      filteredPrompts,
       searchQuery,
       sortBy,
       sortOrder,
@@ -767,7 +767,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       imageSearchQuery,
       imageSortBy,
       imageSortOrder,
-      filteredArtistImages,
+      filteredPromptImages,
       filteredCombinationImages,
       currentCombinations,
       selection.selectionMode,
@@ -780,10 +780,10 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       itemOps.showCopyDialog,
       itemOps.copyItem,
       itemOps.copyItemType,
-      showAddArtistDialog,
-      editModeArtist,
+      showAddPromptDialog,
+      editModePrompt,
       showDeleteConfirm,
-      artistToDelete,
+      promptToDelete,
       showImportDialog,
       showExportDialog,
       exportPayload,

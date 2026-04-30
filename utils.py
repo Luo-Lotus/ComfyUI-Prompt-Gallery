@@ -1,5 +1,5 @@
 """
-Artist Gallery 工具函数
+Prompt Gallery 工具函数
 文件名解析和目录扫描功能
 """
 import re
@@ -33,7 +33,7 @@ def decode_filename(filename):
     return decoded
 
 
-def parse_artist_name(filename):
+def parse_prompt_name(filename):
     """解析文件名获取Prompt名称
 
     Args:
@@ -59,43 +59,43 @@ def scan_output_directory(output_dir):
     output_path = Path(output_dir)
 
     if not output_path.exists():
-        return {"artists": [], "totalCount": 0, "error": "目录不存在"}
+        return {"prompts": [], "totalCount": 0, "error": "目录不存在"}
 
-    artists = {}
+    prompts = {}
 
     # 扫描所有图片文件
     for ext in ['*.png', '*.jpg', '*.jpeg', '*.webp']:
         for img_file in output_path.glob(ext):
             filename = img_file.name
-            artist_name = parse_artist_name(filename)
+            prompt_name = parse_prompt_name(filename)
 
-            if artist_name:
+            if prompt_name:
                 # 获取文件修改时间
                 mtime = img_file.stat().st_mtime
 
-                if artist_name not in artists:
-                    artists[artist_name] = {
-                        "value": artist_name,
-                        "name": artist_name,
+                if prompt_name not in prompts:
+                    prompts[prompt_name] = {
+                        "value": prompt_name,
+                        "name": prompt_name,
                         "images": []
                     }
 
                 # 添加图片信息
-                artists[artist_name]["images"].append({
+                prompts[prompt_name]["images"].append({
                     "path": str(img_file.relative_to(output_path.parent)),
                     "filename": filename,
                     "mtime": mtime
                 })
 
     # 转换为列表并计算图片数量
-    artist_list = list(artists.values())
-    for artist in artist_list:
-        artist["imageCount"] = len(artist["images"])
+    prompt_list = list(prompts.values())
+    for prompt in prompt_list:
+        prompt["imageCount"] = len(prompt["images"])
         # 按修改时间排序图片
-        artist["images"].sort(key=lambda x: x["mtime"], reverse=True)
+        prompt["images"].sort(key=lambda x: x["mtime"], reverse=True)
 
     return {
-        "artists": artist_list,
-        "totalCount": len(artist_list),
-        "totalImages": sum(a["imageCount"] for a in artist_list)
+        "prompts": prompt_list,
+        "totalCount": len(prompt_list),
+        "totalImages": sum(a["imageCount"] for a in prompt_list)
     }

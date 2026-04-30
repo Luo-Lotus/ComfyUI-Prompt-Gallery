@@ -10,10 +10,10 @@ import { MoveDialog } from './MoveDialog.js';
 import { useContextMenu } from './ContextMenu.js';
 import { Icon } from '../lib/icons.mjs';
 
-export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, categories, allArtists }) {
+export function PromptDetailModal({ isOpen, prompt, onClose, onImageDelete, categories, allPrompts }) {
   const [lightbox, setLightbox] = useState({
     open: false,
-    artist: null,
+    prompt: null,
     imageIndex: 0,
   });
   const [showMoveDialog, setShowMoveDialog] = useState(false);
@@ -23,7 +23,7 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
   const handleImageClick = (imageIndex) => {
     setLightbox({
       open: true,
-      artist: artist,
+      prompt: prompt,
       imageIndex,
     });
   };
@@ -33,10 +33,10 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
 
     try {
       // 调用删除图片的 API
-      const response = await fetch(`/artist_gallery/image`, {
+      const response = await fetch(`/prompt_gallery/image`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imagePath, artistId: artist.id }),
+        body: JSON.stringify({ imagePath, promptId: prompt.id }),
       });
 
       if (response.ok) {
@@ -58,7 +58,7 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
       {
         icon: 'search',
         label: '查看大图',
-        action: () => handleImageClick(artist.images.indexOf(image)),
+        action: () => handleImageClick(prompt.images.indexOf(image)),
       },
       {
         icon: 'move',
@@ -68,7 +68,7 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
       {
         icon: 'trash-2',
         label: '删除图片',
-        action: () => handleDeleteImage(image.path, artist.images.indexOf(image)),
+        action: () => handleDeleteImage(image.path, prompt.images.indexOf(image)),
       },
     ];
 
@@ -82,13 +82,13 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
 
   const handleMove = async (item, target) => {
     try {
-      const response = await fetch('/artist_gallery/image/move', {
+      const response = await fetch('/prompt_gallery/image/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imagePath: selectedImage.path,
-          fromArtistId: artist.id,
-          toArtistId: target.id,
+          fromPromptId: prompt.id,
+          toPromptId: target.id,
         }),
       });
 
@@ -110,34 +110,34 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
 
   const handleLightboxNavigate = (direction) => {
     let newIndex = lightbox.imageIndex + direction;
-    if (newIndex < 0) newIndex = artist.images.length - 1;
-    if (newIndex >= artist.images.length) newIndex = 0;
+    if (newIndex < 0) newIndex = prompt.images.length - 1;
+    if (newIndex >= prompt.images.length) newIndex = 0;
     setLightbox((prev) => ({ ...prev, imageIndex: newIndex }));
   };
 
-  if (!isOpen || !artist) return null;
+  if (!isOpen || !prompt) return null;
 
-  const hasImages = artist.images && artist.images.length > 0;
+  const hasImages = prompt.images && prompt.images.length > 0;
 
   const handleOverlayClick = (e) => {
     // 如果 lightbox 没有打开，点击遮罩才关闭
-    if (!lightbox.open && e.target.classList.contains('artist-detail-overlay')) {
+    if (!lightbox.open && e.target.classList.contains('prompt-detail-overlay')) {
       onClose();
     }
   };
 
-  return h('div', { class: 'artist-detail-overlay', onClick: handleOverlayClick }, [
+  return h('div', { class: 'prompt-detail-overlay', onClick: handleOverlayClick }, [
     !lightbox.open &&
       h(
         'div',
         {
-          class: 'artist-detail-content',
+          class: 'prompt-detail-content',
           onClick: (e) => e.stopPropagation(),
         },
         [
           // 头部
-          h('div', { class: 'artist-detail-header' }, [
-            h('h2', {}, artist.name || artist.value),
+          h('div', { class: 'prompt-detail-header' }, [
+            h('h2', {}, prompt.name || prompt.value),
             h(
               'button',
               {
@@ -153,27 +153,27 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
           hasImages
             ? h(
                 'div',
-                { class: 'artist-detail-grid' },
-                artist.images.map((img, index) =>
+                { class: 'prompt-detail-grid' },
+                prompt.images.map((img, index) =>
                   h(
                     'div',
                     {
                       key: img.path,
-                      class: 'artist-detail-image-item',
+                      class: 'prompt-detail-image-item',
                       onClick: () => handleImageClick(index),
                       onContextMenu: (e) => handleImageContextMenu(e, img),
                     },
                     [
                       h('img', {
                         src: buildImageUrl(img.path),
-                        alt: `${artist.name || artist.value} - ${index + 1}`,
+                        alt: `${prompt.name || prompt.value} - ${index + 1}`,
                         loading: 'lazy',
                       }),
                     ],
                   ),
                 ),
               )
-            : h('div', { class: 'artist-detail-empty' }, '暂无图片'),
+            : h('div', { class: 'prompt-detail-empty' }, '暂无图片'),
         ],
       ),
 
@@ -181,12 +181,12 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
     lightbox.open &&
       h(Lightbox, {
         isOpen: lightbox.open,
-        artist: lightbox.artist || { images: [] },
+        prompt: lightbox.prompt || { images: [] },
         imageIndex: lightbox.imageIndex,
         onClose: () =>
           setLightbox({
             open: false,
-            artist: null,
+            prompt: null,
             imageIndex: 0,
           }),
         onNavigate: handleLightboxNavigate,
@@ -199,7 +199,7 @@ export function ArtistDetailModal({ isOpen, artist, onClose, onImageDelete, cate
         itemType: 'image',
         item: selectedImage,
         categories: categories || [],
-        artists: allArtists || [],
+        prompts: allPrompts || [],
         onClose: () => {
           setShowMoveDialog(false);
           setSelectedImage(null);

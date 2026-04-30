@@ -6,12 +6,12 @@ import { h } from '../../lib/preact.mjs';
 import { Icon } from '../../lib/icons.mjs';
 
 export function PartitionContent({
-  artists,
+  prompts,
   partitionCategories,
   partitionId,
-  onArtistMove,
+  onPromptMove,
   onCategoryMove,
-  onArtistRemove,
+  onPromptRemove,
   onCategoryRemove,
   onDragOver,
   onDragLeave,
@@ -23,7 +23,7 @@ export function PartitionContent({
       'span',
       {
         key: `cat-${category.id}`,
-        class: 'artist-selector-tag category-tag',
+        class: 'prompt-selector-tag category-tag',
         draggable: true,
         onDragStart: (e) => {
           e.dataTransfer.setData(
@@ -37,12 +37,12 @@ export function PartitionContent({
         },
       },
       [
-        h('span', { class: 'artist-selector-tag-icon' }, h(Icon, { name: 'folder', size: 12 })),
+        h('span', { class: 'prompt-selector-tag-icon' }, h(Icon, { name: 'folder', size: 12 })),
         category.name,
         h(
           'button',
           {
-            class: 'artist-remove-btn',
+            class: 'prompt-remove-btn',
             onClick: (e) => {
               e.stopPropagation();
               onCategoryRemove(category.id);
@@ -55,20 +55,20 @@ export function PartitionContent({
   };
 
   // 渲染Prompt标签
-  const renderArtistTag = (artist) => {
-    const key = `${artist.categoryId}:${artist.name}`;
+  const renderPromptTag = (prompt) => {
+    const key = `${prompt.categoryId}:${prompt.value}`;
 
     return h(
       'span',
       {
         key: key,
-        class: 'artist-selector-tag',
+        class: 'prompt-selector-tag',
         draggable: true,
         onDragStart: (e) => {
           e.dataTransfer.setData(
             'text/plain',
             JSON.stringify({
-              type: 'artist',
+              type: 'prompt',
               key: key,
             }),
           );
@@ -76,14 +76,14 @@ export function PartitionContent({
         },
       },
       [
-        h('span', { class: 'artist-name' }, artist.name || artist.value),
+        h('span', { class: 'prompt-name' }, prompt.name || prompt.value),
         h(
           'button',
           {
-            class: 'artist-remove-btn',
+            class: 'prompt-remove-btn',
             onClick: (e) => {
               e.stopPropagation();
-              onArtistRemove(key);
+              onPromptRemove(key);
             },
           },
           h(Icon, { name: 'x', size: 12 }),
@@ -92,12 +92,12 @@ export function PartitionContent({
     );
   };
 
-  const hasContent = artists.length > 0 || partitionCategories.length > 0;
+  const hasContent = prompts.length > 0 || partitionCategories.length > 0;
 
   return h(
     'div',
     {
-      class: 'partition-artists',
+      class: 'partition-prompts',
       onDragOver: (e) => onDragOver(e),
       onDragLeave: () => onDragLeave(),
       onDrop: (e) => onDrop(e),
@@ -107,7 +107,7 @@ export function PartitionContent({
       ...partitionCategories.map(renderCategoryTag),
 
       // 渲染该分区的Prompt
-      hasContent ? artists.map(renderArtistTag) : h('div', { class: 'partition-empty' }, '拖拽Prompt或分类到此处'),
+      hasContent ? prompts.map(renderPromptTag) : h('div', { class: 'partition-empty' }, '拖拽Prompt或分类到此处'),
     ],
   );
 }

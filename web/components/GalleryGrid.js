@@ -19,16 +19,16 @@ export function GalleryGrid() {
 
   const categories = ctx.currentCategoryChildren;
   const combinations = ctx.currentCombinations;
-  const artists = ctx.filteredArtists;
+  const prompts = ctx.filteredPrompts;
 
   // 计算每个分类的Prompt数量
-  const categoryArtistCounts = useMemo(() => {
+  const categoryPromptCounts = useMemo(() => {
     const counts = {};
     categories.forEach((cat) => {
-      counts[cat.id] = artists.filter((a) => a.categoryId === cat.id).length;
+      counts[cat.id] = prompts.filter((a) => a.categoryId === cat.id).length;
     });
     return counts;
-  }, [categories, artists]);
+  }, [categories, prompts]);
 
   // 合并为扁平数组（分类 → 组合 → Prompt）
   const allItems = useMemo(() => {
@@ -40,12 +40,12 @@ export function GalleryGrid() {
       type: 'combination',
       data: c,
     }));
-    const artItems = artists.map((artist) => ({
-      type: 'artist',
-      data: artist,
+    const artItems = prompts.map((prompt) => ({
+      type: 'prompt',
+      data: prompt,
     }));
     return [...catItems, ...combItems, ...artItems];
-  }, [categories, combinations, artists]);
+  }, [categories, combinations, prompts]);
 
   // 渲染单个元素
   const renderItem = useCallback(
@@ -55,7 +55,7 @@ export function GalleryGrid() {
         return h(CategoryCard, {
           key: `cat-${category.id}`,
           category,
-          artistCount: categoryArtistCounts[category.id] || 0,
+          promptCount: categoryPromptCounts[category.id] || 0,
           onClick: (cat) => ctx.handleCategorySelect(cat),
           onEdit: (cat) => ctx.handleEditCategory(cat),
           onDelete: async (cat) => {
@@ -74,7 +74,7 @@ export function GalleryGrid() {
         return h(CombinationCard, {
           key: `comb-${combination.id}`,
           combination,
-          artists: ctx.allArtists,
+          prompts: ctx.allPrompts,
           onClick: ctx.handleCombinationClick,
           onEdit: ctx.handleCombinationEdit,
           onDuplicate: ctx.handleCombinationDuplicate,
@@ -85,32 +85,32 @@ export function GalleryGrid() {
           onSelect: ctx.handleGallerySelect,
         });
       } else {
-        const artist = item.data;
-        const artistIndex = index - categories.length - combinations.length;
+        const prompt = item.data;
+        const promptIndex = index - categories.length - combinations.length;
         return h(GalleryCard, {
-          key: artist.name,
-          artist,
-          artistIndex,
+          key: prompt.name,
+          prompt,
+          promptIndex,
           favorites: ctx.favorites,
           onFavoriteToggle: ctx.handleFavoriteToggle,
           onImageClick: ctx.handleCardClick,
           onEdit: ctx.openEditDialog,
           onDelete: ctx.openDeleteConfirm,
-          onMove: () => ctx.openMoveDialog(artist, 'artist'),
-          onCopy: () => ctx.openCopyDialog(artist, 'artist'),
-          onExport: () => ctx.handleExportArtist(artist),
+          onMove: () => ctx.openMoveDialog(prompt, 'prompt'),
+          onCopy: () => ctx.openCopyDialog(prompt, 'prompt'),
+          onExport: () => ctx.handleExportPrompt(prompt),
           selectionMode: ctx.selectionMode,
-          selected: ctx.selectedItems.has(`artist:${artist.categoryId}:${artist.name}`),
+          selected: ctx.selectedItems.has(`prompt:${prompt.categoryId}:${prompt.value}`),
           onSelect: ctx.handleGallerySelect,
         });
       }
     },
     [
-      categoryArtistCounts,
+      categoryPromptCounts,
       categories.length,
       combinations.length,
       ctx.currentCombinations,
-      ctx.allArtists,
+      ctx.allPrompts,
       ctx.favorites,
       ctx.selectionMode,
       ctx.selectedItems,

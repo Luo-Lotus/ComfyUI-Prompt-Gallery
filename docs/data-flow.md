@@ -1,8 +1,8 @@
 # Prompt选择节点 & 保存图片节点 — 数据流与业务逻辑
 
-本文档详细描述 `ArtistSelector`（Prompt选择）节点和 `SaveToGallery`（保存到画廊）节点的完整数据处理流程。
+本文档详细描述 `PromptsSelector`（Prompt选择）节点和 `SaveToGallery`（保存到画廊）节点的完整数据处理流程。
 
-由于插件改过一次名，从 画师(artist) 改为 Prompt，系统中还是存在大量使用artist命名的代码，这些命名都指的是prompt
+由于插件改过一次名，从 画师(prompt) 改为 Prompt，系统中还是存在大量使用prompt命名的代码，这些命名都指的是prompt
 
 ---
 
@@ -21,7 +21,7 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │                        后端 (Python)                             │
 │                                                                  │
-│  ArtistSelector.select_artists()                                │
+│  PromptsSelector.select_prompts()                                │
 │      → 解析 metadata → 解析Prompt/分类/组合 → 格式化+权重包裹      │
 │      → 自动创建组合 → 返回 (result_string, enriched_metadata)    │
 │                               │                                  │
@@ -37,45 +37,45 @@
 
 ### 2.1 节点初始化
 
-**入口文件**: `web/nodes/ArtistSelector.js`
+**入口文件**: `web/nodes/PromptsSelector.js`
 
-当 ComfyUI 加载节点定义时，通过 `app.registerExtension()` 的 `beforeRegisterNodeDef` 钩子介入。当检测到节点类型为 `ArtistSelector` 时：
+当 ComfyUI 加载节点定义时，通过 `app.registerExtension()` 的 `beforeRegisterNodeDef` 钩子介入。当检测到节点类型为 `PromptsSelector` 时：
 
 1. **创建隐藏输入框**：ComfyUI 根据 `INPUT_TYPES` 自动创建两个隐藏 widget：
-    - `selected_artists`（STRING）：用于显示的Prompt名称字符串
+    - `selected_prompts`（STRING）：用于显示的Prompt名称字符串
     - `metadata`（STRING）：v1 格式的 JSON，承载完整的分区和选择信息
 
 2. **创建 DOM 容器**：在节点上添加一个 DOM widget，作为 Preact 组件的挂载点
 
-3. **延迟渲染**：100ms 后动态导入 `ArtistSelectorWidget` 组件并渲染到容器中，传入三个关键 props：
+3. **延迟渲染**：100ms 后动态导入 `PromptSelectorWidget` 组件并渲染到容器中，传入三个关键 props：
     - `nodeInstance`：ComfyUI 节点实例引用
-    - `selectedInput`：`selected_artists` widget 引用
+    - `selectedInput`：`selected_prompts` widget 引用
     - `metadataInput`：`metadata` widget 引用
 
 ### 2.2 数据加载
 
-**Hook**: `useArtistSelector.js`
+**Hook**: `usePromptSelector.js`
 
 组件挂载后，并行发起三个数据加载请求：
 
 #### (1) 加载分类树
 
-- 请求：`GET /artist_gallery/categories`
+- 请求：`GET /prompt_gallery/categories`
 - 返回：嵌套的分类树结构
 - 处理：通过 `flattenCategories()` 扁平化为 `{ id, name, parentId, children }` 列表
 
 #### (2) 加载所有Prompt和组合
 
-- 请求：`GET /artist_gallery/artists` + `GET /artist_gallery/combinations/all`
-- `allArtists`：用于补全已选Prompt的缓存信息（跨分类查找）
+- 请求：`GET /prompt_gallery/prompts` + `GET /prompt_gallery/combinations/all`
+- `allPrompts`：用于补全已选Prompt的缓存信息（跨分类查找）
 - `allCombinations`：用于分区中组合的显示和操作
 
 #### (3) 加载当前分类数据
 
-- 请求：`GET /artist_gallery/data?category={currentCategory}`
+- 请求：`GET /prompt_gallery/data?category={currentCategory}`
 - 这是一个**合并接口**，同时返回当前分类下的：
-    - `artists[]`：Prompt列表（只含 `coverImagePath` + `imageCount`，不含完整图片）
-    - `combinations[]`：组合列表（含 `coverImagePath`、`artistKeys`、`outputContent`）
+    - `prompts[]`：Prompt列表（只含 `coverImagePath` + `imageCount`，不含完整图片）
+    - `combinations[]`：组合列表（含 `coverImagePath`、`promptKeys`、`outputContent`）
 - 当用户点击分类导航切换时，会重新请求此接口
 
 ### 2.3 分区状态管理
@@ -105,9 +105,9 @@ partitionData = {
         },
         // ... 最多 10 个分区
     ],
-    artistPartitionMap: {      // Prompt → 分区ID 的映射
-        "root:artist_a": "partition-default",
-        "cat1:artist_b": "partition-2"
+    promptPartitionMap: {      // Prompt → 分区ID 的映射
+        "root:prompt_a": "partition-default",
+        "cat1:prompt_b": "partition-2"
     },
     categoryPartitionMap: {    // 分类 → 分区ID 的映射
         "cat-id-1": "partition-default"
@@ -115,9 +115,9 @@ partitionData = {
     combinationPartitionMap: { // 组合 → 分区ID 的映射
         "combination:uuid-xxx": "partition-default"
     },
-    artistWeights: {           // Prompt权重（仅Prompt，不含分类/组合）
-        "root:artist_a": 1.5,  // key 格式同 artistPartitionMap
-        "cat1:artist_b": 0.8   // 不存在或为 1.0 时表示默认权重
+    promptWeights: {           // Prompt权重（仅Prompt，不含分类/组合）
+        "root:prompt_a": 1.5,  // key 格式同 promptPartitionMap
+        "cat1:prompt_b": 0.8   // 不存在或为 1.0 时表示默认权重
     },
     globalConfig: { ... }      // 全局默认配置
 }
@@ -126,7 +126,7 @@ partitionData = {
 #### 关键设计
 
 - **映射表模式**：使用三个扁平映射表记录归属关系，而非在每个分区内部嵌套数组
-- **权重存储**：`artistWeights` 扁平字典（`artistKey → number`），权重为 1.0 时删除 key，仅限Prompt标签
+- **权重存储**：`promptWeights` 扁平字典（`promptKey → number`），权重为 1.0 时删除 key，仅限Prompt标签
 - **持久化方式**：不使用独立的 JSON 文件存储，而是通过 `useNodeSync` 序列化到 ComfyUI 节点的 widget 值中，随工作流一起保存
 - **状态恢复**：组件初始化时，从 `metadataInput.value`（ComfyUI 恢复的 widget 值）解析分区数据
 
@@ -138,10 +138,10 @@ partitionData = {
 | `deletePartition(id)`                      | 删除分区，其中的Prompt/组合自动移回默认分区    |
 | `updatePartition(id, updates)`             | 更新分区名称或配置（不可改 enabled/isDefault） |
 | `togglePartition(id)`                      | 切换分区启用/禁用                              |
-| `moveArtistToPartition(key, pid)`          | 将Prompt移到指定分区（pid=null 则移除）        |
+| `movePromptToPartition(key, pid)`          | 将Prompt移到指定分区（pid=null 则移除）        |
 | `moveCategoryToPartition(catId, pid)`      | 将分类移到指定分区                             |
 | `moveCombinationToPartition(combKey, pid)` | 将组合移到指定分区                             |
-| `setArtistWeight(key, weight)`             | 设置Prompt权重（0~2，weight=1.0 时删除 key）   |
+| `setPromptWeight(key, weight)`             | 设置Prompt权重（0~2，weight=1.0 时删除 key）   |
 
 ### 2.4 节点同步（前端 → ComfyUI）
 
@@ -160,7 +160,7 @@ v1 metadata（传输格式）
 具体步骤：
 
 1. **构建 partitions 数组**：遍历每个分区，从映射表中反查出属于该分区的所有 key：
-    - `artistKeys`：从 `artistPartitionMap` 过滤出属于该分区的Prompt key（格式 `"categoryId:artistName"`）
+    - `promptKeys`：从 `promptPartitionMap` 过滤出属于该分区的Prompt key（格式 `"categoryId:promptName"`）
     - `categoryIds`：从 `categoryPartitionMap` 过滤出属于该分区的分类 ID
     - `combinationKeys`：从 `combinationPartitionMap` 过滤出属于该分区的组合 key（格式 `"combination:{uuid}"`）
 
@@ -176,14 +176,14 @@ v1 metadata（传输格式）
                 "isDefault": true,
                 "enabled": true,
                 "config": { "format": "{content}", ... },
-                "artistKeys": ["root:artist_a", "cat1:artist_b"],
+                "promptKeys": ["root:prompt_a", "cat1:prompt_b"],
                 "categoryIds": ["cat-id-1"],
                 "combinationKeys": ["combination:uuid-xxx"]
             }
         ],
-        "artistWeights": {
-            "root:artist_a": 1.5,
-            "cat1:artist_b": 0.8
+        "promptWeights": {
+            "root:prompt_a": 1.5,
+            "cat1:prompt_b": 0.8
         },
         "globalConfig": { ... }
     }
@@ -204,9 +204,9 @@ toggleSelection(categoryId, name)
     ↓
 生成 key = "categoryId:name"
     ↓
-更新 selectedKeys（Set）和 selectedArtistsCache（Object）
+更新 selectedKeys（Set）和 selectedPromptsCache（Object）
     ↓
-moveArtistToPartition(key, defaultPartition.id)
+movePromptToPartition(key, defaultPartition.id)
     ↓
 partitionData 更新
     ↓
@@ -221,18 +221,18 @@ useNodeSync useEffect 触发
 
 ## 三、后端数据处理流程
 
-### 3.1 ArtistSelector.select_artists() — 主入口
+### 3.1 PromptsSelector.select_prompts() — 主入口
 
 当 ComfyUI 执行工作流时，调用此函数。
 
 **输入**：
 
-- `selected_artists`（STRING）：前端显示用的Prompt名（后端不使用）
+- `selected_prompts`（STRING）：前端显示用的Prompt名（后端不使用）
 - `metadata`（STRING）：v1 格式的 JSON
 
 **输出**：
 
-- `artists_string`（STRING）：格式化后的Prompt名称字符串，可直接作为提示词
+- `prompts_string`（STRING）：格式化后的Prompt名称字符串，可直接作为提示词
 - `metadata_json`（STRING）：富化后的 JSON，供下游 `SaveToGallery` 使用
 
 #### 处理流程
@@ -269,16 +269,16 @@ useNodeSync useEffect 触发
 
 每个分区中的Prompt来自三个渠道，全部解析后合并为一个统一的工作列表：
 
-#### 来源一：直接选择的Prompt（artistKeys）
+#### 来源一：直接选择的Prompt（promptKeys）
 
-- 格式：`"categoryId:artistName"`
+- 格式：`"categoryId:promptName"`
 - 处理：按 `:` 分割，提取 `categoryId` 和 `name`
 - 示例：`"root:mike"` → `('', 'mike')`
 
 #### 来源二：分类递归解析（categoryIds）
 
 - 用户可能选择了整个分类而非单个Prompt
-- 调用 `_resolve_category_to_artists(category_id, all_artists, all_categories)` 递归解析
+- 调用 `_resolve_category_to_prompts(category_id, all_prompts, all_categories)` 递归解析
 - 解析逻辑：
     1. 查找 `parentId == category_id` 的所有子分类，递归处理
     2. 查找 `categoryId == category_id` 的所有Prompt，收集名称
@@ -289,21 +289,21 @@ useNodeSync useEffect 触发
 - 格式：`"combination:{uuid}"`
 - 处理：提取 UUID，从 `CombinationStorage` 查询组合详情
 - 获取两个关键字段：
-    - `outputContent`：组合的格式化输出文本（如 `"@artist_a,@artist_b"`）
-    - `artistKeys`：组合包含的Prompt名称列表
+    - `outputContent`：组合的格式化输出文本（如 `"@prompt_a,@prompt_b"`）
+    - `promptKeys`：组合包含的Prompt名称列表
 
 #### 合并为工作列表
 
 ```python
 working_items = [
-    ('artist', 'root', 'mike'),           # 直接选择的Prompt
-    ('artist', 'cat1', 'sarah'),          # 从分类解析出的Prompt
+    ('prompt', 'root', 'mike'),           # 直接选择的Prompt
+    ('prompt', 'cat1', 'sarah'),          # 从分类解析出的Prompt
     ('combination', '@a,@b', ['a', 'b']), # 组合（内容 + 成员Prompt）
     ...
 ]
 ```
 
-去重：按 `"categoryId:artistName"` 去重，保持选择顺序。
+去重：按 `"categoryId:promptName"` 去重，保持选择顺序。
 
 ### 3.3 输出模式处理
 
@@ -349,18 +349,18 @@ working_items = [
 
 最终所有分区的格式化结果用逗号拼接：`"(@mike:1.5),sarah,@a,@b"`
 
-### 3.5 Prompt收集（collect_artist）
+### 3.5 Prompt收集（collect_prompt）
 
-在输出处理过程中，通过 `collect_artist(cat_id, name, save_to_gallery)` 函数跨分区收集所有参与输出的Prompt：
+在输出处理过程中，通过 `collect_prompt(cat_id, name, save_to_gallery)` 函数跨分区收集所有参与输出的Prompt：
 
 - 去重：用 `seen_keys` 集合防止同一Prompt被重复收集
 - 记录 `saveToGallery` 标记：来自分区配置
-- 组合条目中的Prompt也会被收集：遍历组合的 `artistKeys`，逐一调用 `collect_artist`
+- 组合条目中的Prompt也会被收集：遍历组合的 `promptKeys`，逐一调用 `collect_prompt`
 - 这些收集到的Prompt会用于：
-    1. 构建富化 metadata 中的 `artist_names` 和 `selected_artists`
+    1. 构建富化 metadata 中的 `prompt_names` 和 `selected_prompts`
     2. 供 `SaveToGallery` 使用
 
-同时，通过 `partition_used_artists` 字典记录每个分区实际参与输出的Prompt名（区分随机/循环后真正被选中的Prompt）。
+同时，通过 `partition_used_prompts` 字典记录每个分区实际参与输出的Prompt名（区分随机/循环后真正被选中的Prompt）。
 
 ### 3.6 自动创建组合
 
@@ -371,7 +371,7 @@ working_items = [
 1. 分区已启用（`enabled = true`）
 2. 分区配置中 `autoCreateCombination = true`
 3. 分区配置中 `saveToGallery = true`（前置条件）
-4. 该分区有实际参与输出的Prompt（`partition_used_artists` 不为空）
+4. 该分区有实际参与输出的Prompt（`partition_used_prompts` 不为空）
 
 **创建逻辑**：
 
@@ -388,7 +388,7 @@ working_items = [
 - 分区选择了Prompt `mike`, `sarah`，格式模板为 `@{content}`
 - `outputContent` = `"@mike,@sarah"`
 - `name` = `"mike,sarah"`
-- `artistKeys` = `["mike", "sarah"]`
+- `promptKeys` = `["mike", "sarah"]`
 
 ### 3.7 富化 Metadata 输出
 
@@ -396,8 +396,8 @@ working_items = [
 
 ```json
 {
-    "artist_names": ["mike", "sarah", "alice"],
-    "selected_artists": [
+    "prompt_names": ["mike", "sarah", "alice"],
+    "selected_prompts": [
         { "categoryId": "root", "name": "mike", "saveToGallery": true },
         { "categoryId": "cat1", "name": "sarah", "saveToGallery": true },
         { "categoryId": "cat2", "name": "alice", "saveToGallery": false }
@@ -406,8 +406,8 @@ working_items = [
 }
 ```
 
-- `artist_names`：所有收集到的Prompt名（包含 `saveToGallery=false` 的）
-- `selected_artists`：详细信息列表，含 `saveToGallery` 标记
+- `prompt_names`：所有收集到的Prompt名（包含 `saveToGallery=false` 的）
+- `selected_prompts`：详细信息列表，含 `saveToGallery` 标记
 - `formatted_result`：格式化后的输出字符串
 
 ---
@@ -419,7 +419,7 @@ working_items = [
 | 参数                    | 类型          | 必填 | 说明                                                 |
 | ----------------------- | ------------- | ---- | ---------------------------------------------------- |
 | `images`                | IMAGE         | 是   | ComfyUI 图片张量（可能多张）                         |
-| `metadata_json`         | STRING        | 否\* | 来自 ArtistSelector 的富化 metadata（优先级高）      |
+| `metadata_json`         | STRING        | 否\* | 来自 PromptsSelector 的富化 metadata（优先级高）     |
 | `filename_prefix`       | STRING        | 否   | 文件名前缀，默认 `"AG"`                              |
 | `prompt_string`         | STRING        | 否\* | 提示词字符串，自动匹配已知Prompt名（备选，优先级低） |
 | `prompt`（隐藏）        | PROMPT        | —    | ComfyUI 工作流的 prompt 信息                         |
@@ -437,11 +437,11 @@ working_items = [
 三路优先级判断 ──────────────────────────────────────────┐
     ↓                                                    │
 Path A: metadata_json 有效                                │
-（包含 artist_names 和 selected_artists）                  │
+（包含 prompt_names 和 selected_prompts）                  │
     → 筛选 saveToGallery=true 的Prompt                      │
     ↓                                                    │
 Path B: metadata_json 无效，但有 prompt_string             │
-    → 调用 _match_artists_from_prompt(prompt_string)       │
+    → 调用 _match_prompts_from_prompt(prompt_string)       │
     → 使用正则交替模式匹配已知Prompt名                         │
     → 所有匹配到的Prompt默认 saveToGallery=true               │
     ↓                                                    │
@@ -449,8 +449,8 @@ Path C: 两者都没有有效内容                                  │
     → 输出错误日志，返回 ()                                │
     ↓                                                    │
 └────────────────────────────────────────────────────────┘
-    ↓ （Path A 或 Path B 得到 saveable_artists / saveable_names）
-创建保存目录 output/artist_gallery/
+    ↓ （Path A 或 Path B 得到 saveable_prompts / saveable_names）
+创建保存目录 output/prompt_gallery/
     ↓
 遍历每张图片 ──────────────────────────┐
     ↓                                  │
@@ -460,13 +460,13 @@ Tensor → numpy → PIL Image             │
     ↓                                  │
 嵌入 PNG 元数据:                        │
   - prompt (工作流信息)                  │
-  - artist_gallery (Prompt关联信息)        │
+  - prompt_gallery (Prompt关联信息)        │
   - extra_pnginfo (附加信息)            │
     ↓                                  │
 保存 PNG 到磁盘                         │
     ↓                                  │
 创建映射关系 (image_mapping):           │
-  imagePath → artistNames[]             │
+  imagePath → promptNames[]             │
     ↓                                  │
 更新Prompt图片计数 +1                     │
     ↓                                  │
@@ -477,14 +477,14 @@ Tensor → numpy → PIL Image             │
 
 ### 4.2.1 prompt_string Prompt匹配算法
 
-当 `metadata_json` 无效但 `prompt_string` 有内容时，使用 `_match_artists_from_prompt()` 方法自动匹配Prompt。
+当 `metadata_json` 无效但 `prompt_string` 有内容时，使用 `_match_prompts_from_prompt()` 方法自动匹配Prompt。
 
 **原理**：格式模板（如 `@{content}`、`({content}:1.2)`）输出中，Prompt名始终是完整子串。因此只需在 prompt_string 中查找已知Prompt名的子串即可。
 
 **算法步骤**：
 
-1. 从 `ArtistStorage` 加载所有Prompt
-2. 构建 `name → [artist, ...]` 查找表（同名Prompt可属于不同分类）
+1. 从 `PromptStorage` 加载所有Prompt
+2. 构建 `name → [prompt, ...]` 查找表（同名Prompt可属于不同分类）
 3. 将所有Prompt名编译为一个正则交替模式（`re.compile('name1|name2|...'，re.IGNORECASE)`），按名称长度降序排列确保贪心匹配
 4. 单次 `findall()` 扫描 prompt_string，获取所有匹配
 5. 去重保序，查找每个匹配名对应的所有Prompt
@@ -493,7 +493,7 @@ Tensor → numpy → PIL Image             │
 **性能优化**：
 
 - 正则交替模式：将 N 个Prompt名编译为 1 个正则，单次扫描，匹配时间与Prompt数量无关
-- 模块级缓存：`_artist_regex_cache` + `frozenset` 指纹，Prompt列表未变化时复用已编译正则
+- 模块级缓存：`_prompt_regex_cache` + `frozenset` 指纹，Prompt列表未变化时复用已编译正则
 - 10,000 个Prompt名：正则编译 ~10-50ms（一次性），匹配 <1ms
 - 大小写不敏感匹配，结果使用存储中的规范大小写
 
@@ -510,29 +510,29 @@ prompt_string = "@mike, (sarah:1.2), some other text, @tom"
 #### Prompt筛选
 
 ```python
-saveable_artists = [a for a in selected_artists if a.get("saveToGallery", True)]
-saveable_names = [a["name"] for a in saveable_artists]
+saveable_prompts = [a for a in selected_prompts if a.get("saveToGallery", True)]
+saveable_names = [a["name"] for a in saveable_prompts]
 ```
 
 只有 `saveToGallery=true` 的Prompt会参与图片关联和计数更新。这意味着：
 
 - 如果某个分区关闭了 `saveToGallery`，该分区的Prompt名称不会出现在保存图片的关联信息中
-- 但这些Prompt仍然会出现在 `ArtistSelector` 的输出字符串中（用于提示词）
+- 但这些Prompt仍然会出现在 `PromptsSelector` 的输出字符串中（用于提示词）
 
 #### 映射关系创建
 
-每张保存的图片会在 `image_artists.json` 中创建一条映射记录：
+每张保存的图片会在 `image_prompts.json` 中创建一条映射记录：
 
 ```json
 {
-    "imagePath": "artist_gallery/AG_1712345678900_00000.png",
-    "artistNames": ["mike", "sarah"],
+    "imagePath": "prompt_gallery/AG_1712345678900_00000.png",
+    "promptNames": ["mike", "sarah"],
     "width": 512,
     "height": 768
 }
 ```
 
-- `artistNames` 是一个数组：一张图片可以关联多个Prompt
+- `promptNames` 是一个数组：一张图片可以关联多个Prompt
 - 这些关联信息用于：
     1. 画廊中按Prompt筛选图片
     2. 组合图片查询（取所有成员Prompt图片的交集）
@@ -543,7 +543,7 @@ saveable_names = [a["name"] for a in saveable_artists]
 保存的图片会嵌入以下文本块：
 
 - `prompt`：完整的 ComfyUI 工作流 prompt（可拖入 ComfyUI 恢复工作流）
-- `artist_gallery`：Prompt关联信息 JSON
+- `prompt_gallery`：Prompt关联信息 JSON
 - `extra_pnginfo` 中的其他信息（如 workflow JSON）
 
 ---
@@ -573,7 +573,7 @@ saveable_names = [a["name"] for a in saveable_artists]
                 "saveToGallery": true,
                 "autoCreateCombination": true
             },
-            "artistKeys": ["root:mike", "cat1:sarah"],
+            "promptKeys": ["root:mike", "cat1:sarah"],
             "categoryIds": ["cat2"],
             "combinationKeys": []
         },
@@ -582,12 +582,12 @@ saveable_names = [a["name"] for a in saveable_artists]
             "name": "分区2",
             "enabled": true,
             "config": { "format": "{content}", "saveToGallery": true },
-            "artistKeys": [],
+            "promptKeys": [],
             "categoryIds": [],
             "combinationKeys": ["combination:uuid-123"]
         }
     ],
-    "artistWeights": {
+    "promptWeights": {
         "root:mike": 1.5
     }
 }
@@ -598,7 +598,7 @@ saveable_names = [a["name"] for a in saveable_artists]
 **解析阶段**：
 
 - 默认分区：`mike`（直接选择）+ `sarah`（直接选择）+ `alice`, `bob`（从 cat2 解析）
-- 分区2：组合 `uuid-123` → outputContent=`@tom,@jerry`, artistKeys=[`tom`, `jerry`]
+- 分区2：组合 `uuid-123` → outputContent=`@tom,@jerry`, promptKeys=[`tom`, `jerry`]
 
 **随机模式处理**（默认分区）：
 
@@ -620,12 +620,12 @@ saveable_names = [a["name"] for a in saveable_artists]
 
 **最终输出**：
 
-- `artists_string` = `"@bob,(@mike:1.5),@tom,@jerry"`
-- `metadata_json` = `{ "artist_names": ["bob", "mike", "tom", "jerry"], ... }`
+- `prompts_string` = `"@bob,(@mike:1.5),@tom,@jerry"`
+- `metadata_json` = `{ "prompt_names": ["bob", "mike", "tom", "jerry"], ... }`
 
 ### SaveToGallery 处理
 
-- 保存图片到 `output/artist_gallery/AG_xxx.png`
+- 保存图片到 `output/prompt_gallery/AG_xxx.png`
 - 关联Prompt：`["bob", "mike", "tom", "jerry"]`
 - 更新这四位Prompt的图片计数各 +1
 
@@ -638,10 +638,10 @@ saveable_names = [a["name"] for a in saveable_artists]
 ```
 partitionData = {
     partitions: Partition[]                          // 分区列表
-    artistPartitionMap: { [artistKey]: partitionId } // Prompt归属
+    promptPartitionMap: { [promptKey]: partitionId } // Prompt归属
     categoryPartitionMap: { [catId]: partitionId }   // 分类归属
     combinationPartitionMap: { [combKey]: partitionId } // 组合归属
-    artistWeights: { [artistKey]: number }           // Prompt权重 (0~2, 默认 1.0)
+    promptWeights: { [promptKey]: number }           // Prompt权重 (0~2, 默认 1.0)
 }
 ```
 
@@ -653,11 +653,11 @@ partitionData = {
     "partitions": [{
         "id": "...", "name": "...", "isDefault": bool, "enabled": bool,
         "config": { format, randomMode, randomCount, cycleMode, saveToGallery, autoCreateCombination },
-        "artistKeys": ["categoryId:name", ...],
+        "promptKeys": ["categoryId:name", ...],
         "categoryIds": ["catId", ...],
         "combinationKeys": ["combination:uuid", ...]
     }],
-    "artistWeights": { "categoryId:name": 1.5, ... },
+    "promptWeights": { "categoryId:name": 1.5, ... },
     "globalConfig": { ... }
 }
 ```
@@ -666,15 +666,15 @@ partitionData = {
 
 ```json
 {
-    "artist_names": ["name1", "name2", ...],
-    "selected_artists": [{ "categoryId": "...", "name": "...", "saveToGallery": bool }],
+    "prompt_names": ["name1", "name2", ...],
+    "selected_prompts": [{ "categoryId": "...", "name": "...", "saveToGallery": bool }],
     "formatted_result": "格式化后的完整字符串"
 }
 ```
 
 ### 存储层格式
 
-- **artists.json**: `{ id, name, displayName, categoryId, coverImageId, createdAt }`
-- **combinations.json**: `{ id, name, categoryId, artistKeys[], outputContent, coverImageId, createdAt }`
-- **image_artists.json**: `{ imagePath, artistNames[], width, height }`
+- **prompts.json**: `{ id, name, displayName, categoryId, coverImageId, createdAt }`
+- **combinations.json**: `{ id, name, categoryId, promptKeys[], outputContent, coverImageId, createdAt }`
+- **image_prompts.json**: `{ imagePath, promptNames[], width, height }`
 - **categories.json**: `{ id, name, parentId, children[] }`

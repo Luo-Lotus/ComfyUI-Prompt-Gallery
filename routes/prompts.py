@@ -1,5 +1,5 @@
 """
-Artist CRUD 端点
+Prompt CRUD 端点
 """
 from pathlib import Path
 from aiohttp import web
@@ -7,21 +7,21 @@ import server
 from ..storage import get_storage
 
 
-# ============ Artist CRUD API ============
+# ============ Prompt CRUD API ============
 
-@server.PromptServer.instance.routes.get("/artist_gallery/artists")
-async def get_artists(request):
+@server.PromptServer.instance.routes.get("/prompt_gallery/prompts")
+async def get_prompts(request):
     """获取所有Prompt列表"""
     try:
-        artist_storage, _, _, _ = get_storage()
-        artists = artist_storage.get_all_artists()
-        return web.json_response({"artists": artists, "totalCount": len(artists)})
+        prompt_storage, _, _, _ = get_storage()
+        prompts = prompt_storage.get_all_prompts()
+        return web.json_response({"prompts": prompts, "totalCount": len(prompts)})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/artists")
-async def add_artist(request):
+@server.PromptServer.instance.routes.post("/prompt_gallery/prompts")
+async def add_prompt(request):
     """添加Prompt（单个）"""
     try:
         data = await request.json()
@@ -33,65 +33,65 @@ async def add_artist(request):
         if not value:
             return web.json_response({"error": "Prompt值不能为空"}, status=400)
 
-        artist_storage, _, category_storage, _ = get_storage()
+        prompt_storage, _, category_storage, _ = get_storage()
 
         # 验证分类存在
         category = category_storage.get_category_by_id(category_id)
         if not category:
             return web.json_response({"error": "分类不存在"}, status=400)
 
-        artist = artist_storage.add_artist(value=value, name=name, alias=alias, category_id=category_id)
+        prompt = prompt_storage.add_prompt(value=value, name=name, alias=alias, category_id=category_id)
 
-        return web.json_response({"artist": artist, "success": True})
+        return web.json_response({"prompt": prompt, "success": True})
     except ValueError as e:
         return web.json_response({"error": str(e)}, status=400)
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/artists/batch")
-async def add_artists_batch(request):
+@server.PromptServer.instance.routes.post("/prompt_gallery/prompts/batch")
+async def add_prompts_batch(request):
     """批量添加Prompt"""
     try:
         data = await request.json()
-        artists_data = data.get("artists", [])
+        prompts_data = data.get("prompts", [])
         category_id = data.get("categoryId", "root")
 
-        if not artists_data:
+        if not prompts_data:
             return web.json_response({"error": "Prompt列表不能为空"}, status=400)
 
-        artist_storage, _, _, _ = get_storage()
-        success_artists, failed_names = artist_storage.add_artists_batch(artists_data, category_id)
+        prompt_storage, _, _, _ = get_storage()
+        success_prompts, failed_names = prompt_storage.add_prompts_batch(prompts_data, category_id)
 
         return web.json_response({
             "success": True,
-            "addedCount": len(success_artists),
+            "addedCount": len(success_prompts),
             "failedCount": len(failed_names),
-            "artists": success_artists,
+            "prompts": success_prompts,
             "failedNames": failed_names
         })
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.delete("/artist_gallery/artists/{artist_id}")
-async def delete_artist(request):
+@server.PromptServer.instance.routes.delete("/prompt_gallery/prompts/{prompt_id}")
+async def delete_prompt(request):
     """删除Prompt（包括关联的图片文件）- 兼容旧版本"""
     try:
-        artist_id = request.match_info['artist_id']
+        prompt_id = request.match_info['prompt_id']
 
-        artist_storage, mapping_storage, _, _ = get_storage()
+        prompt_storage, mapping_storage, _, _ = get_storage()
 
         # 获取Prompt信息
-        artist = artist_storage.get_artist_by_id(artist_id)
-        if not artist:
+        prompt = prompt_storage.get_prompt_by_id(prompt_id)
+        if not prompt:
             return web.json_response({"error": "Prompt不存在"}, status=404)
 
         # 获取该Prompt关联的图片
-        mappings = mapping_storage.get_mappings_by_artist_id(artist_id)
+        mappings = mapping_storage.get_mappings_by_prompt_id(prompt_id)
 
         # 移除映射关系，获取孤儿图片（没有其他Prompt关联的图片）
-        orphan_images = mapping_storage.remove_artist_from_mappings(artist.get("value"))
+        orphan_images = mapping_storage.remove_prompt_from_mappings(prompt.get("value"))
 
         # 删除孤儿图片文件
         import folder_paths
@@ -107,44 +107,44 @@ async def delete_artist(request):
                 print(f"Error deleting file {image_path}: {e}")
 
         # 删除Prompt记录
-        artist_storage.delete_artist_by_id(artist_id)
+        prompt_storage.delete_prompt_by_id(prompt_id)
 
         return web.json_response({
             "success": True,
             "deletedFiles": deleted_files,
-            "message": f"已删除Prompt '{artist.get('name')}'"
+            "message": f"已删除Prompt '{prompt.get('name')}'"
         })
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.get(r"/artist_gallery/artists/{category_id}/{value:.+}")
-async def get_artist_composite(request):
+@server.PromptServer.instance.routes.get(r"/prompt_gallery/prompts/{category_id}/{value:.+}")
+async def get_prompt_composite(request):
     """获取单个Prompt详情（使用组合键）"""
     try:
         category_id = request.match_info['category_id']
         value = request.match_info['value']
 
-        artist_storage, _, _, _ = get_storage()
-        artist = artist_storage.get_artist(category_id, value)
+        prompt_storage, _, _, _ = get_storage()
+        prompt = prompt_storage.get_prompt(category_id, value)
 
-        if not artist:
+        if not prompt:
             return web.json_response({"error": "Prompt不存在"}, status=404)
 
-        return web.json_response({"artist": artist})
+        return web.json_response({"prompt": prompt})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.put(r"/artist_gallery/artists/{category_id}/{value:.+}")
-async def update_artist_composite(request):
+@server.PromptServer.instance.routes.put(r"/prompt_gallery/prompts/{category_id}/{value:.+}")
+async def update_prompt_composite(request):
     """更新Prompt信息（使用组合键）"""
     try:
         category_id = request.match_info['category_id']
         old_value = request.match_info['value']
         data = await request.json()
 
-        artist_storage, mapping_storage, category_storage, _ = get_storage()
+        prompt_storage, mapping_storage, category_storage, _ = get_storage()
 
         # 检查是否要修改值
         new_value = data.get("value", old_value)
@@ -153,10 +153,10 @@ async def update_artist_composite(request):
         # 如果修改了值，需要先检查新值是否在任意分类下已存在
         if value_changed:
             # 获取所有Prompt，检查新值是否已存在
-            all_artists = artist_storage.get_all_artists()
-            for artist in all_artists:
-                if artist.get("value") == new_value:
-                    return web.json_response({"error": f"Prompt值 '{new_value}' 已存在（在分类 '{artist.get('categoryId', 'root')}' 中）"}, status=400)
+            all_prompts = prompt_storage.get_all_prompts()
+            for prompt in all_prompts:
+                if prompt.get("value") == new_value:
+                    return web.json_response({"error": f"Prompt值 '{new_value}' 已存在（在分类 '{prompt.get('categoryId', 'root')}' 中）"}, status=400)
 
         kwargs = {}
         if "name" in data:
@@ -175,19 +175,19 @@ async def update_artist_composite(request):
             kwargs["value"] = new_value
 
         # 如果修改了值，需要找到所有分类下同值的Prompt并批量更新
-        updated_artists = []
+        updated_prompts = []
         success = True  # 默认成功，用于非值变更的情况
 
         if value_changed:
             # 获取所有Prompt
-            all_artists = artist_storage.get_all_artists()
+            all_prompts = prompt_storage.get_all_prompts()
 
             # 找出所有与旧值同值的Prompt
-            same_value_artists = [a for a in all_artists if a.get("value") == old_value]
+            same_value_prompts = [a for a in all_prompts if a.get("value") == old_value]
 
             # 批量更新所有同值Prompt
-            for same_value_artist in same_value_artists:
-                cat_id = same_value_artist.get("categoryId", "root")
+            for same_value_prompt in same_value_prompts:
+                cat_id = same_value_prompt.get("categoryId", "root")
                 # 更新Prompt值（只传入需要更新的字段）
                 update_kwargs = {}
                 if "name" in kwargs:
@@ -200,36 +200,36 @@ async def update_artist_composite(request):
                     update_kwargs["coverImageId"] = kwargs["coverImageId"]
                 update_kwargs["value"] = new_value
 
-                success = artist_storage.update_artist(cat_id, old_value, **update_kwargs)
+                success = prompt_storage.update_prompt(cat_id, old_value, **update_kwargs)
                 if success:
-                    updated_artists.append({
+                    updated_prompts.append({
                         "categoryId": cat_id,
                         "oldValue": old_value,
                         "newValue": new_value
                     })
         else:
             # 只更新当前Prompt（不修改值）
-            success = artist_storage.update_artist(category_id, old_value, **kwargs)
+            success = prompt_storage.update_prompt(category_id, old_value, **kwargs)
 
         if success:
             # 如果修改了值，更新所有相关映射
             updated_mappings = 0
             if value_changed:
-                updated_mappings = mapping_storage.rename_artist_in_mappings(old_value, new_value)
+                updated_mappings = mapping_storage.rename_prompt_in_mappings(old_value, new_value)
 
             # 重新查询更新后的Prompt信息
             new_category_id = kwargs.get("categoryId", category_id)
-            artist = artist_storage.get_artist(new_category_id, new_value)
+            prompt = prompt_storage.get_prompt(new_category_id, new_value)
 
             result = {
-                "artist": artist,
+                "prompt": prompt,
                 "success": True
             }
 
             # 如果更新了映射，添加更新数量
             if value_changed:
                 result["updatedMappings"] = updated_mappings
-                result["updatedArtists"] = updated_artists
+                result["updatedPrompts"] = updated_prompts
 
             return web.json_response(result)
         else:
@@ -242,8 +242,8 @@ async def update_artist_composite(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.delete(r"/artist_gallery/artists/{category_id}/{value:.+}")
-async def delete_artist_composite(request):
+@server.PromptServer.instance.routes.delete(r"/prompt_gallery/prompts/{category_id}/{value:.+}")
+async def delete_prompt_composite(request):
     """
     删除Prompt（使用组合键）
 
@@ -256,24 +256,24 @@ async def delete_artist_composite(request):
         category_id = request.match_info['category_id']
         value = request.match_info['value']
 
-        artist_storage, mapping_storage, _, _ = get_storage()
+        prompt_storage, mapping_storage, _, _ = get_storage()
 
         # 获取Prompt信息
-        artist = artist_storage.get_artist(category_id, value)
-        if not artist:
+        prompt = prompt_storage.get_prompt(category_id, value)
+        if not prompt:
             return web.json_response({"error": "Prompt不存在"}, status=404)
 
         # 检查是否存在其他分类的同值Prompt
-        all_artists = artist_storage.get_all_artists()
-        same_value_artists = [a for a in all_artists if a.get("value") == value and a.get("categoryId") != category_id]
-        has_other_categories = len(same_value_artists) > 0
+        all_prompts = prompt_storage.get_all_prompts()
+        same_value_prompts = [a for a in all_prompts if a.get("value") == value and a.get("categoryId") != category_id]
+        has_other_categories = len(same_value_prompts) > 0
 
         deleted_files = []
 
         if not has_other_categories:
             # 这是最后一个同值Prompt，可以安全清理图片
             # 移除映射关系，获取孤儿图片（没有其他Prompt关联的图片）
-            orphan_images = mapping_storage.remove_artist_from_mappings(value)
+            orphan_images = mapping_storage.remove_prompt_from_mappings(value)
 
             # 删除孤儿图片文件
             import folder_paths
@@ -288,30 +288,30 @@ async def delete_artist_composite(request):
                     print(f"Error deleting file {image_path}: {e}")
 
         # 删除Prompt记录
-        artist_storage.delete_artist(category_id, value)
+        prompt_storage.delete_prompt(category_id, value)
 
         # 从所有组合中移除该Prompt引用
         _, _, _, combination_storage = get_storage()
-        combination_storage.remove_artist_from_all(value)
+        combination_storage.remove_prompt_from_all(value)
 
         return web.json_response({
             "success": True,
             "deletedFiles": deleted_files,
-            "message": f"已删除Prompt '{artist.get('name')}'",
+            "message": f"已删除Prompt '{prompt.get('name')}'",
             "hasOtherCategories": has_other_categories
         })
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.put("/artist_gallery/artists/{artist_id}")
-async def update_artist(request):
+@server.PromptServer.instance.routes.put("/prompt_gallery/prompts/{prompt_id}")
+async def update_prompt(request):
     """更新Prompt信息"""
     try:
-        artist_id = request.match_info['artist_id']
+        prompt_id = request.match_info['prompt_id']
         data = await request.json()
 
-        artist_storage, _, category_storage, _ = get_storage()
+        prompt_storage, _, category_storage, _ = get_storage()
 
         kwargs = {}
         if "value" in data:
@@ -329,11 +329,11 @@ async def update_artist(request):
         if "coverImageId" in data:
             kwargs["coverImageId"] = data["coverImageId"]
 
-        success = artist_storage.update_artist_by_id(artist_id, **kwargs)
+        success = prompt_storage.update_prompt_by_id(prompt_id, **kwargs)
 
         if success:
-            artist = artist_storage.get_artist_by_id(artist_id)
-            return web.json_response({"artist": artist, "success": True})
+            prompt = prompt_storage.get_prompt_by_id(prompt_id)
+            return web.json_response({"prompt": prompt, "success": True})
         else:
             return web.json_response({"error": "Prompt不存在"}, status=404)
     except ValueError as e:
@@ -342,15 +342,15 @@ async def update_artist(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/artists/{artist_id}/move")
-async def move_artist(request):
+@server.PromptServer.instance.routes.post("/prompt_gallery/prompts/{prompt_id}/move")
+async def move_prompt(request):
     """移动Prompt到其他分类下"""
     try:
-        artist_id = request.match_info['artist_id']
+        prompt_id = request.match_info['prompt_id']
         data = await request.json()
         new_category_id = data.get("newCategoryId", "root")
 
-        artist_storage, _, category_storage, _ = get_storage()
+        prompt_storage, _, category_storage, _ = get_storage()
 
         # 验证新分类存在
         category = category_storage.get_category_by_id(new_category_id)
@@ -358,11 +358,11 @@ async def move_artist(request):
             return web.json_response({"error": "目标分类不存在"}, status=400)
 
         # 更新Prompt的分类
-        success = artist_storage.update_artist_by_id(artist_id, categoryId=new_category_id)
+        success = prompt_storage.update_prompt_by_id(prompt_id, categoryId=new_category_id)
 
         if success:
-            artist = artist_storage.get_artist_by_id(artist_id)
-            return web.json_response({"artist": artist, "success": True})
+            prompt = prompt_storage.get_prompt_by_id(prompt_id)
+            return web.json_response({"prompt": prompt, "success": True})
         else:
             return web.json_response({"error": "Prompt不存在"}, status=404)
     except ValueError as e:
@@ -371,18 +371,18 @@ async def move_artist(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.get("/artist_gallery/artist/{artist_id}/images")
-async def get_artist_images(request):
+@server.PromptServer.instance.routes.get("/prompt_gallery/prompt/{prompt_id}/images")
+async def get_prompt_images(request):
     """获取Prompt关联的图片（通过映射查询）"""
     try:
-        artist_id = request.match_info['artist_id']
+        prompt_id = request.match_info['prompt_id']
 
-        artist_storage, mapping_storage, _, _ = get_storage()
-        artist = artist_storage.get_artist_by_id(artist_id)
-        if not artist:
+        prompt_storage, mapping_storage, _, _ = get_storage()
+        prompt = prompt_storage.get_prompt_by_id(prompt_id)
+        if not prompt:
             return web.json_response({"error": "Prompt不存在"}, status=404)
 
-        mappings = mapping_storage.get_mappings_by_artist(artist.get("value"))
+        mappings = mapping_storage.get_mappings_by_prompt(prompt.get("value"))
 
         # 构建图片信息
         images = []
@@ -401,8 +401,8 @@ async def get_artist_images(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post(r"/artist_gallery/artists/{category_id}/{value:.+}/copy")
-async def copy_artist(request):
+@server.PromptServer.instance.routes.post(r"/prompt_gallery/prompts/{category_id}/{value:.+}/copy")
+async def copy_prompt(request):
     """
     复制Prompt到其他分类
     创建一个新的Prompt实例，共享所有图片（因为图片映射使用Prompt值）
@@ -417,11 +417,11 @@ async def copy_artist(request):
         if not target_category_id:
             return web.json_response({"error": "缺少目标分类ID"}, status=400)
 
-        artist_storage, _, category_storage, _ = get_storage()
+        prompt_storage, _, category_storage, _ = get_storage()
 
         # 验证源Prompt存在
-        source_artist = artist_storage.get_artist(category_id, value)
-        if not source_artist:
+        source_prompt = prompt_storage.get_prompt(category_id, value)
+        if not source_prompt:
             return web.json_response({"error": "源Prompt不存在"}, status=404)
 
         # 验证目标分类存在
@@ -431,10 +431,10 @@ async def copy_artist(request):
 
         # 创建新Prompt（使用相同或新值）
         try:
-            new_artist = artist_storage.add_artist(
+            new_prompt = prompt_storage.add_prompt(
                 value=new_value,
-                name=source_artist.get("name"),
-                alias=source_artist.get("alias", ""),
+                name=source_prompt.get("name"),
+                alias=source_prompt.get("alias", ""),
                 category_id=target_category_id
             )
         except ValueError as e:
@@ -444,34 +444,34 @@ async def copy_artist(request):
 
         return web.json_response({
             "success": True,
-            "artist": new_artist,
+            "prompt": new_prompt,
             "message": f"已复制Prompt到分类 '{target_category.get('name')}'"
         })
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
 
-# ============ Artist Images API (detail view) ============
+# ============ Prompt Images API (detail view) ============
 
-@server.PromptServer.instance.routes.get("/artist_gallery/artist_images")
-async def get_artist_images_by_composite(request):
+@server.PromptServer.instance.routes.get("/prompt_gallery/prompt_images")
+async def get_prompt_images_by_composite(request):
     """获取Prompt的全部图片（详情视图用，使用 query 参数避免路由冲突）"""
     try:
         import folder_paths
 
-        output_dir = folder_paths.get_output_directory()
+        output_dir = Path(folder_paths.get_output_directory())
         value = request.query.get("value", "")
 
         if not value:
             return web.json_response({"error": "缺少Prompt值"}, status=400)
 
         _, mapping_storage, _, _ = get_storage()
-        mappings = mapping_storage.get_mappings_by_artist(value)
+        mappings = mapping_storage.get_mappings_by_prompt(value)
 
         images = []
         for mapping in mappings:
             image_path = mapping.get("imagePath")
-            full_path = Path(output_dir) / image_path
+            full_path = output_dir / image_path
             if full_path.exists():
                 try:
                     stat = full_path.stat()

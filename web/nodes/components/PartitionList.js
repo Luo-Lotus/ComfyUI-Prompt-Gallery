@@ -9,19 +9,19 @@ import { AddPartitionForm } from './AddPartitionForm.js';
 
 export function PartitionList({
   partitions,
-  artistsByPartition,
+  promptsByPartition,
   categoriesByPartition,
   combinationsByPartition,
-  artistWeights,
+  promptWeights,
   onPartitionAction,
   onPartitionReorder,
-  onArtistMove,
-  onArtistRemove,
+  onPromptMove,
+  onPromptRemove,
   onCategoryMove,
   onCategoryRemove,
   onCombinationMove,
   onCombinationRemove,
-  onArtistWeightChange,
+  onPromptWeightChange,
 }) {
   const [showAddPartition, setShowAddPartition] = useState(false);
   const [dragOverInfo, setDragOverInfo] = useState(null); // { partitionId, position: 'before'|'after' }
@@ -135,7 +135,7 @@ export function PartitionList({
   };
 
   // 计算总Prompt数
-  const totalArtists = Object.values(artistsByPartition || {}).reduce((sum, artists) => sum + artists.length, 0);
+  const totalPrompts = Object.values(promptsByPartition || {}).reduce((sum, prompts) => sum + prompts.length, 0);
   const totalCombinations = Object.values(combinationsByPartition || {}).reduce((sum, combs) => sum + combs.length, 0);
 
   // 渲染分区项（含插入指示线）
@@ -167,18 +167,18 @@ export function PartitionList({
         },
         h(PartitionItem, {
           partition,
-          artists: (artistsByPartition || {})[partition.id] || [],
+          prompts: (promptsByPartition || {})[partition.id] || [],
           partitionCategories: (categoriesByPartition || {})[partition.id] || [],
           partitionCombinations: (combinationsByPartition || {})[partition.id] || [],
-          artistWeights,
+          promptWeights,
           onPartitionAction,
-          onArtistMove,
+          onPromptMove,
           onCategoryMove,
-          onArtistRemove,
+          onPromptRemove,
           onCategoryRemove,
           onCombinationMove,
           onCombinationRemove,
-          onArtistWeightChange,
+          onPromptWeightChange,
         }),
       ),
     );
@@ -205,7 +205,7 @@ export function PartitionList({
     [
       // 头部
       h('div', { class: 'partition-list-header' }, [
-        h('span', { class: 'partition-list-title' }, `已选择 (${totalArtists + totalCombinations})`),
+        h('span', { class: 'partition-list-title' }, `已选择 (${totalPrompts + totalCombinations})`),
         renderAddButton(),
       ]),
 

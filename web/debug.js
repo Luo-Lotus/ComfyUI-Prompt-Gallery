@@ -1,7 +1,7 @@
 // 在浏览器控制台运行这些命令来调试
 
 // 1. 检查按钮是否存在
-const btn = document.getElementById('artist-gallery-floating-btn');
+const btn = document.getElementById('prompt-gallery-floating-btn');
 console.log('按钮存在:', !!btn);
 console.log('按钮元素:', btn);
 

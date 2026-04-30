@@ -10,17 +10,17 @@ from ..utils import decode_filename
 
 # ============ Gallery 数据 API ============
 
-@server.PromptServer.instance.routes.get("/artist_gallery/data")
+@server.PromptServer.instance.routes.get("/prompt_gallery/data")
 async def get_gallery_data(request):
     """获取Prompt图库数据 API（支持分类筛选）"""
     import folder_paths
-    output_dir = folder_paths.get_output_directory()
+    output_dir = Path(folder_paths.get_output_directory())
 
     try:
         # 获取分类参数
         category_id = request.query.get("category", "root")
 
-        artist_storage, mapping_storage, category_storage, combination_storage = get_storage()
+        prompt_storage, mapping_storage, category_storage, combination_storage = get_storage()
 
         # 验证分类存在
         category = category_storage.get_category_by_id(category_id)
@@ -28,53 +28,51 @@ async def get_gallery_data(request):
             return web.json_response({"error": "分类不存在"}, status=400)
 
         # 只获取该分类下的Prompt（不包含子分类）
-        artists_data = [
-            a for a in artist_storage.get_all_artists()
+        prompts_data = [
+            a for a in prompt_storage.get_all_prompts()
             if a.get("categoryId") == category_id
         ]
 
-        # 一次性构建 artist_value → [mapping, ...] 索引，消除 N+1 查询
-        artist_mapping_index = mapping_storage.build_artist_index()
+        # 一次性构建 prompt_value → [mapping, ...] 索引，消除 N+1 查询
+        prompt_mapping_index = mapping_storage.build_prompt_index()
 
         # 构建结果列表（只返回封面信息，不返回完整图片列表）
-        result_artists = []
+        result_prompts = []
 
-        for artist in artists_data:
-            artist_value = artist.get("value")
-            mappings = artist_mapping_index.get(artist_value, [])
+        for prompt in prompts_data:
+            prompt_value = prompt.get("value")
+            mappings = prompt_mapping_index.get(prompt_value, [])
 
             # 计数（只统计文件存在的映射）
             image_count = 0
             for mapping in mappings:
                 image_path = mapping.get("imagePath")
-                full_path = Path(output_dir) / image_path
-                if full_path.exists():
+                if (output_dir / image_path).exists():
                     image_count += 1
 
             # 获取封面图片路径：优先用设置的封面，否则取第一张存在的映射
-            cover_path = artist.get("coverImageId")
+            cover_path = prompt.get("coverImageId")
             if not cover_path:
                 for m in mappings:
                     image_path = m.get("imagePath")
-                    full_path = Path(output_dir) / image_path
-                    if full_path.exists():
+                    if (output_dir / image_path).exists():
                         cover_path = image_path
                         break
 
             # 构建Prompt对象（不包含 images 数组）
-            result_artist = {
-                "value": artist.get("value"),
-                "name": artist.get("name"),
-                "categoryId": artist.get("categoryId", "root"),
+            result_prompt = {
+                "value": prompt.get("value"),
+                "name": prompt.get("name"),
+                "categoryId": prompt.get("categoryId", "root"),
                 "coverImagePath": cover_path,
                 "imageCount": image_count,
-                "createdAt": artist.get("createdAt", 0)
+                "createdAt": prompt.get("createdAt", 0)
             }
 
-            result_artists.append(result_artist)
+            result_prompts.append(result_prompt)
 
         # 排序Prompt
-        result_artists.sort(key=lambda x: x["value"].lower())
+        result_prompts.sort(key=lambda x: x["value"].lower())
 
         # 获取当前分类下的组合，并添加封面图片路径（复用同一个索引）
         raw_combinations = combination_storage.get_combinations_by_category(category_id)
@@ -84,11 +82,10 @@ async def get_gallery_data(request):
             # 优先使用设置的封面，否则取第一个成员Prompt的第一张图
             cover_path = comb.get("coverImageId")
             if not cover_path:
-                for artist_value in comb.get("prompts", []):
-                    for m in artist_mapping_index.get(artist_value, []):
+                for prompt_value in comb.get("prompts", []):
+                    for m in prompt_mapping_index.get(prompt_value, []):
                         image_path = m.get("imagePath")
-                        full_path = Path(output_dir) / image_path
-                        if full_path.exists():
+                        if (output_dir / image_path).exists():
                             cover_path = image_path
                             break
                     if cover_path:
@@ -100,10 +97,10 @@ async def get_gallery_data(request):
         child_categories = category_storage.get_children(category_id)
 
         return web.json_response({
-            "artists": result_artists,
+            "prompts": result_prompts,
             "combinations": result_combinations,
             "childCategories": [{"id": c.get("id"), "name": c.get("name"), "parentId": c.get("parentId")} for c in child_categories],
-            "totalCount": len(result_artists),
+            "totalCount": len(result_prompts),
             "categoryId": category_id,
             "generatedAt": int(__import__('time').time() * 1000)
         })
@@ -112,11 +109,11 @@ async def get_gallery_data(request):
         print(f"Error getting gallery data: {e}")
         # 降级到扫描方式
         from ..utils import scan_output_directory
-        data = scan_output_directory(output_dir)
+        data = scan_output_directory(str(output_dir))
         return web.json_response(data)
 
 
-@server.PromptServer.instance.routes.get("/artist_gallery/html")
+@server.PromptServer.instance.routes.get("/prompt_gallery/html")
 async def get_gallery_html(request):
     """返回图库 HTML 页面"""
     html_path = Path(__file__).parent.parent / "web" / "gallery.html"

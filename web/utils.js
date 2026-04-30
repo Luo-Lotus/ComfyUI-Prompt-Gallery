@@ -20,7 +20,7 @@ export function flattenCategories(tree) {
 export const Storage = {
   getButtonPosition() {
     try {
-      const saved = localStorage.getItem('artist-gallery-btn-pos');
+      const saved = localStorage.getItem('prompt-gallery-btn-pos');
       return saved ? JSON.parse(saved) : null;
     } catch (e) {
       console.error('Failed to load button position:', e);
@@ -28,31 +28,31 @@ export const Storage = {
     }
   },
   saveButtonPosition(left, top) {
-    localStorage.setItem('artist-gallery-btn-pos', JSON.stringify({ left, top }));
+    localStorage.setItem('prompt-gallery-btn-pos', JSON.stringify({ left, top }));
   },
   getFavorites() {
     try {
-      const saved = localStorage.getItem('artist-favorites');
+      const saved = localStorage.getItem('prompt-favorites');
       return saved ? new Set(JSON.parse(saved)) : new Set();
     } catch {
       return new Set();
     }
   },
   saveFavorites(favorites) {
-    localStorage.setItem('artist-favorites', JSON.stringify([...favorites]));
+    localStorage.setItem('prompt-favorites', JSON.stringify([...favorites]));
   },
-  toggleFavorite(artistName, favorites) {
-    if (favorites.has(artistName)) {
-      favorites.delete(artistName);
+  toggleFavorite(promptName, favorites) {
+    if (favorites.has(promptName)) {
+      favorites.delete(promptName);
     } else {
-      favorites.add(artistName);
+      favorites.add(promptName);
     }
     this.saveFavorites(favorites);
     return favorites;
   },
   getCardSize() {
     try {
-      const saved = localStorage.getItem('artist-gallery-card-size');
+      const saved = localStorage.getItem('prompt-gallery-card-size');
       const val = parseFloat(saved);
       return isNaN(val) ? 1.0 : Math.min(1.5, Math.max(0.5, val));
     } catch {
@@ -60,7 +60,7 @@ export const Storage = {
     }
   },
   saveCardSize(scale) {
-    localStorage.setItem('artist-gallery-card-size', String(scale));
+    localStorage.setItem('prompt-gallery-card-size', String(scale));
   },
 };
 
@@ -76,7 +76,7 @@ export function buildImageUrl(path) {
 }
 
 export async function fetchGalleryData(categoryId = 'root') {
-  const url = categoryId === 'root' ? '/artist_gallery/data' : `/artist_gallery/data?category=${categoryId}`;
+  const url = categoryId === 'root' ? '/prompt_gallery/data' : `/prompt_gallery/data?category=${categoryId}`;
   const response = await fetch(url);
   const data = await response.json();
   if (data.error) {
@@ -88,7 +88,7 @@ export async function fetchGalleryData(categoryId = 'root') {
 // ============ Category API ============
 
 export async function fetchCategories() {
-  const response = await fetch('/artist_gallery/categories');
+  const response = await fetch('/prompt_gallery/categories');
   if (!response.ok) {
     throw new Error('获取分类失败');
   }
@@ -96,7 +96,7 @@ export async function fetchCategories() {
 }
 
 export async function addCategory(data) {
-  const response = await fetch('/artist_gallery/categories', {
+  const response = await fetch('/prompt_gallery/categories', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -109,7 +109,7 @@ export async function addCategory(data) {
 }
 
 export async function updateCategory(categoryId, data) {
-  const response = await fetch(`/artist_gallery/categories/${categoryId}`, {
+  const response = await fetch(`/prompt_gallery/categories/${categoryId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -122,7 +122,7 @@ export async function updateCategory(categoryId, data) {
 }
 
 export async function deleteCategory(categoryId) {
-  const response = await fetch(`/artist_gallery/categories/${categoryId}`, {
+  const response = await fetch(`/prompt_gallery/categories/${categoryId}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -132,18 +132,20 @@ export async function deleteCategory(categoryId) {
   return await response.json();
 }
 
-export async function fetchAllArtists() {
-  const response = await fetch('/artist_gallery/artists');
+export async function fetchAllPrompts() {
+  const response = await fetch('/prompt_gallery/prompts');
   if (!response.ok) {
     throw new Error('获取Prompt列表失败');
   }
   return await response.json();
 }
 
-// ============ Artist API (Composite Key) ============
+// ============ Prompt API (Composite Key) ============
 
-export async function fetchArtist(categoryId, value) {
-  const response = await fetch(`/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`);
+export async function fetchPrompt(categoryId, value) {
+  const response = await fetch(
+    `/prompt_gallery/prompts/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
+  );
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || '获取Prompt失败');
@@ -151,9 +153,9 @@ export async function fetchArtist(categoryId, value) {
   return await response.json();
 }
 
-export async function deleteArtist(categoryId, value) {
+export async function deletePrompt(categoryId, value) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
+    `/prompt_gallery/prompts/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
     {
       method: 'DELETE',
     },
@@ -165,9 +167,9 @@ export async function deleteArtist(categoryId, value) {
   return await response.json();
 }
 
-export async function copyArtist(categoryId, value, targetCategoryId, newValue) {
+export async function copyPrompt(categoryId, value, targetCategoryId, newValue) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}/copy`,
+    `/prompt_gallery/prompts/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}/copy`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -184,17 +186,17 @@ export async function copyArtist(categoryId, value, targetCategoryId, newValue) 
   return await response.json();
 }
 
-export async function fetchArtistImages(value) {
-  const response = await fetch(`/artist_gallery/artist_images?value=${encodeURIComponent(value)}`);
+export async function fetchPromptImages(value) {
+  const response = await fetch(`/prompt_gallery/prompt_images?value=${encodeURIComponent(value)}`);
   if (!response.ok) {
     throw new Error('获取Prompt图片失败');
   }
   return await response.json();
 }
 
-export async function setArtistCover(categoryId, value, coverImagePath) {
+export async function setPromptCover(categoryId, value, coverImagePath) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
+    `/prompt_gallery/prompts/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -209,7 +211,7 @@ export async function setArtistCover(categoryId, value, coverImagePath) {
 }
 
 export async function fetchInitData() {
-  const response = await fetch('/artist_gallery/init');
+  const response = await fetch('/prompt_gallery/init');
   if (!response.ok) {
     throw new Error('初始化数据加载失败');
   }
@@ -217,7 +219,7 @@ export async function fetchInitData() {
 }
 
 export async function copyImage(imagePath, toPromptValue) {
-  const response = await fetch('/artist_gallery/image/copy', {
+  const response = await fetch('/prompt_gallery/image/copy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -232,10 +234,10 @@ export async function copyImage(imagePath, toPromptValue) {
   return await response.json();
 }
 
-// ============ Legacy Artist API (ID-based, for compatibility) ============
+// ============ Legacy Prompt API (ID-based, for compatibility) ============
 
-export async function addArtist(data) {
-  const response = await fetch('/artist_gallery/artists', {
+export async function addPrompt(data) {
+  const response = await fetch('/prompt_gallery/prompts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -247,11 +249,11 @@ export async function addArtist(data) {
   return await response.json();
 }
 
-export async function addArtistsBatch(artistsData) {
-  const response = await fetch('/artist_gallery/artists/batch', {
+export async function addPromptsBatch(promptsData) {
+  const response = await fetch('/prompt_gallery/prompts/batch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ artists: artistsData }),
+    body: JSON.stringify({ prompts: promptsData }),
   });
   if (!response.ok) {
     const error = await response.json();
@@ -260,8 +262,8 @@ export async function addArtistsBatch(artistsData) {
   return await response.json();
 }
 
-export async function moveArtist(artistId, newCategoryId) {
-  const response = await fetch(`/artist_gallery/artists/${artistId}/move`, {
+export async function movePrompt(promptId, newCategoryId) {
+  const response = await fetch(`/prompt_gallery/prompts/${promptId}/move`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ newCategoryId }),
@@ -306,8 +308,8 @@ export function buildBreadcrumbPath(categoryId, categories) {
 export async function fetchCombinations(categoryId = 'root') {
   const url =
     categoryId === 'root'
-      ? '/artist_gallery/combinations'
-      : `/artist_gallery/combinations?category=${encodeURIComponent(categoryId)}`;
+      ? '/prompt_gallery/combinations'
+      : `/prompt_gallery/combinations?category=${encodeURIComponent(categoryId)}`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error('获取组合列表失败');
@@ -316,7 +318,7 @@ export async function fetchCombinations(categoryId = 'root') {
 }
 
 export async function fetchAllCombinations() {
-  const response = await fetch('/artist_gallery/combinations/all');
+  const response = await fetch('/prompt_gallery/combinations/all');
   if (!response.ok) {
     throw new Error('获取组合列表失败');
   }
@@ -324,7 +326,7 @@ export async function fetchAllCombinations() {
 }
 
 export async function createCombination(data) {
-  const response = await fetch('/artist_gallery/combinations', {
+  const response = await fetch('/prompt_gallery/combinations', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -337,7 +339,7 @@ export async function createCombination(data) {
 }
 
 export async function updateCombination(id, data) {
-  const response = await fetch(`/artist_gallery/combinations/${encodeURIComponent(id)}`, {
+  const response = await fetch(`/prompt_gallery/combinations/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -350,7 +352,7 @@ export async function updateCombination(id, data) {
 }
 
 export async function deleteCombination(id) {
-  const response = await fetch(`/artist_gallery/combinations/${encodeURIComponent(id)}`, {
+  const response = await fetch(`/prompt_gallery/combinations/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -361,7 +363,7 @@ export async function deleteCombination(id) {
 }
 
 export async function duplicateCombination(id) {
-  const response = await fetch(`/artist_gallery/combinations/${encodeURIComponent(id)}/duplicate`, {
+  const response = await fetch(`/prompt_gallery/combinations/${encodeURIComponent(id)}/duplicate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -373,7 +375,7 @@ export async function duplicateCombination(id) {
 }
 
 export async function moveCombination(id, targetCategoryId) {
-  const response = await fetch(`/artist_gallery/combinations/${encodeURIComponent(id)}/move`, {
+  const response = await fetch(`/prompt_gallery/combinations/${encodeURIComponent(id)}/move`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ targetCategoryId }),
@@ -386,7 +388,7 @@ export async function moveCombination(id, targetCategoryId) {
 }
 
 export async function fetchCombinationImages(id) {
-  const response = await fetch(`/artist_gallery/combinations/${encodeURIComponent(id)}/images`);
+  const response = await fetch(`/prompt_gallery/combinations/${encodeURIComponent(id)}/images`);
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || '获取组合图片失败');
@@ -420,15 +422,15 @@ async function _downloadZip(response) {
   URL.revokeObjectURL(url);
 }
 
-export async function exportArtists(artists, options = {}) {
+export async function exportPrompts(prompts, options = {}) {
   await _downloadZip(
-    await fetch('/artist_gallery/export', {
+    await fetch('/prompt_gallery/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        artists,
+        prompts,
         includeImages: options.includeImages !== false,
-        maxImagesPerArtist: options.maxImagesPerArtist || 0,
+        maxImagesPerPrompt: options.maxImagesPerPrompt || 0,
       }),
     }),
   );
@@ -436,22 +438,22 @@ export async function exportArtists(artists, options = {}) {
 
 export async function exportCategory(categoryId, options = {}) {
   await _downloadZip(
-    await fetch('/artist_gallery/export-category', {
+    await fetch('/prompt_gallery/export-category', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         categoryId,
         includeImages: options.includeImages !== false,
-        maxImagesPerArtist: options.maxImagesPerArtist || 0,
+        maxImagesPerPrompt: options.maxImagesPerPrompt || 0,
       }),
     }),
   );
 }
 
-export async function importArtists(file, categoryId) {
+export async function importPrompts(file, categoryId) {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await fetch(`/artist_gallery/import?categoryId=${encodeURIComponent(categoryId)}`, {
+  const response = await fetch(`/prompt_gallery/import?categoryId=${encodeURIComponent(categoryId)}`, {
     method: 'POST',
     body: formData,
   });

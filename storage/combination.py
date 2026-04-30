@@ -159,7 +159,7 @@ class CombinationStorage:
                 return c
         return None
 
-    def remove_artist_from_all(self, prompt_value: str) -> int:
+    def remove_prompt_from_all(self, prompt_value: str) -> int:
         """
         从所有组合中移除指定Prompt值
         :return: 受影响的组合数量

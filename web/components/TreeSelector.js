@@ -7,9 +7,9 @@ import { useState, useMemo } from '../lib/hooks.mjs';
 import { Icon } from '../lib/icons.mjs';
 
 export function TreeSelector({
-  type, // 'category' | 'artist'
+  type, // 'category' | 'prompt'
   categories,
-  artists,
+  prompts,
   currentId,
   onSelect,
   excludeIds = [], // 排除的ID列表
@@ -41,7 +41,7 @@ export function TreeSelector({
     if (type === 'category') {
       return flatCategories;
     } else {
-      // 类型为 artist，混合显示分类和Prompt
+      // 类型为 prompt，混合显示分类和Prompt
       const result = [];
       flatCategories.forEach((cat) => {
         result.push({
@@ -49,18 +49,18 @@ export function TreeSelector({
           type: 'category',
         });
         // 添加该分类下的Prompt
-        const categoryArtists = (artists || []).filter((a) => a.categoryId === cat.id);
-        categoryArtists.forEach((artist) => {
+        const categoryPrompts = (prompts || []).filter((a) => a.categoryId === cat.id);
+        categoryPrompts.forEach((prompt) => {
           result.push({
-            ...artist,
+            ...prompt,
             level: cat.level + 1,
-            type: 'artist',
+            type: 'prompt',
           });
         });
       });
       return result;
     }
-  }, [categories, artists, type]);
+  }, [categories, prompts, type]);
 
   // 过滤数据
   const filteredData = useMemo(() => {

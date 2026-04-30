@@ -29,15 +29,15 @@ function buildBreadcrumbPath(categoryId, categories) {
   return path;
 }
 
-export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
+export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
   // 使用图片预览 hook
   const { showPreview, removePreview } = useImagePreview();
 
   // 基础状态管理
-  const [artists, setArtists] = useState([]); // 当前分类的画师
-  const [allArtists, setAllArtists] = useState([]); // 所有画师（用于分类选择）
+  const [prompts, setPrompts] = useState([]); // 当前分类的画师
+  const [allPrompts, setAllPrompts] = useState([]); // 所有画师（用于分类选择）
   const [categories, setCategories] = useState([]);
-  const [selectedArtistsCache, setSelectedArtistsCache] = useState({}); // 缓存所有已选择的画师信息
+  const [selectedPromptsCache, setSelectedPromptsCache] = useState({}); // 缓存所有已选择的画师信息
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('name');
@@ -50,28 +50,28 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
   // 分区系统状态（由 usePartitionState hook 管理）
   const {
     partitionData,
-    getArtistsByPartition,
+    getPromptsByPartition,
     getCategoriesByPartition,
     getCombinationsByPartition,
     addPartition,
     deletePartition,
     updatePartition,
-    moveArtistToPartition,
-    setArtistWeight,
+    movePromptToPartition,
+    setPromptWeight,
     moveCategoryToPartition,
     moveCombinationToPartition,
     togglePartition,
     setAsDefaultPartition,
     reorderPartitions,
   } = usePartitionState({
-    selectedArtistsCache,
+    selectedPromptsCache,
     categories,
     combinations: allCombinations,
     metadataInput,
   });
 
   // 选择状态从分区映射中推导（分区映射是唯一真相来源）
-  const [selectedKeys, setSelectedKeys] = useState(() => new Set(Object.keys(partitionData.artistPartitionMap || {})));
+  const [selectedKeys, setSelectedKeys] = useState(() => new Set(Object.keys(partitionData.promptPartitionMap || {})));
   const [selectedCategories, setSelectedCategories] = useState(
     () => new Set(Object.keys(partitionData.categoryPartitionMap || {})),
   );
@@ -87,11 +87,11 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
   }, [currentCategory, categories]);
 
   // 计算已选择的画师列表（从缓存中获取）
-  const selectedArtistsList = useMemo(() => {
+  const selectedPromptsList = useMemo(() => {
     return Array.from(selectedKeys)
-      .map((key) => selectedArtistsCache[key])
+      .map((key) => selectedPromptsCache[key])
       .filter(Boolean);
-  }, [selectedKeys, selectedArtistsCache]);
+  }, [selectedKeys, selectedPromptsCache]);
 
   // 计算已选择的分类列表
   const selectedCategoriesList = useMemo(() => {
@@ -103,88 +103,86 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
   }, [selectedCategories, categories]);
 
   // 辅助函数：生成组合键
-  const makeArtistKey = (categoryId, name) => `${categoryId}:${name}`;
+  const makePromptKey = (categoryId, value) => `${categoryId}:${value}`;
 
   // 辅助函数：解析组合键
-  const parseArtistKey = (key) => {
-    const [categoryId, name] = key.split(':');
-    return { categoryId, name };
+  const parsePromptKey = (key) => {
+    const [categoryId, value] = key.split(':');
+    return { categoryId, value };
   };
 
   // 一次性加载分类树、所有画师和所有组合
   useEffect(() => {
     const loadInitData = async () => {
       try {
-        const response = await fetch('/artist_gallery/init');
+        const response = await fetch('/prompt_gallery/init');
         const data = await response.json();
         setCategories(data.categories || []);
-        setAllArtists(data.artists || []);
+        setAllPrompts(data.prompts || []);
         setAllCombinations(data.combinations || []);
       } catch (error) {
-        console.error('[ArtistSelector] Failed to load init data:', error);
+        console.error('[PromptSelector] Failed to load init data:', error);
       }
     };
     loadInitData();
   }, []);
 
-  // 当 allArtists 加载完成后，补全缓存中缺失的画师信息
+  // 当 allPrompts 加载完成后，补全缓存中缺失的画师信息
   useEffect(() => {
-    if (!allArtists || allArtists.length === 0 || selectedKeys.size === 0) return;
+    if (!allPrompts || allPrompts.length === 0 || selectedKeys.size === 0) return;
 
-    setSelectedArtistsCache((prev) => {
+    setSelectedPromptsCache((prev) => {
       const newCache = { ...prev };
       let changed = false;
       selectedKeys.forEach((key) => {
         if (newCache[key]) return;
-        const { categoryId, name } = parseArtistKey(key);
-        const artist = allArtists.find((a) => a.categoryId === categoryId && a.value === name);
-        if (artist) {
-          newCache[key] = artist;
+        const { categoryId, value } = parsePromptKey(key);
+        const prompt = allPrompts.find((a) => a.categoryId === categoryId && a.value === value);
+        if (prompt) {
+          newCache[key] = prompt;
           changed = true;
         }
       });
       return changed ? newCache : prev;
     });
-  }, [allArtists, selectedKeys]);
+  }, [allPrompts, selectedKeys]);
 
   // 加载画师列表（根据分类筛选）
   useEffect(() => {
-    const loadArtists = async () => {
+    const loadPrompts = async () => {
       setLoading(true);
       try {
         // 加载当前分类的画师
         const url =
           currentCategory === 'root'
-            ? '/artist_gallery/data?category=root'
-            : `/artist_gallery/data?category=${currentCategory}`;
+            ? '/prompt_gallery/data?category=root'
+            : `/prompt_gallery/data?category=${currentCategory}`;
         const response = await fetch(url);
         const data = await response.json();
 
         // 从响应中提取画师数据
-        const artistsList = data.artists || [];
-        setArtists(artistsList);
+        const promptsList = data.prompts || [];
+        setPrompts(promptsList);
 
         // 直接使用 data 接口返回的组合数据（不再单独请求）
         setCombinations(data.combinations || []);
       } catch (error) {
-        console.error('[ArtistSelector] Failed to load artists:', error);
+        console.error('[PromptSelector] Failed to load prompts:', error);
       } finally {
         setLoading(false);
       }
     };
-    loadArtists();
+    loadPrompts();
   }, [currentCategory]);
 
   // 过滤和排序
-  const filteredArtists = useMemo(() => {
-    if (!artists || artists.length === 0) return [];
-    let result = [...artists];
+  const filteredPrompts = useMemo(() => {
+    if (!prompts || prompts.length === 0) return [];
+    let result = [...prompts];
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (a) => a.value.toLowerCase().includes(query) || a.name.toLowerCase().includes(query),
-      );
+      result = result.filter((a) => a.value.toLowerCase().includes(query) || a.name.toLowerCase().includes(query));
     }
 
     result.sort((a, b) => {
@@ -200,12 +198,12 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
     });
 
     return result;
-  }, [artists, searchQuery, sortBy, sortOrder]);
+  }, [prompts, searchQuery, sortBy, sortOrder]);
 
   // 切换画师选择状态（扁平化更新，消除嵌套 setter）
   const toggleSelection = useCallback(
-    (categoryId, name) => {
-      const key = makeArtistKey(categoryId, name);
+    (categoryId, value) => {
+      const key = makePromptKey(categoryId, value);
       const isAdding = !selectedKeys.has(key);
 
       setSelectedKeys((prev) => {
@@ -218,11 +216,11 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
         return next;
       });
 
-      setSelectedArtistsCache((prev) => {
+      setSelectedPromptsCache((prev) => {
         const next = { ...prev };
         if (isAdding) {
-          const artist = artists.find((a) => a.categoryId === categoryId && a.value === name);
-          if (artist) next[key] = artist;
+          const prompt = prompts.find((a) => a.categoryId === categoryId && a.value === value);
+          if (prompt) next[key] = prompt;
         } else {
           delete next[key];
         }
@@ -233,13 +231,13 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
       if (isAdding) {
         const defaultPartition = partitionData.partitions.find((p) => p.isDefault);
         if (defaultPartition) {
-          moveArtistToPartition(key, defaultPartition.id);
+          movePromptToPartition(key, defaultPartition.id);
         }
       } else {
-        moveArtistToPartition(key, null);
+        movePromptToPartition(key, null);
       }
     },
-    [selectedKeys, artists, partitionData, makeArtistKey, moveArtistToPartition],
+    [selectedKeys, prompts, partitionData, makePromptKey, movePromptToPartition],
   );
 
   // 切换分类选择状态（扁平化更新）
@@ -295,7 +293,7 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
     selectedInput,
     metadataInput,
     selectedKeys,
-    selectedArtistsCache,
+    selectedPromptsCache,
     partitionData,
   });
 
@@ -311,23 +309,23 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
     setRefreshing(true);
     try {
       // 刷新初始化数据（分类、所有画师、所有组合）
-      const initResponse = await fetch('/artist_gallery/init');
+      const initResponse = await fetch('/prompt_gallery/init');
       const initData = await initResponse.json();
       setCategories(initData.categories || []);
-      setAllArtists(initData.artists || []);
+      setAllPrompts(initData.prompts || []);
       setAllCombinations(initData.combinations || []);
 
       // 同时刷新当前分类的画师
       const url =
         currentCategory === 'root'
-          ? '/artist_gallery/data?category=root'
-          : `/artist_gallery/data?category=${currentCategory}`;
+          ? '/prompt_gallery/data?category=root'
+          : `/prompt_gallery/data?category=${currentCategory}`;
       const response = await fetch(url);
       const data = await response.json();
-      setArtists(data.artists || []);
+      setPrompts(data.prompts || []);
       setCombinations(data.combinations || []);
     } catch (error) {
-      console.error('[ArtistSelector] Failed to refresh:', error);
+      console.error('[PromptSelector] Failed to refresh:', error);
     } finally {
       setRefreshing(false);
     }
@@ -337,19 +335,19 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
 
   return {
     // 状态
-    artists,
+    prompts,
     categories,
     selectedKeys,
     selectedCategories,
-    selectedArtistsCache,
+    selectedPromptsCache,
     loading,
     searchQuery,
 
     sortBy,
     sortOrder,
     currentCategory,
-    filteredArtists,
-    selectedArtistsList,
+    filteredPrompts,
+    selectedPromptsList,
     selectedCategoriesList,
     refreshing,
     breadcrumbPath,
@@ -361,14 +359,14 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
 
     // 分区系统状态和操作
     partitionData,
-    getArtistsByPartition,
+    getPromptsByPartition,
     getCategoriesByPartition,
     getCombinationsByPartition,
     addPartition,
     deletePartition,
     updatePartition,
-    moveArtistToPartition,
-    setArtistWeight,
+    movePromptToPartition,
+    setPromptWeight,
     moveCategoryToPartition,
     moveCombinationToPartition,
     togglePartition,
@@ -383,8 +381,8 @@ export function useArtistSelector(nodeInstance, selectedInput, metadataInput) {
     toggleCategorySelection,
     handleCategoryChange,
     handleRefresh,
-    makeArtistKey,
-    parseArtistKey,
+    makePromptKey,
+    parsePromptKey,
     updateNodeValue, // 导出 updateNodeValue 函数
   };
 }

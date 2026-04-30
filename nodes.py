@@ -1,9 +1,9 @@
 """
-Artist Gallery Node - ComfyUI 节点定义
+Prompt Gallery Node - ComfyUI 节点定义
 
-这个文件包含 Artist Gallery 的三个核心节点类：
-- ArtistGallery: 画师图库管理面板
-- ArtistSelector: 画师选择器节点
+这个文件包含 Prompt Gallery 的三个核心节点类：
+- PromptGallery: 画师图库管理面板
+- PromptSelector: 画师选择器节点
 - SaveToGallery: 保存图片到画廊节点
 
 相关功能已拆分到以下模块：
@@ -25,14 +25,14 @@ from . import routes
 _cycle_states = {}
 
 # prompt_string 画师匹配正则缓存
-_artist_regex_cache = None
-_artist_regex_names = None  # frozenset 指纹，用于检测画师列表是否变化
+_prompt_regex_cache = None
+_prompt_regex_names = None  # frozenset 指纹，用于检测画师列表是否变化
 
 
-class ArtistGallery:
+class PromptGallery:
     """画师图库节点 - 管理面板"""
 
-    CATEGORY = "🎨 Artist Gallery"
+    CATEGORY = "🎨 Prompt Gallery"
     RETURN_TYPES = ()
     FUNCTION = "gallery"
     OUTPUT_NODE = True
@@ -49,28 +49,28 @@ class ArtistGallery:
     def gallery(self, action="打开画廊"):
         """画师图库管理功能"""
         if action == "打开画廊":
-            print("[ArtistGallery] 点击页面右下角的 🎨 按钮打开画廊")
+            print("[PromptGallery] 点击页面右下角的 🎨 按钮打开画廊")
         elif action == "刷新数据":
-            print("[ArtistGallery] 数据已刷新 - 请在画廊中查看")
+            print("[PromptGallery] 数据已刷新 - 请在画廊中查看")
         elif action == "统计信息":
             try:
-                artist_storage, _, _, _ = get_storage()
-                artists = artist_storage.get_all_artists()
-                total_artists = len(artists)
-                total_images = sum(a.get("imageCount", 0) for a in artists)
-                print(f"[ArtistGallery] 统计: {total_artists} 个画师, {total_images} 张图片")
+                prompt_storage, _, _, _ = get_storage()
+                prompts = prompt_storage.get_all_prompts()
+                total_prompts = len(prompts)
+                total_images = sum(a.get("imageCount", 0) for a in prompts)
+                print(f"[PromptGallery] 统计: {total_prompts} 个画师, {total_images} 张图片")
             except Exception as e:
-                print(f"[ArtistGallery] 获取统计信息失败: {e}")
+                print(f"[PromptGallery] 获取统计信息失败: {e}")
         return ()
 
 
-class ArtistSelector:
+class PromptSelector:
     """画师选择节点"""
 
-    CATEGORY = "🎨 Artist Gallery"
+    CATEGORY = "🎨 Prompt Gallery"
     RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("artists_string", "metadata_json")
-    FUNCTION = "select_artists"
+    RETURN_NAMES = ("prompts_string", "metadata_json")
+    FUNCTION = "select_prompts"
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
@@ -81,7 +81,7 @@ class ArtistSelector:
         return {
             "required": {
                 # 隐藏字段，用于从前端接收选择的画师字符串
-                "selected_artists": ("STRING", {"default": "", "widget": "hidden"}),
+                "selected_prompts": ("STRING", {"default": "", "widget": "hidden"}),
             },
             "optional": {
                 # 隐藏字段，用于从前端接收元数据
@@ -89,7 +89,7 @@ class ArtistSelector:
             }
         }
 
-    def select_artists(self, selected_artists, metadata):
+    def select_prompts(self, selected_prompts, metadata):
         """
         返回选择的画师信息
         根据分区配置处理输出
@@ -105,7 +105,7 @@ class ArtistSelector:
 
         return self._process_v1_metadata(metadata_dict, metadata)
 
-    def _resolve_category_to_artists(self, category_id, all_artists, all_categories, visited=None):
+    def _resolve_category_to_prompts(self, category_id, all_prompts, all_categories, visited=None):
         """递归解析分类，收集所有画师名"""
         if visited is None:
             visited = set()
@@ -118,14 +118,14 @@ class ArtistSelector:
         # 递归获取子分类
         for cat in all_categories:
             if cat.get('parentId') == category_id:
-                names.extend(self._resolve_category_to_artists(
-                    cat['id'], all_artists, all_categories, visited
+                names.extend(self._resolve_category_to_prompts(
+                    cat['id'], all_prompts, all_categories, visited
                 ))
 
         # 获取当前分类下的画师
-        for artist in all_artists:
-            if artist.get('categoryId') == category_id:
-                name = artist.get('value', '').strip()
+        for prompt in all_prompts:
+            if prompt.get('categoryId') == category_id:
+                name = prompt.get('value', '').strip()
                 if name:
                     names.append(name)
 
@@ -135,15 +135,15 @@ class ArtistSelector:
         """处理新版 v1 格式的 metadata，返回 (格式化结果, 富化后的 metadata JSON)"""
 
         try:
-            artist_storage, _, category_storage, combination_storage = get_storage()
-            all_artists = artist_storage.get_all_artists()
+            prompt_storage, _, category_storage, combination_storage = get_storage()
+            all_prompts = prompt_storage.get_all_prompts()
             all_categories = category_storage.get_all_categories()
         except Exception as e:
-            print(f"[ArtistSelector] Failed to load storage: {e}")
+            print(f"[PromptSelector] Failed to load storage: {e}")
             return ("", "{}")
 
         partitions = metadata_dict.get('partitions', [])
-        artist_weights = metadata_dict.get('artistWeights', {})
+        prompt_weights = metadata_dict.get('promptWeights', {})
         if not partitions:
             return ("", "{}")
 
@@ -152,10 +152,10 @@ class ArtistSelector:
         all_resolved = []      # [{categoryId, value, saveToGallery}, ...]
         seen_keys = set()
         # 记录每个分区实际使用的画师名（考虑随机/循环后）
-        partition_used_artists = {}  # {partition_id: [name, ...]}
+        partition_used_prompts = {}  # {partition_id: [name, ...]}
         partition_formats = {}  # {partition_id: format_string}
 
-        def collect_artist(cat_id, name, save_to_gallery=True):
+        def collect_prompt(cat_id, name, save_to_gallery=True):
             key = f"{cat_id}:{name}"
             if key not in seen_keys:
                 seen_keys.add(key)
@@ -180,24 +180,24 @@ class ArtistSelector:
             save_to_gallery = config.get('saveToGallery', True)
 
             # 收集画师名：直接选择 + 分类递归解析
-            artist_entries = []  # [(cat_id, name), ...]
+            prompt_entries = []  # [(cat_id, name), ...]
 
-            # 从 artistKeys 提取画师名（格式 "categoryId:artistName"）
-            for key in partition.get('artistKeys', []):
+            # 从 promptKeys 提取画师名（格式 "categoryId:promptName"）
+            for key in partition.get('promptKeys', []):
                 parts = key.split(':', 1)
                 name = parts[-1].strip() if parts else ''
                 cat_id = parts[0] if len(parts) > 1 else ''
                 if name:
-                    artist_entries.append((cat_id, name))
+                    prompt_entries.append((cat_id, name))
 
             # 从 categoryIds 递归解析画师
             for cat_id in partition.get('categoryIds', []):
-                resolved = self._resolve_category_to_artists(cat_id, all_artists, all_categories)
+                resolved = self._resolve_category_to_prompts(cat_id, all_prompts, all_categories)
                 for n in resolved:
-                    artist_entries.append((cat_id, n))
+                    prompt_entries.append((cat_id, n))
 
             # 从 combinationKeys 提取组合（格式 "combination:{uuid}"）
-            combination_entries = []  # [(output_content, artist_keys), ...]
+            combination_entries = []  # [(output_content, prompt_keys), ...]
             for comb_key in partition.get('combinationKeys', []):
                 if comb_key.startswith('combination:'):
                     comb_id = comb_key[len('combination:'):]
@@ -209,12 +209,12 @@ class ArtistSelector:
                                 combination.get('prompts', []),
                             ))
                     except Exception as e:
-                        print(f"[ArtistSelector] Failed to lookup combination {comb_id}: {e}")
+                        print(f"[PromptSelector] Failed to lookup combination {comb_id}: {e}")
 
             # 去重保序
             seen = set()
             unique_entries = []
-            for entry in artist_entries:
+            for entry in prompt_entries:
                 key = f"{entry[0]}:{entry[1]}"
                 if key not in seen:
                     seen.add(key)
@@ -224,12 +224,12 @@ class ArtistSelector:
                 continue
 
             # 将画师条目和组合条目合并为统一的工作列表
-            # 每个条目是 ('artist', cat_id, name) 或 ('combination', output_content, artist_keys)
+            # 每个条目是 ('prompt', cat_id, name) 或 ('combination', output_content, prompt_keys)
             working_items = []
             for cat_id, name in unique_entries:
-                working_items.append(('artist', cat_id, name))
-            for content, artist_keys in combination_entries:
-                working_items.append(('combination', content, artist_keys))
+                working_items.append(('prompt', cat_id, name))
+            for content, prompt_keys in combination_entries:
+                working_items.append(('combination', content, prompt_keys))
 
             # 处理循环模式
             if cycle_mode:
@@ -242,24 +242,24 @@ class ArtistSelector:
                 if current_item[0] == 'combination':
                     formatted_results.append(current_item[1])
                     # 组合的画师也要关联到保存的图片
-                    for artist_name in (current_item[2] or []):
-                        collect_artist('', artist_name, save_to_gallery)
+                    for prompt_name in (current_item[2] or []):
+                        collect_prompt('', prompt_name, save_to_gallery)
                         if save_to_gallery:
                             pid = partition.get('id', 'default')
-                            if pid not in partition_used_artists:
-                                partition_used_artists[pid] = []
-                            partition_used_artists[pid].append(artist_name)
+                            if pid not in partition_used_prompts:
+                                partition_used_prompts[pid] = []
+                            partition_used_prompts[pid].append(prompt_name)
                 else:
                     formatted = self._apply_format(current_item[2], partition_format)
                     w_key = f"{current_item[1]}:{current_item[2]}"
-                    formatted_results.append(self._apply_weight(formatted, artist_weights.get(w_key)))
-                    collect_artist(current_item[1], current_item[2], save_to_gallery)
+                    formatted_results.append(self._apply_weight(formatted, prompt_weights.get(w_key)))
+                    collect_prompt(current_item[1], current_item[2], save_to_gallery)
                     # 记录实际输出的画师名（用于自动创建组合）
-                    if save_to_gallery and current_item[0] == 'artist':
+                    if save_to_gallery and current_item[0] == 'prompt':
                         pid = partition.get('id', 'default')
-                        if pid not in partition_used_artists:
-                            partition_used_artists[pid] = []
-                        partition_used_artists[pid].append(current_item[2])
+                        if pid not in partition_used_prompts:
+                            partition_used_prompts[pid] = []
+                        partition_used_prompts[pid].append(current_item[2])
             else:
                 working = working_items
                 if random_mode and random_count > 0 and random_count < len(working):
@@ -268,24 +268,24 @@ class ArtistSelector:
                     if item[0] == 'combination':
                         formatted_results.append(item[1])
                         # 组合的画师也要关联到保存的图片
-                        for artist_name in (item[2] or []):
-                            collect_artist('', artist_name, save_to_gallery)
+                        for prompt_name in (item[2] or []):
+                            collect_prompt('', prompt_name, save_to_gallery)
                             if save_to_gallery:
                                 pid = partition.get('id', 'default')
-                                if pid not in partition_used_artists:
-                                    partition_used_artists[pid] = []
-                                partition_used_artists[pid].append(artist_name)
+                                if pid not in partition_used_prompts:
+                                    partition_used_prompts[pid] = []
+                                partition_used_prompts[pid].append(prompt_name)
                     else:
                         formatted = self._apply_format(item[2], partition_format)
                         w_key = f"{item[1]}:{item[2]}"
-                        formatted_results.append(self._apply_weight(formatted, artist_weights.get(w_key)))
-                        collect_artist(item[1], item[2], save_to_gallery)
+                        formatted_results.append(self._apply_weight(formatted, prompt_weights.get(w_key)))
+                        collect_prompt(item[1], item[2], save_to_gallery)
                         # 记录实际输出的画师名（用于自动创建组合）
-                        if save_to_gallery and item[0] == 'artist':
+                        if save_to_gallery and item[0] == 'prompt':
                             pid = partition.get('id', 'default')
-                            if pid not in partition_used_artists:
-                                partition_used_artists[pid] = []
-                            partition_used_artists[pid].append(item[2])
+                            if pid not in partition_used_prompts:
+                                partition_used_prompts[pid] = []
+                            partition_used_prompts[pid].append(item[2])
 
         result = ','.join(formatted_results)
 
@@ -301,36 +301,36 @@ class ArtistSelector:
 
                 # 使用输出循环中实际选中的画师（已考虑随机/循环）
                 pid = partition.get('id', 'default')
-                artist_names = partition_used_artists.get(pid, [])
-                if not artist_names:
+                prompt_names = partition_used_prompts.get(pid, [])
+                if not prompt_names:
                     continue
 
                 p_format = partition_formats.get(pid, '{content}')
-                formatted_parts = [self._apply_format(name, p_format) for name in artist_names]
+                formatted_parts = [self._apply_format(name, p_format) for name in prompt_names]
                 output_content = ','.join(formatted_parts)
-                comb_name = ','.join(artist_names)
+                comb_name = ','.join(prompt_names)
 
                 # 查重
                 existing = combination_storage.find_by_content(output_content)
                 if existing:
-                    print(f"[ArtistSelector] Partition '{partition_name}': combination already exists (id={existing.get('id')}), skipping")
+                    print(f"[PromptSelector] Partition '{partition_name}': combination already exists (id={existing.get('id')}), skipping")
                 else:
                     new_comb = combination_storage.add_combination(
                         name=comb_name,
                         category_id="root",
-                        prompts=artist_names,
+                        prompts=prompt_names,
                         output_content=output_content,
                     )
                     
         except Exception as e:
-            print(f"[ArtistSelector] Auto-create combination error: {e}")
+            print(f"[PromptSelector] Auto-create combination error: {e}")
             import traceback
             traceback.print_exc()
 
         # 构建富化 metadata：包含解析结果，供 SaveToGallery 直接使用
         enriched_metadata = json.dumps({
-            "artist_names": [a["value"] for a in all_resolved],
-            "selected_artists": all_resolved,
+            "prompt_names": [a["value"] for a in all_resolved],
+            "selected_prompts": all_resolved,
             "formatted_result": result,
         })
 
@@ -346,10 +346,10 @@ class ArtistSelector:
             weight_str = f"{weight:.1f}".rstrip('0').rstrip('.')
         return f"({formatted_str}:{weight_str})"
 
-    def _apply_format(self, artist_name, format_str):
+    def _apply_format(self, prompt_name, format_str):
         """应用格式字符串到画师名称"""
         # 替换 {content}
-        result = format_str.replace('{content}', artist_name)
+        result = format_str.replace('{content}', prompt_name)
 
         # 处理 {random(min,max,step)}
         # 使用迭代替换函数
@@ -372,7 +372,7 @@ class ArtistSelector:
 
                 return str(random_value)
             except Exception as e:
-                print(f"[ArtistSelector] Error generating random number: {e}")
+                print(f"[PromptSelector] Error generating random number: {e}")
                 return match.group(0)
 
         # 使用正则替换所有匹配
@@ -381,64 +381,64 @@ class ArtistSelector:
 
         return result
 
-    def _get_artist_info(self, metadata_dict, artist_name):
+    def _get_prompt_info(self, metadata_dict, prompt_name):
         """从 metadata 中获取画师信息"""
-        selected_artists = metadata_dict.get('selected_artists', [])
-        for artist_info in selected_artists:
-            if artist_info.get('value') == artist_name:
-                return artist_info
+        selected_prompts = metadata_dict.get('selected_prompts', [])
+        for prompt_info in selected_prompts:
+            if prompt_info.get('value') == prompt_name:
+                return prompt_info
         return None
 
 
 class SaveToGallery:
     """保存图片到画廊节点"""
 
-    CATEGORY = "🎨 Artist Gallery"
+    CATEGORY = "🎨 Prompt Gallery"
     RETURN_TYPES = ()
     FUNCTION = "save_image"
     OUTPUT_NODE = True
 
     @staticmethod
-    def _match_artists_from_prompt(prompt_string):
+    def _match_prompts_from_prompt(prompt_string):
         """从 prompt_string 中匹配已知画师名，返回 [{categoryId, name, saveToGallery}, ...]"""
-        global _artist_regex_cache, _artist_regex_names
+        global _prompt_regex_cache, _prompt_regex_names
 
         if not prompt_string or not prompt_string.strip():
             return []
 
-        artist_storage = get_storage()[0]
-        all_artists = artist_storage.get_all_artists()
-        if not all_artists:
+        prompt_storage = get_storage()[0]
+        all_prompts = prompt_storage.get_all_prompts()
+        if not all_prompts:
             return []
 
-        # 构建 name → [artist, ...] 查找表（同名画师可属于不同分类）
-        name_to_artists = {}
+        # 构建 name → [prompt, ...] 查找表（同名画师可属于不同分类）
+        name_to_prompts = {}
         lower_to_canonical = {}  # 小写 → 原始大小写 key，用于 IGNORECASE 匹配后还原
-        for artist in all_artists:
-            value = artist.get("value", "").strip()
+        for prompt in all_prompts:
+            value = prompt.get("value", "").strip()
             if value:
-                name_to_artists.setdefault(value, []).append(artist)
+                name_to_prompts.setdefault(value, []).append(prompt)
                 lower_to_canonical[value.lower()] = value
             # 别名也加入匹配
-            alias = artist.get("alias", "").strip()
+            alias = prompt.get("alias", "").strip()
             if alias:
                 for a in alias.split(","):
                     a = a.strip()
                     if a:
-                        name_to_artists.setdefault(a, []).append(artist)
+                        name_to_prompts.setdefault(a, []).append(prompt)
                         lower_to_canonical[a.lower()] = a
 
         # 检查缓存是否需要重建
-        current_names = frozenset(name_to_artists.keys())
-        if current_names != _artist_regex_names:
+        current_names = frozenset(name_to_prompts.keys())
+        if current_names != _prompt_regex_names:
             # 按名称长度降序排列，确保贪心匹配（长名优先）
-            sorted_names = sorted(name_to_artists.keys(), key=len, reverse=True)
+            sorted_names = sorted(name_to_prompts.keys(), key=len, reverse=True)
             escaped = [re.escape(n) for n in sorted_names]
-            _artist_regex_cache = re.compile('|'.join(escaped), re.IGNORECASE)
-            _artist_regex_names = current_names
+            _prompt_regex_cache = re.compile('|'.join(escaped), re.IGNORECASE)
+            _prompt_regex_names = current_names
 
         # 单次扫描匹配所有画师名
-        matches = _artist_regex_cache.findall(prompt_string)
+        matches = _prompt_regex_cache.findall(prompt_string)
 
         # 去重保序，查找每个匹配名对应的所有画师
         result = []
@@ -447,10 +447,10 @@ class SaveToGallery:
             matched_key = lower_to_canonical.get(name.lower())
             if matched_key and matched_key not in seen:
                 seen.add(matched_key)
-                for artist in name_to_artists[matched_key]:
+                for prompt in name_to_prompts[matched_key]:
                     result.append({
-                        "categoryId": artist.get("categoryId", "root"),
-                        "value": artist.get("value"),
+                        "categoryId": prompt.get("categoryId", "root"),
+                        "value": prompt.get("value"),
                         "saveToGallery": True,
                     })
 
@@ -475,9 +475,9 @@ class SaveToGallery:
 
     def save_image(self, images, metadata_json="{}", filename_prefix="AG", prompt_string="", prompt=None, extra_pnginfo=None):
         """
-        保存图片到 output/artist_gallery/ 并创建映射关系
+        保存图片到 output/prompt_gallery/ 并创建映射关系
         支持两种输入源（优先级：metadata_json > prompt_string）：
-        :param metadata_json: 由 ArtistSelector 输出的 JSON（优先）
+        :param metadata_json: 由 PromptSelector 输出的 JSON（优先）
         :param prompt_string: 提示词字符串，自动匹配已知画师名（备选）
         """
         import folder_paths
@@ -493,17 +493,17 @@ class SaveToGallery:
             metadata = {}
 
         # 三路优先级：metadata_json（有效）> prompt_string > 报错
-        artist_names_from_meta = metadata.get("artist_names", [])
-        selected_artists = metadata.get("selected_artists", [])
+        prompt_names_from_meta = metadata.get("prompt_names", [])
+        selected_prompts = metadata.get("selected_prompts", [])
 
-        if artist_names_from_meta and selected_artists:
+        if prompt_names_from_meta and selected_prompts:
             # Path A: metadata_json 有效，使用现有逻辑
-            saveable_artists = [a for a in selected_artists if a.get("saveToGallery", True)]
-            saveable_names = [a["value"] for a in saveable_artists]
+            saveable_prompts = [a for a in selected_prompts if a.get("saveToGallery", True)]
+            saveable_names = [a["value"] for a in saveable_prompts]
         elif prompt_string and prompt_string.strip():
             # Path B: 从 prompt_string 匹配画师
-            saveable_artists = self._match_artists_from_prompt(prompt_string)
-            saveable_names = [a["value"] for a in saveable_artists]
+            saveable_prompts = self._match_prompts_from_prompt(prompt_string)
+            saveable_names = [a["value"] for a in saveable_prompts]
             if not saveable_names:
                 print("[SaveToGallery] 错误: prompt_string 中未匹配到已知画师")
                 return ()
@@ -514,7 +514,7 @@ class SaveToGallery:
             return ()
 
         output_dir = Path(folder_paths.get_output_directory())
-        save_dir = output_dir / "artist_gallery"
+        save_dir = output_dir / "prompt_gallery"
         save_dir.mkdir(parents=True, exist_ok=True)
 
         saved_count = 0
@@ -530,9 +530,9 @@ class SaveToGallery:
             if prompt is not None:
                 pnginfo.add_text("prompt", json.dumps(prompt))
 
-            pnginfo.add_text("artist_gallery", json.dumps({
-                "artist_names": saveable_names,
-                "selected_artists": saveable_artists,
+            pnginfo.add_text("prompt_gallery", json.dumps({
+                "prompt_names": saveable_names,
+                "selected_prompts": saveable_prompts,
                 "prompt_string": prompt_string or "",
             }))
 
@@ -545,7 +545,7 @@ class SaveToGallery:
                 saved_count += 1
 
                 # 创建映射关系（仅 saveToGallery=true 的画师）
-                image_path = f"artist_gallery/{filename}"
+                image_path = f"prompt_gallery/{filename}"
                 mapping_storage = get_storage()[1]
                 mapping_storage.add_mapping(
                     image_path,
@@ -554,12 +554,12 @@ class SaveToGallery:
                 )
 
                 # 更新画师图片计数（仅 saveToGallery=true 的画师）
-                artist_storage = get_storage()[0]
-                for artist_info in saveable_artists:
-                    category_id = artist_info.get("categoryId", "root")
-                    value = artist_info.get("value", "")
+                prompt_storage = get_storage()[0]
+                for prompt_info in saveable_prompts:
+                    category_id = prompt_info.get("categoryId", "root")
+                    value = prompt_info.get("value", "")
                     if category_id and value:
-                        artist_storage.update_image_count(category_id, value, 1)
+                        prompt_storage.update_image_count(category_id, value, 1)
 
                 print(f"[SaveToGallery] 已保存: {filename} -> Prompt: {', '.join(saveable_names)}")
 

@@ -86,10 +86,10 @@ function generateRandom(min, max, step) {
 /**
  * 应用格式到Prompt名称
  * @param {string} format - 格式字符串
- * @param {string} artistName - Prompt名称
+ * @param {string} promptName - Prompt名称
  * @returns {string} - 格式化后的字符串
  */
-function applyFormat(format, artistName) {
+function applyFormat(format, promptName) {
   const tokens = parseFormat(format);
 
   return tokens
@@ -97,7 +97,7 @@ function applyFormat(format, artistName) {
       if (token.type === 'text') {
         return token.value;
       } else if (token.type === 'variable') {
-        return artistName;
+        return promptName;
       } else if (token.type === 'random') {
         return generateRandom(token.min, token.max, token.step).toString();
       }
@@ -109,10 +109,10 @@ function applyFormat(format, artistName) {
 /**
  * 生成预览（使用固定的随机种子，便于预览）
  * @param {string} format - 格式字符串
- * @param {string} artistName - Prompt名称
+ * @param {string} promptName - Prompt名称
  * @returns {string} - 预览字符串
  */
-function previewFormat(format, artistName) {
+function previewFormat(format, promptName) {
   const tokens = parseFormat(format);
 
   return tokens
@@ -120,7 +120,7 @@ function previewFormat(format, artistName) {
       if (token.type === 'text') {
         return token.value;
       } else if (token.type === 'variable') {
-        return artistName || 'artist_name';
+        return promptName || 'prompt_name';
       } else if (token.type === 'random') {
         // 预览时使用中值
         const midValue = (token.min + token.max) / 2;

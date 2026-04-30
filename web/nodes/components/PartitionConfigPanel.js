@@ -16,7 +16,7 @@ export function PartitionConfigPanel({ partition, globalConfig, onChange, onClos
   const [autoCreateCombination, setAutoCreateCombination] = useState(partition.config.autoCreateCombination === true);
 
   // 预览格式效果
-  const previewFormat = format.replace('{content}', 'artist_name').replace(/\{random\([^)]+\)\}/g, '1.3');
+  const previewFormat = format.replace('{content}', 'prompt_name').replace(/\{random\([^)]+\)\}/g, '1.3');
 
   const handleSave = () => {
     // 如果 saveToGallery 关闭，autoCreateCombination 也强制关闭
@@ -43,7 +43,7 @@ export function PartitionConfigPanel({ partition, globalConfig, onChange, onClos
       h('ul', {}, [
         h('li', null, '{content} - Prompt名称'),
         h('li', null, '{random(min,max,step)} - 随机数'),
-        h('li', null, '示例: ({content}:{random(1,1.5,0.1)}) → (artist_name:1.3)'),
+        h('li', null, '示例: ({content}:{random(1,1.5,0.1)}) → (prompt_name:1.3)'),
       ]),
     ]);
   };

@@ -10,7 +10,7 @@ function ImagePreviewPopup({ imageUrl, alt, x, y }) {
   return h(
     'div',
     {
-      class: 'artist-selector-hover-preview',
+      class: 'prompt-selector-hover-preview',
       style: `position:fixed;left:${x}px;top:${y}px;pointer-events:none;`,
     },
     h('img', { src: imageUrl, alt }),
@@ -20,14 +20,14 @@ function ImagePreviewPopup({ imageUrl, alt, x, y }) {
 export function useImagePreview() {
   const { renderToBody, clear } = useBodyRender();
 
-  const showPreview = (artist, event) => {
-    const coverPath = artist.coverImagePath;
+  const showPreview = (prompt, event) => {
+    const coverPath = prompt.coverImagePath;
     if (!coverPath) return;
 
     renderToBody(
       h(ImagePreviewPopup, {
         imageUrl: buildImageUrl(coverPath),
-        alt: artist.name || artist.value,
+        alt: prompt.name || prompt.value,
         x: event.clientX + 15,
         y: event.clientY + 15,
       }),

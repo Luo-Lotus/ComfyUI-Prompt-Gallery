@@ -9,22 +9,22 @@ export function useNodeSync({
   selectedInput,
   metadataInput,
   selectedKeys,
-  selectedArtistsCache,
+  selectedPromptsCache,
   partitionData,
 }) {
   const updateNodeValue = useCallback(() => {
-    const artistMap = partitionData.artistPartitionMap || {};
+    const promptMap = partitionData.promptPartitionMap || {};
     const categoryMap = partitionData.categoryPartitionMap || {};
     const combinationMap = partitionData.combinationPartitionMap || {};
 
-    // 构建 v1 格式的 partitions（每个分区自带其 artistKeys 和 categoryIds 和 combinationKeys）
+    // 构建 v1 格式的 partitions（每个分区自带其 promptKeys 和 categoryIds 和 combinationKeys）
     const partitions = partitionData.partitions.map((p) => ({
       id: p.id,
       name: p.name,
       isDefault: p.isDefault,
       enabled: p.enabled,
       config: p.config,
-      artistKeys: Object.keys(artistMap).filter((key) => artistMap[key] === p.id),
+      promptKeys: Object.keys(promptMap).filter((key) => promptMap[key] === p.id),
       categoryIds: Object.keys(categoryMap).filter((catId) => categoryMap[catId] === p.id),
       combinationKeys: Object.keys(combinationMap).filter((key) => combinationMap[key] === p.id),
     }));
@@ -33,18 +33,18 @@ export function useNodeSync({
       version: 1,
       partitions,
       globalConfig: partitionData.globalConfig,
-      artistWeights: partitionData.artistWeights || {},
+      promptWeights: partitionData.promptWeights || {},
     };
 
-    // selected_artists 字符串：仅用于显示（后端从 metadata 中解析）
-    const selectedArtists = Array.from(selectedKeys)
-      .map((key) => selectedArtistsCache[key])
+    // selected_prompts 字符串：仅用于显示（后端从 metadata 中解析）
+    const selectedPrompts = Array.from(selectedKeys)
+      .map((key) => selectedPromptsCache[key])
       .filter(Boolean);
-    const artistsString = selectedArtists.map((a) => a.name).join(',');
+    const promptsString = selectedPrompts.map((a) => a.name).join(',');
 
     // 设置 widget 值
     if (selectedInput) {
-      selectedInput.value = artistsString;
+      selectedInput.value = promptsString;
     }
     if (metadataInput) {
       metadataInput.value = JSON.stringify(metadata);
@@ -52,9 +52,9 @@ export function useNodeSync({
 
     // 更新节点输入数据
     if (nodeInstance.inputs) {
-      const si = nodeInstance.inputs.findIndex((i) => i.name === 'selected_artists');
+      const si = nodeInstance.inputs.findIndex((i) => i.name === 'selected_prompts');
       const mi = nodeInstance.inputs.findIndex((i) => i.name === 'metadata');
-      if (si >= 0) nodeInstance.inputs[si].value = artistsString;
+      if (si >= 0) nodeInstance.inputs[si].value = promptsString;
       if (mi >= 0) nodeInstance.inputs[mi].value = JSON.stringify(metadata);
     }
 
@@ -63,7 +63,7 @@ export function useNodeSync({
       nodeInstance.graph.change();
     }
     nodeInstance.setDirtyCanvas(true, true);
-  }, [nodeInstance, selectedInput, metadataInput, selectedKeys, selectedArtistsCache, partitionData]);
+  }, [nodeInstance, selectedInput, metadataInput, selectedKeys, selectedPromptsCache, partitionData]);
 
   // 自动同步：当关键状态变化时更新节点值
   useEffect(() => {

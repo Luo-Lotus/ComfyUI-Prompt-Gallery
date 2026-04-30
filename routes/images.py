@@ -10,37 +10,37 @@ from ..storage import get_storage
 
 # ============ Image Mapping API ============
 
-@server.PromptServer.instance.routes.get("/artist_gallery/image/{filename:.+}/artists")
-async def get_image_artists(request):
+@server.PromptServer.instance.routes.get("/prompt_gallery/image/{filename:.+}/prompts")
+async def get_image_prompts(request):
     """获取图片关联的Prompt列表"""
     try:
         filename = request.match_info['filename']
         # 构建完整的图片路径
-        image_path = f"artist_gallery/{filename}"
+        image_path = f"prompt_gallery/{filename}"
 
         _, mapping_storage, _, _ = get_storage()
         mapping = mapping_storage.get_mappings_by_image(image_path)
 
         if not mapping:
-            return web.json_response({"artists": [], "totalCount": 0})
+            return web.json_response({"prompts": [], "totalCount": 0})
 
-        artist_storage, _, _, _ = get_storage()
-        artist_ids = mapping.get("artistIds", [])
+        prompt_storage, _, _, _ = get_storage()
+        prompt_ids = mapping.get("promptIds", [])
 
-        artists = []
-        for artist_id in artist_ids:
-            artist = artist_storage.get_artist_by_id(artist_id)
-            if artist:
-                artists.append(artist)
+        prompts = []
+        for prompt_id in prompt_ids:
+            prompt = prompt_storage.get_prompt_by_id(prompt_id)
+            if prompt:
+                prompts.append(prompt)
 
-        return web.json_response({"artists": artists, "totalCount": len(artists)})
+        return web.json_response({"prompts": prompts, "totalCount": len(prompts)})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
 
 # ============ Save to Gallery API ============
 
-@server.PromptServer.instance.routes.get("/artist_gallery/image/info")
+@server.PromptServer.instance.routes.get("/prompt_gallery/image/info")
 async def get_image_info(request):
     """获取图片详细信息（Prompt、prompt、工作流、文件信息）"""
     try:
@@ -50,7 +50,7 @@ async def get_image_info(request):
 
         import folder_paths
         output_dir = Path(folder_paths.get_output_directory())
-        full_path = output_dir / image_path
+        full_path = Path(output_dir) / image_path
 
         if not full_path.exists():
             return web.json_response({"error": "图片文件不存在"}, status=404)
@@ -58,7 +58,7 @@ async def get_image_info(request):
         result = {"mapping": None, "pnginfo": {}, "fileInfo": {}}
 
         # 1. 从映射存储获取Prompt关联
-        artist_storage, mapping_storage, _, _ = get_storage()
+        prompt_storage, mapping_storage, _, _ = get_storage()
         mapping = mapping_storage.get_mappings_by_image(image_path)
         if mapping:
             result["mapping"] = {
@@ -90,7 +90,7 @@ async def get_image_info(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
-@server.PromptServer.instance.routes.post("/artist_gallery/save")
+@server.PromptServer.instance.routes.post("/prompt_gallery/save")
 async def save_to_gallery(request):
     """保存图片到画廊并创建映射关系"""
     try:
@@ -106,16 +106,16 @@ async def save_to_gallery(request):
             return web.json_response({"error": "必须选择至少一个Prompt"}, status=400)
 
         # 构建图片路径
-        image_path = f"artist_gallery/{image_filename}"
+        image_path = f"prompt_gallery/{image_filename}"
 
         # 创建映射关系
         _, mapping_storage, _, _ = get_storage()
         mapping = mapping_storage.add_mapping(image_path, prompt_values, metadata)
 
         # 更新Prompt的图片计数
-        artist_storage, _, _, _ = get_storage()
-        for artist_id in prompt_values:
-            artist_storage.update_image_count(artist_id, 1)
+        prompt_storage, _, _, _ = get_storage()
+        for prompt_id in prompt_values:
+            prompt_storage.update_image_count(prompt_id, 1)
 
         return web.json_response({
             "success": True,
@@ -125,7 +125,7 @@ async def save_to_gallery(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/restore_from_metadata")
+@server.PromptServer.instance.routes.post("/prompt_gallery/restore_from_metadata")
 async def restore_from_metadata(request):
     """从图片的 PNG 元数据中恢复Prompt映射关系"""
     try:
@@ -139,7 +139,7 @@ async def restore_from_metadata(request):
             return web.json_response({"error": "没有提供文件名"}, status=400)
 
         output_dir = Path(folder_paths.get_output_directory())
-        gallery_dir = output_dir / "artist_gallery"
+        gallery_dir = output_dir / "prompt_gallery"
 
         restored_count = 0
         errors = []
@@ -155,28 +155,28 @@ async def restore_from_metadata(request):
                 with Image.open(image_path) as img:
                     # 读取 PNG tEXt 块
                     from PIL import PngImagePlugin
-                    if hasattr(img, 'text') and 'artist_gallery' in img.text:
+                    if hasattr(img, 'text') and 'prompt_gallery' in img.text:
                         # 解析Prompt元数据
-                        artist_metadata = json.loads(img.text['artist_gallery'])
-                        artist_ids = artist_metadata.get("artist_ids", [])
+                        prompt_metadata = json.loads(img.text['prompt_gallery'])
+                        prompt_ids = prompt_metadata.get("prompt_ids", [])
 
-                        if artist_ids:
+                        if prompt_ids:
                             # 创建映射关系
-                            image_rel_path = f"artist_gallery/{filename}"
+                            image_rel_path = f"prompt_gallery/{filename}"
                             _, mapping_storage, _, _ = get_storage()
                             mapping_storage.add_mapping(
                                 image_rel_path,
-                                artist_ids,
+                                prompt_ids,
                                 {"width": img.width, "height": img.height}
                             )
 
                             # 更新Prompt的图片计数
-                            artist_storage, _, _, _ = get_storage()
-                            for artist_id in artist_ids:
-                                artist_storage.update_image_count(artist_id, 1)
+                            prompt_storage, _, _, _ = get_storage()
+                            for prompt_id in prompt_ids:
+                                prompt_storage.update_image_count(prompt_id, 1)
 
                             restored_count += 1
-                            print(f"[Restore] 恢复映射: {filename} -> PromptID: {artist_ids}")
+                            print(f"[Restore] 恢复映射: {filename} -> PromptID: {prompt_ids}")
                         else:
                             errors.append(f"{filename}: 元数据中没有Prompt信息")
                     else:
@@ -197,14 +197,14 @@ async def restore_from_metadata(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.delete("/artist_gallery/image")
+@server.PromptServer.instance.routes.delete("/prompt_gallery/image")
 async def delete_image(request):
     """
     删除单张图片（从Prompt详情中）
 
     请求体: {
-      "imagePath": "artist_gallery/xxx.png"
-      // artistId不再需要，自动从映射中获取
+      "imagePath": "prompt_gallery/xxx.png"
+      // promptId不再需要，自动从映射中获取
     }
 
     逻辑：
@@ -218,7 +218,7 @@ async def delete_image(request):
         if not image_path:
             return web.json_response({"error": "缺少imagePath参数"}, status=400)
 
-        artist_storage, mapping_storage, _, _ = get_storage()
+        prompt_storage, mapping_storage, _, _ = get_storage()
 
         # 获取图片映射
         mapping = mapping_storage.get_mappings_by_image(image_path)
@@ -231,7 +231,7 @@ async def delete_image(request):
         # 删除图片文件
         import folder_paths
         output_dir = Path(folder_paths.get_output_directory())
-        full_path = output_dir / image_path
+        full_path = Path(output_dir) / image_path
 
         file_deleted = False
         try:
@@ -247,11 +247,11 @@ async def delete_image(request):
         # 更新所有关联Prompt的图片计数
         for prompt_value in prompt_values:
             # 查找所有匹配的Prompt并更新计数
-            all_artists = artist_storage.get_all_artists()
-            for artist in all_artists:
-                if artist.get("value") == prompt_value:
-                    artist_storage.update_image_count(
-                        artist.get("categoryId"),
+            all_prompts = prompt_storage.get_all_prompts()
+            for prompt in all_prompts:
+                if prompt.get("value") == prompt_value:
+                    prompt_storage.update_image_count(
+                        prompt.get("categoryId"),
                         prompt_value,
                         -1
                     )
@@ -260,14 +260,14 @@ async def delete_image(request):
             "success": True,
             "message": "图片已删除",
             "fileDeleted": file_deleted,
-            "affectedArtists": prompt_values
+            "affectedPrompts": prompt_values
         })
 
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/image/move")
+@server.PromptServer.instance.routes.post("/prompt_gallery/image/move")
 async def move_image(request):
     """移动图片到其他Prompt下"""
     try:
@@ -283,12 +283,12 @@ async def move_image(request):
         if from_prompt_value == to_prompt_value:
             return web.json_response({"error": "不能移动到同一个Prompt"}, status=400)
 
-        artist_storage, mapping_storage, _, _ = get_storage()
+        prompt_storage, mapping_storage, _, _ = get_storage()
 
         # 验证目标Prompt存在
         to_category_id = to_category_id or "root"
-        to_artist = artist_storage.get_artist(to_category_id, to_prompt_value)
-        if not to_artist:
+        to_prompt = prompt_storage.get_prompt(to_category_id, to_prompt_value)
+        if not to_prompt:
             return web.json_response({"error": "目标Prompt不存在"}, status=400)
 
         # 获取图片映射
@@ -310,19 +310,19 @@ async def move_image(request):
 
         if success:
             # 更新图片计数：使用组合键
-            from_artist = None
-            for a in artist_storage.get_all_artists():
+            from_prompt = None
+            for a in prompt_storage.get_all_prompts():
                 if a.get("value") == from_prompt_value:
-                    from_artist = a
+                    from_prompt = a
                     break
 
-            if from_artist:
-                artist_storage.update_image_count(from_artist.get("categoryId", "root"), from_prompt_value, -1)
-            artist_storage.update_image_count(to_category_id, to_prompt_value, 1)
+            if from_prompt:
+                prompt_storage.update_image_count(from_prompt.get("categoryId", "root"), from_prompt_value, -1)
+            prompt_storage.update_image_count(to_category_id, to_prompt_value, 1)
 
             return web.json_response({
                 "success": True,
-                "message": f"已移动图片到Prompt '{to_artist.get('name', to_artist.get('value'))}'"
+                "message": f"已移动图片到Prompt '{to_prompt.get('name', to_prompt.get('value'))}'"
             })
         else:
             return web.json_response({"error": "更新映射失败"}, status=500)
@@ -330,7 +330,7 @@ async def move_image(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post("/artist_gallery/image/copy")
+@server.PromptServer.instance.routes.post("/prompt_gallery/image/copy")
 async def copy_image(request):
     """
     复制图片到其他Prompt
@@ -345,12 +345,12 @@ async def copy_image(request):
         if not image_path or not to_prompt_value:
             return web.json_response({"error": "缺少必要参数"}, status=400)
 
-        artist_storage, mapping_storage, _, _ = get_storage()
+        prompt_storage, mapping_storage, _, _ = get_storage()
 
         # 验证目标Prompt存在
         to_category_id = to_category_id or "root"
-        to_artist = artist_storage.get_artist(to_category_id, to_prompt_value)
-        if not to_artist:
+        to_prompt = prompt_storage.get_prompt(to_category_id, to_prompt_value)
+        if not to_prompt:
             return web.json_response({"error": "目标Prompt不存在"}, status=400)
 
         # 获取图片映射
@@ -373,11 +373,11 @@ async def copy_image(request):
 
         if success:
             # 更新目标Prompt图片计数
-            artist_storage.update_image_count(to_category_id, to_prompt_value, 1)
+            prompt_storage.update_image_count(to_category_id, to_prompt_value, 1)
 
             return web.json_response({
                 "success": True,
-                "message": f"已复制图片到Prompt '{to_artist.get('name', to_artist.get('value'))}'"
+                "message": f"已复制图片到Prompt '{to_prompt.get('name', to_prompt.get('value'))}'"
             })
         else:
             return web.json_response({"error": "更新映射失败"}, status=500)

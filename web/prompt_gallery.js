@@ -1,5 +1,5 @@
 /**
- * Artist Gallery Extension
+ * Prompt Gallery Extension
  * 主入口文件 - 使用 Preact 构建的悬浮可拖动图库按钮
  */
 
@@ -27,12 +27,12 @@ const { ToastContainer } = await import('./components/Toast.js');
 
 // ============ 注册扩展 ============
 app.registerExtension({
-  name: 'ArtistGallery.GalleryButton',
+  name: 'PromptGallery.GalleryButton',
 
   async setup() {
     // 创建悬浮按钮
     const floatingButton = document.createElement('div');
-    floatingButton.id = 'artist-gallery-floating-btn';
+    floatingButton.id = 'prompt-gallery-floating-btn';
     floatingButton.innerHTML = '🎨';
     document.body.appendChild(floatingButton);
 
@@ -50,12 +50,12 @@ app.registerExtension({
 
     // 创建模态框容器
     const modalContainer = document.createElement('div');
-    modalContainer.id = 'artist-gallery-modal-container';
+    modalContainer.id = 'prompt-gallery-modal-container';
     document.body.appendChild(modalContainer);
 
     // 创建 Toast 容器
     const toastContainer = document.createElement('div');
-    toastContainer.id = 'artist-gallery-toast-container';
+    toastContainer.id = 'prompt-gallery-toast-container';
     document.body.appendChild(toastContainer);
 
     // 应用状态
@@ -85,7 +85,7 @@ app.registerExtension({
     renderModal();
 
     // 全局导航函数：从Prompt选择器打开画廊到指定视图
-    window.__openArtistGalleryTo = (navigation) => {
+    window.__openPromptGalleryTo = (navigation) => {
       pendingNavigation = { ...navigation, _ts: Date.now() };
       isModalOpen = true;
       renderModal();

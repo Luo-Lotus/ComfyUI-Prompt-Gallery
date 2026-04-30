@@ -6,7 +6,7 @@ import { h } from '../lib/preact.mjs';
 import { GalleryProvider, useGallery } from './GalleryContext.js';
 import { GalleryGrid } from './GalleryGrid.js';
 import { Lightbox } from './Lightbox.js';
-import { AddArtistDialog } from './AddArtistDialog.js';
+import { AddPromptDialog } from './AddPromptDialog.js';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog.js';
 import { CategoryDialog } from './CategoryDialog.js';
 import { MoveDialog } from './MoveDialog.js';
@@ -18,7 +18,7 @@ import { BatchActionBar } from './BatchActionBar.js';
 import { BatchConfirmDialog } from './BatchConfirmDialog.js';
 import { GalleryHeader } from './GalleryHeader.js';
 import { GalleryFilterBar } from './GalleryFilterBar.js';
-import { ArtistDetailView } from './ArtistDetailView.js';
+import { PromptDetailView } from './PromptDetailView.js';
 import { CombinationDetailView } from './CombinationDetailView.js';
 
 import { Icon } from '../lib/icons.mjs';
@@ -90,15 +90,15 @@ function GalleryBody() {
     ),
 
     // Prompt详情
-    ctx.currentArtist &&
+    ctx.currentPrompt &&
       h(
         'div',
         {
-          key: `artist-${ctx.currentArtist.name}`,
+          key: `prompt-${ctx.currentPrompt.name}`,
           class: 'view-stack-page',
-          style: { display: ctx.viewMode === 'artist' ? '' : 'none' },
+          style: { display: ctx.viewMode === 'prompt' ? '' : 'none' },
         },
-        [h(ArtistDetailView)],
+        [h(PromptDetailView)],
       ),
 
     // 组合详情
@@ -124,40 +124,40 @@ function DialogLayer() {
   return [
     h(Lightbox, {
       isOpen: ctx.lightbox.open,
-      artist: ctx.lightbox.artist,
+      prompt: ctx.lightbox.prompt,
       imageIndex: ctx.lightbox.imageIndex,
       onClose: ctx.closeLightbox,
       onNavigate: ctx.handleLightboxNavigate,
     }),
 
-    h(AddArtistDialog, {
-      isOpen: ctx.showAddArtistDialog,
-      mode: ctx.editModeArtist ? 'edit' : 'add',
-      editModeArtist: ctx.editModeArtist,
+    h(AddPromptDialog, {
+      isOpen: ctx.showAddPromptDialog,
+      mode: ctx.editModePrompt ? 'edit' : 'add',
+      editModePrompt: ctx.editModePrompt,
       currentCategoryId: ctx.currentCategory,
       onClose: () => {
-        ctx.setShowAddArtistDialog(false);
-        ctx.setEditModeArtist(null);
+        ctx.setShowAddPromptDialog(false);
+        ctx.setEditModePrompt(null);
         ctx.loadData();
       },
       onSave: () => {
-        ctx.setShowAddArtistDialog(false);
-        ctx.setEditModeArtist(null);
+        ctx.setShowAddPromptDialog(false);
+        ctx.setEditModePrompt(null);
         ctx.loadData();
       },
     }),
 
     h(DeleteConfirmDialog, {
       isOpen: ctx.showDeleteConfirm,
-      artist: ctx.artistToDelete,
+      prompt: ctx.promptToDelete,
       onConfirm: () => {
         ctx.setShowDeleteConfirm(false);
-        ctx.setArtistToDelete(null);
+        ctx.setPromptToDelete(null);
         ctx.loadData();
       },
       onCancel: () => {
         ctx.setShowDeleteConfirm(false);
-        ctx.setArtistToDelete(null);
+        ctx.setPromptToDelete(null);
       },
     }),
 
@@ -179,7 +179,7 @@ function DialogLayer() {
       itemType: ctx.moveItemType,
       item: ctx.moveItem,
       categories: ctx.categories,
-      artists: ctx.allArtists,
+      prompts: ctx.allPrompts,
       onClose: ctx.closeMoveDialog,
       onMove: ctx.handleMove,
     }),
@@ -189,7 +189,7 @@ function DialogLayer() {
       itemType: ctx.copyItemType,
       item: ctx.copyItem,
       categories: ctx.categories,
-      artists: ctx.allArtists,
+      prompts: ctx.allPrompts,
       onClose: ctx.closeCopyDialog,
       onCopy: ctx.handleCopy,
     }),
@@ -206,7 +206,7 @@ function DialogLayer() {
       isOpen: ctx.showImportDialog,
       viewMode: ctx.viewMode,
       currentCategory: ctx.currentCategory,
-      currentArtist: ctx.currentArtist,
+      currentPrompt: ctx.currentPrompt,
       categories: ctx.categories,
       onClose: () => ctx.setShowImportDialog(false),
       onSuccess: async () => {
@@ -222,8 +222,8 @@ function DialogLayer() {
           ? `导出分类: ${ctx.exportPayload.category.name}`
           : ctx.exportPayload?.type === 'batch'
             ? '批量导出Prompt'
-            : ctx.exportPayload?.type === 'artist'
-              ? `导出Prompt: ${ctx.exportPayload.artist.name || ctx.exportPayload.artist.value}`
+            : ctx.exportPayload?.type === 'prompt'
+              ? `导出Prompt: ${ctx.exportPayload.prompt.name || ctx.exportPayload.prompt.value}`
               : '导出',
       onClose: () => {
         ctx.setShowExportDialog(false);
@@ -237,7 +237,7 @@ function DialogLayer() {
       mode: ctx.combinationDialogMode,
       combination: ctx.editingCombination,
       currentCategoryId: ctx.currentCategory,
-      artists: ctx.allArtists,
+      prompts: ctx.allPrompts,
       onClose: () => {
         ctx.setShowCombinationDialog(false);
         ctx.setEditingCombination(null);

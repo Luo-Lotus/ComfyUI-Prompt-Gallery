@@ -3,16 +3,16 @@
  * 管理移动和复制的对话框状态与业务逻辑（单条 + 批量）
  */
 import { useState } from '../../lib/hooks.mjs';
-import { fetchCategories, fetchAllArtists } from '../../utils.js';
+import { fetchCategories, fetchAllPrompts } from '../../utils.js';
 import { showToast } from '../Toast.js';
 
 export function useItemOperations({
-  currentArtist,
+  currentPrompt,
   currentCategory,
   viewMode,
   loadData,
   refreshCategories,
-  setCurrentArtist,
+  setCurrentPrompt,
   setViewMode,
   getSelectedDetails,
   batchOperation,
@@ -56,8 +56,8 @@ export function useItemOperations({
       if (batchOperation === 'copy') {
         const details = getSelectedDetails();
         const allItems = [
-          ...details.artists.map((a) => ({
-            type: 'artist',
+          ...details.prompts.map((a) => ({
+            type: 'prompt',
             item: a,
           })),
           ...details.images.map((i) => ({ type: 'image', item: i })),
@@ -68,9 +68,9 @@ export function useItemOperations({
         for (const { type, item: it } of allItems) {
           try {
             let res;
-            if (type === 'artist') {
+            if (type === 'prompt') {
               res = await fetch(
-                `/artist_gallery/artists/${encodeURIComponent(it.categoryId)}/${encodeURIComponent(it.name)}/copy`,
+                `/prompt_gallery/prompts/${encodeURIComponent(it.categoryId)}/${encodeURIComponent(it.value)}/copy`,
                 {
                   method: 'POST',
                   headers: {
@@ -83,12 +83,12 @@ export function useItemOperations({
                 },
               );
             } else if (type === 'image') {
-              res = await fetch('/artist_gallery/image/copy', {
+              res = await fetch('/prompt_gallery/image/copy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   imagePath: it.path,
-                  toArtistName: target.name,
+                  toPromptValue: target.value,
                   toCategoryId: target.categoryId || 'root',
                 }),
               });
@@ -114,9 +114,9 @@ export function useItemOperations({
       }
 
       // 单条操作（右键菜单）
-      if (copyItemType === 'artist') {
+      if (copyItemType === 'prompt') {
         response = await fetch(
-          `/artist_gallery/artists/${encodeURIComponent(item.categoryId)}/${encodeURIComponent(item.name)}/copy`,
+          `/prompt_gallery/prompts/${encodeURIComponent(item.categoryId)}/${encodeURIComponent(item.value)}/copy`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -127,23 +127,23 @@ export function useItemOperations({
           },
         );
       } else if (copyItemType === 'image') {
-        response = await fetch('/artist_gallery/image/copy', {
+        response = await fetch('/prompt_gallery/image/copy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             imagePath: item.path,
-            toArtistName: target.name,
+            toPromptValue: target.value,
             toCategoryId: target.categoryId || 'root',
           }),
         });
       } else if (copyItemType === 'combination') {
-        response = await fetch('/artist_gallery/combinations', {
+        response = await fetch('/prompt_gallery/combinations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: newName || `${item.name} (副本)`,
             categoryId: target.id,
-            artistKeys: item.prompts || [],
+            promptKeys: item.prompts || [],
             outputContent: item.outputContent || '',
           }),
         });
@@ -176,42 +176,42 @@ export function useItemOperations({
         // 使用批量API移动分类和Prompt
         const batchPayload = {
           categories: details.categories.map((c) => ({ id: c.id, newParentId: target.id })),
-          artists: details.artists.map((a) => ({
+          prompts: details.prompts.map((a) => ({
             categoryId: a.categoryId,
             name: a.name,
             newCategoryId: target.id,
           })),
         };
 
-        if (batchPayload.categories.length > 0 || batchPayload.artists.length > 0) {
+        if (batchPayload.categories.length > 0 || batchPayload.prompts.length > 0) {
           try {
-            const res = await fetch('/artist_gallery/batch/move', {
+            const res = await fetch('/prompt_gallery/batch/move', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(batchPayload),
             });
             const data = await res.json();
             if (res.ok && data.success) {
-              successCount += (data.movedCategories?.length || 0) + (data.movedArtists?.length || 0);
+              successCount += (data.movedCategories?.length || 0) + (data.movedPrompts?.length || 0);
               if (data.errors?.length > 0) failCount += data.errors.length;
             } else {
-              failCount += batchPayload.categories.length + batchPayload.artists.length;
+              failCount += batchPayload.categories.length + batchPayload.prompts.length;
             }
           } catch {
-            failCount += batchPayload.categories.length + batchPayload.artists.length;
+            failCount += batchPayload.categories.length + batchPayload.prompts.length;
           }
         }
 
         // 图片逐个移动（没有批量API）
         for (const img of details.images) {
           try {
-            const res = await fetch('/artist_gallery/image/move', {
+            const res = await fetch('/prompt_gallery/image/move', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 imagePath: img.path,
-                fromArtistName: currentArtist.name,
-                toArtistName: target.name,
+                fromPromptValue: currentPrompt.value,
+                toPromptValue: target.value,
                 toCategoryId: target.categoryId || 'root',
               }),
             });
@@ -236,27 +236,27 @@ export function useItemOperations({
         } else {
           showToast(`已移动 ${successCount} 项`, 'success');
         }
-        if (currentArtist) {
-          const updatedData = await fetch(`/artist_gallery/data?category=${currentCategory}`);
+        if (currentPrompt) {
+          const updatedData = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
           const result = await updatedData.json();
-          const updatedArtist = result.artists?.find(
-            (a) => a.categoryId === currentArtist.categoryId && a.name === currentArtist.name,
+          const updatedPrompt = result.prompts?.find(
+            (a) => a.categoryId === currentPrompt.categoryId && a.value === currentPrompt.value,
           );
-          if (updatedArtist) setCurrentArtist(updatedArtist);
+          if (updatedPrompt) setCurrentPrompt(updatedPrompt);
         }
         return;
       }
 
       // 单条操作（右键菜单）
       if (moveItemType === 'category') {
-        response = await fetch(`/artist_gallery/categories/${item.id}/move`, {
+        response = await fetch(`/prompt_gallery/categories/${item.id}/move`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ newParentId: target.id }),
         });
-      } else if (moveItemType === 'artist') {
+      } else if (moveItemType === 'prompt') {
         response = await fetch(
-          `/artist_gallery/artists/${encodeURIComponent(item.categoryId)}/${encodeURIComponent(item.name)}`,
+          `/prompt_gallery/prompts/${encodeURIComponent(item.categoryId)}/${encodeURIComponent(item.value)}`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -264,18 +264,18 @@ export function useItemOperations({
           },
         );
       } else if (moveItemType === 'image') {
-        response = await fetch('/artist_gallery/image/move', {
+        response = await fetch('/prompt_gallery/image/move', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             imagePath: item.path,
-            fromArtistName: currentArtist.name,
-            toArtistName: target.name,
+            fromPromptValue: currentPrompt.value,
+            toPromptValue: target.value,
             toCategoryId: target.categoryId || 'root',
           }),
         });
       } else if (moveItemType === 'combination') {
-        response = await fetch(`/artist_gallery/combinations/${item.id}/move`, {
+        response = await fetch(`/prompt_gallery/combinations/${item.id}/move`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ targetCategoryId: target.id }),
@@ -290,17 +290,17 @@ export function useItemOperations({
         await loadData();
 
         // 如果在Prompt详情视图，更新当前Prompt
-        if (viewMode === 'artist' && currentArtist) {
-          const updatedData = await fetch(`/artist_gallery/data?category=${currentCategory}`);
+        if (viewMode === 'prompt' && currentPrompt) {
+          const updatedData = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
           const result = await updatedData.json();
-          const updatedArtist = result.artists?.find(
-            (a) => a.categoryId === currentArtist.categoryId && a.name === currentArtist.name,
+          const updatedPrompt = result.prompts?.find(
+            (a) => a.categoryId === currentPrompt.categoryId && a.value === currentPrompt.value,
           );
-          if (updatedArtist) {
-            setCurrentArtist(updatedArtist);
+          if (updatedPrompt) {
+            setCurrentPrompt(updatedPrompt);
           } else {
             setViewMode('gallery');
-            setCurrentArtist(null);
+            setCurrentPrompt(null);
           }
         }
 

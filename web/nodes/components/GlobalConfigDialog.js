@@ -9,7 +9,7 @@ import { Icon } from '../../lib/icons.mjs';
 import { useFormatProcessor } from './hooks/useFormatProcessor.js';
 import { showToast } from '../../components/Toast.js';
 
-export function GlobalConfigDialog({ isOpen, onClose, onSave, currentConfig, sampleArtistName = 'artist_name' }) {
+export function GlobalConfigDialog({ isOpen, onClose, onSave, currentConfig, samplePromptName = 'prompt_name' }) {
   const { previewFormat, validateFormat } = useFormatProcessor();
 
   // 本地状态
@@ -21,9 +21,9 @@ export function GlobalConfigDialog({ isOpen, onClose, onSave, currentConfig, sam
 
   // 更新预览
   useEffect(() => {
-    const previewText = previewFormat(format, sampleArtistName);
+    const previewText = previewFormat(format, samplePromptName);
     setPreview(previewText);
-  }, [format, sampleArtistName]);
+  }, [format, samplePromptName]);
 
   // 处理保存
   const handleSave = () => {

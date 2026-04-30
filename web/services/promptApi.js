@@ -6,11 +6,11 @@
 /**
  * 添加单个Prompt
  */
-export async function addArtist(artistData) {
-  const response = await fetch('/artist_gallery/artists', {
+export async function addPrompt(promptData) {
+  const response = await fetch('/prompt_gallery/prompts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(artistData),
+    body: JSON.stringify(promptData),
   });
   return await response.json();
 }
@@ -18,11 +18,11 @@ export async function addArtist(artistData) {
 /**
  * 更新Prompt（使用 ID，兼容旧版本）
  */
-export async function updateArtist(artistId, artistData) {
-  const response = await fetch(`/artist_gallery/artists/${artistId}`, {
+export async function updatePrompt(promptId, promptData) {
+  const response = await fetch(`/prompt_gallery/prompts/${promptId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(artistData),
+    body: JSON.stringify(promptData),
   });
   return await response.json();
 }
@@ -30,13 +30,13 @@ export async function updateArtist(artistId, artistData) {
 /**
  * 更新Prompt（使用组合键）
  */
-export async function updateArtistByKey(categoryId, value, artistData) {
+export async function updatePromptByKey(categoryId, value, promptData) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
+    `/prompt_gallery/prompts/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(artistData),
+      body: JSON.stringify(promptData),
     },
   );
   return await response.json();
@@ -45,11 +45,11 @@ export async function updateArtistByKey(categoryId, value, artistData) {
 /**
  * 批量添加Prompt
  */
-export async function addArtistsBatch(artistsData, categoryId) {
-  const response = await fetch('/artist_gallery/artists/batch', {
+export async function addPromptsBatch(promptsData, categoryId) {
+  const response = await fetch('/prompt_gallery/prompts/batch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ artists: artistsData, categoryId }),
+    body: JSON.stringify({ prompts: promptsData, categoryId }),
   });
   return await response.json();
 }
@@ -57,8 +57,8 @@ export async function addArtistsBatch(artistsData, categoryId) {
 /**
  * 删除Prompt（使用 ID，兼容旧版本）
  */
-export async function deleteArtist(artistId) {
-  const response = await fetch(`/artist_gallery/artists/${artistId}`, {
+export async function deletePrompt(promptId) {
+  const response = await fetch(`/prompt_gallery/prompts/${promptId}`, {
     method: 'DELETE',
   });
   return await response.json();
@@ -67,9 +67,9 @@ export async function deleteArtist(artistId) {
 /**
  * 删除Prompt（使用组合键）
  */
-export async function deleteArtistByKey(categoryId, value) {
+export async function deletePromptByKey(categoryId, value) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
+    `/prompt_gallery/prompts/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
     {
       method: 'DELETE',
     },
@@ -80,9 +80,9 @@ export async function deleteArtistByKey(categoryId, value) {
 /**
  * 复制Prompt到其他分类
  */
-export async function copyArtist(categoryId, value, targetCategoryId, newValue) {
+export async function copyPrompt(categoryId, value, targetCategoryId, newValue) {
   const response = await fetch(
-    `/artist_gallery/artists/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}/copy`,
+    `/prompt_gallery/prompts/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}/copy`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -99,7 +99,7 @@ export async function copyArtist(categoryId, value, targetCategoryId, newValue) 
  * 复制图片到其他Prompt
  */
 export async function copyImage(imagePath, toPromptValue) {
-  const response = await fetch('/artist_gallery/image/copy', {
+  const response = await fetch('/prompt_gallery/image/copy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -114,7 +114,7 @@ export async function copyImage(imagePath, toPromptValue) {
  * 保存循环状态
  */
 export async function saveCycleState(nodeId, cycleIndex) {
-  const response = await fetch('/artist_gallery/cycle-state', {
+  const response = await fetch('/prompt_gallery/cycle-state', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -129,7 +129,7 @@ export async function saveCycleState(nodeId, cycleIndex) {
  * 获取循环状态
  */
 export async function getCycleState(nodeId) {
-  const response = await fetch(`/artist_gallery/cycle-state?node_id=${encodeURIComponent(nodeId)}`);
+  const response = await fetch(`/prompt_gallery/cycle-state?node_id=${encodeURIComponent(nodeId)}`);
   return await response.json();
 }
 
@@ -137,7 +137,7 @@ export async function getCycleState(nodeId) {
  * 重置循环状态
  */
 export async function resetCycleState(nodeId) {
-  const response = await fetch('/artist_gallery/cycle-state/reset', {
+  const response = await fetch('/prompt_gallery/cycle-state/reset', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -150,14 +150,14 @@ export async function resetCycleState(nodeId) {
 /**
  * 导出Prompt（含图片）为 ZIP 文件
  */
-export async function exportArtists(artists, options = {}) {
-  const response = await fetch('/artist_gallery/export', {
+export async function exportPrompts(prompts, options = {}) {
+  const response = await fetch('/prompt_gallery/export', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      artists,
+      prompts,
       includeImages: options.includeImages !== false,
-      maxImagesPerArtist: options.maxImagesPerArtist || 0,
+      maxImagesPerPrompt: options.maxImagesPerPrompt || 0,
     }),
   });
   if (!response.ok) {
@@ -168,7 +168,7 @@ export async function exportArtists(artists, options = {}) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'artists_export.zip';
+  a.download = 'prompts_export.zip';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -179,13 +179,13 @@ export async function exportArtists(artists, options = {}) {
  * 导出分类（递归含子分类、Prompt、组合）为 ZIP 文件
  */
 export async function exportCategory(categoryId, options = {}) {
-  const response = await fetch('/artist_gallery/export-category', {
+  const response = await fetch('/prompt_gallery/export-category', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       categoryId,
       includeImages: options.includeImages !== false,
-      maxImagesPerArtist: options.maxImagesPerArtist || 0,
+      maxImagesPerPrompt: options.maxImagesPerPrompt || 0,
     }),
   });
   if (!response.ok) {
@@ -206,10 +206,10 @@ export async function exportCategory(categoryId, options = {}) {
 /**
  * 导入（从 ZIP 文件，支持 v1 Prompt格式和 v2 分类格式）
  */
-export async function importArtists(file, categoryId) {
+export async function importPrompts(file, categoryId) {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await fetch(`/artist_gallery/import?categoryId=${encodeURIComponent(categoryId)}`, {
+  const response = await fetch(`/prompt_gallery/import?categoryId=${encodeURIComponent(categoryId)}`, {
     method: 'POST',
     body: formData,
   });

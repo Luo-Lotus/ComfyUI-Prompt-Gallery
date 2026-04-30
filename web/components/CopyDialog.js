@@ -11,10 +11,10 @@ import { Icon } from '../lib/icons.mjs';
 
 export function CopyDialog({
   isOpen,
-  itemType, // 'category' | 'artist' | 'image'
+  itemType, // 'category' | 'prompt' | 'image'
   item,
   categories,
-  artists,
+  prompts,
   onClose,
   onCopy,
 }) {
@@ -37,7 +37,7 @@ export function CopyDialog({
       };
       getChildren(item.id);
       return exclude;
-    } else if (itemType === 'artist') {
+    } else if (itemType === 'prompt') {
       return [item.id];
     } else {
       return [];
@@ -46,8 +46,8 @@ export function CopyDialog({
 
   const targetType = useMemo(() => {
     if (itemType === 'category') return 'category';
-    if (itemType === 'artist') return 'category';
-    if (itemType === 'image') return 'artist';
+    if (itemType === 'prompt') return 'category';
+    if (itemType === 'image') return 'prompt';
     if (itemType === 'combination') return 'category';
     return 'category';
   }, [itemType]);
@@ -70,7 +70,7 @@ export function CopyDialog({
     setSelectedTarget(target);
 
     // 如果是复制Prompt或组合，可以修改名称
-    if (itemType === 'artist') {
+    if (itemType === 'prompt') {
       setShowNameInput(true);
       setNewName(item.name);
     } else if (itemType === 'combination') {
@@ -85,7 +85,7 @@ export function CopyDialog({
   // 标题和图标
   const getTitle = () => {
     if (itemType === 'category') return '复制分类';
-    if (itemType === 'artist') return '复制Prompt';
+    if (itemType === 'prompt') return '复制Prompt';
     if (itemType === 'image') return '复制图片';
     if (itemType === 'combination') return '复制组合';
     return '复制';
@@ -93,7 +93,7 @@ export function CopyDialog({
 
   const getTitleIcon = () => {
     if (itemType === 'category') return h(Icon, { name: 'folder-plus', size: 18 });
-    if (itemType === 'artist') return h(Icon, { name: 'plus', size: 18 });
+    if (itemType === 'prompt') return h(Icon, { name: 'plus', size: 18 });
     if (itemType === 'image') return h(Icon, { name: 'image', size: 18 });
     if (itemType === 'combination') return h(Icon, { name: 'link', size: 18 });
     return h(Icon, { name: 'copy', size: 18 });
@@ -102,7 +102,7 @@ export function CopyDialog({
   const getItemName = () => {
     if (!item) return '';
     if (itemType === 'category') return item.name;
-    if (itemType === 'artist') return item.name || item.value;
+    if (itemType === 'prompt') return item.name || item.value;
     if (itemType === 'image') return '图片';
     if (itemType === 'combination') return item.name;
     return '';
@@ -147,7 +147,7 @@ export function CopyDialog({
           h(FlatSelector, {
             type: targetType,
             categories,
-            artists,
+            prompts,
             excludeIds,
             currentId: null,
             onSelect: handleTargetSelect,

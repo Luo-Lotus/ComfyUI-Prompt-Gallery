@@ -1,4 +1,4 @@
-# Artist Gallery Style Guide
+# Prompt Gallery Style Guide
 
 本文件定义了画廊 UI 和节点 Widget 的完整样式规范。新建或修改组件时必须遵循。
 
@@ -11,7 +11,7 @@
 | 场景                                | 主题         | 基调                      |
 | ----------------------------------- | ------------ | ------------------------- |
 | **画廊 UI**（Modal、Dialog、Toast） | 粉色浅色主题 | 温暖、柔和                |
-| **节点 Widget**（ArtistSelector）   | 暗色主题     | 与 ComfyUI 节点编辑器一致 |
+| **节点 Widget**（PromptSelector）   | 暗色主题     | 与 ComfyUI 节点编辑器一致 |
 
 ---
 
@@ -289,13 +289,13 @@ border-color: #6c5ce7;
 - **对话框组件**: `gallery-dialog-` 前缀（如 `.gallery-dialog-content`）
 - **表单元素**: `gallery-form-` 前缀（如 `.gallery-form-input`、`.gallery-form-label`）
 - **功能组件**: 按功能命名（如 `.flat-selector`、`.lazy-list`、`.toast`）
-- **节点 Widget**: `artist-selector-` 前缀（如 `.artist-selector-tag`）
+- **节点 Widget**: `prompt-selector-` 前缀（如 `.prompt-selector-tag`）
 
 ### CSS 文件组织
 
 - 每个组件/功能一个 CSS 文件
 - 统一在 `gallery.css` 中 `@import` 汇总
-- 节点 Widget 样式在 `artist-selector.css`
+- 节点 Widget 样式在 `prompt-selector.css`
 
 ---
 

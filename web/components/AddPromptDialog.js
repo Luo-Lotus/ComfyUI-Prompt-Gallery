@@ -5,12 +5,12 @@ import { h } from '../lib/preact.mjs';
 import { useState } from '../lib/hooks.mjs';
 import { showToast } from './Toast.js';
 import { Icon } from '../lib/icons.mjs';
-import { addArtist, updateArtist, updateArtistByKey, addArtistsBatch } from '../services/artistApi.js';
+import { addPrompt, updatePrompt, updatePromptByKey, addPromptsBatch } from '../services/promptApi.js';
 import { Dialog, DialogButton, DialogFormGroup, DialogFormItem } from './Dialog.js';
 
-export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryId, onClose, onSave }) {
+export function AddPromptDialog({ isOpen, mode, editModePrompt, currentCategoryId, onClose, onSave }) {
   // ============ 表单状态 ============
-  const [addArtistMode, setAddArtistMode] = useState('single');
+  const [addPromptMode, setAddPromptMode] = useState('single');
   const [promptValue, setPromptValue] = useState('');
   const [promptName, setPromptName] = useState('');
   const [promptAlias, setPromptAlias] = useState('');
@@ -25,7 +25,7 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
     setPromptAlias('');
     setBatchText('');
     setBatchDelimiter('+');
-    setAddArtistMode('single');
+    setAddPromptMode('single');
   };
 
   const parseBatchText = (text, delimiter) => {
@@ -70,23 +70,23 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
   const handleSingleSave = async () => {
     if (!validateSingleForm()) return;
 
-    const artistData = {
+    const promptData = {
       value: promptValue,
       name: promptName || promptValue,
       alias: promptAlias,
-      categoryId: editModeArtist ? editModeArtist.categoryId : currentCategoryId || 'root',
+      categoryId: editModePrompt ? editModePrompt.categoryId : currentCategoryId || 'root',
     };
 
     try {
       let data;
-      if (editModeArtist) {
-        data = await updateArtistByKey(editModeArtist.categoryId, editModeArtist.value, artistData);
+      if (editModePrompt) {
+        data = await updatePromptByKey(editModePrompt.categoryId, editModePrompt.value, promptData);
       } else {
-        data = await addArtist(artistData);
+        data = await addPrompt(promptData);
       }
 
       if (data.success) {
-        showToast(editModeArtist ? 'Prompt更新成功' : 'Prompt添加成功', 'success');
+        showToast(editModePrompt ? 'Prompt更新成功' : 'Prompt添加成功', 'success');
         resetForm();
         onSave();
       } else {
@@ -103,7 +103,7 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
     const promptsData = parseBatchText(batchText, batchDelimiter);
 
     try {
-      const data = await addArtistsBatch(promptsData, currentCategoryId || 'root');
+      const data = await addPromptsBatch(promptsData, currentCategoryId || 'root');
 
       if (data.success) {
         showToast(
@@ -121,7 +121,7 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
   };
 
   const handleSave = () => {
-    if (addArtistMode === 'single') {
+    if (addPromptMode === 'single') {
       handleSingleSave();
     } else {
       handleBatchSave();
@@ -134,32 +134,32 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
   };
 
   // ============ 编辑模式处理 ============
-  if (editModeArtist && mode === 'edit' && !promptValue) {
-    setPromptValue(editModeArtist.value);
-    setPromptName(editModeArtist.name || '');
-    setPromptAlias(editModeArtist.alias || '');
-    setAddArtistMode('single');
+  if (editModePrompt && mode === 'edit' && !promptValue) {
+    setPromptValue(editModePrompt.value);
+    setPromptName(editModePrompt.name || '');
+    setPromptAlias(editModePrompt.alias || '');
+    setAddPromptMode('single');
   }
 
   // ============ 渲染函数 ============
 
   const renderTabs = () => {
-    if (editModeArtist) return null;
+    if (editModePrompt) return null;
 
     return h('div', { class: 'gallery-dialog-tabs' }, [
       h(
         'button',
         {
-          class: `gallery-modal-btn ${addArtistMode === 'single' ? 'primary' : ''} gallery-dialog-tab`,
-          onClick: () => setAddArtistMode('single'),
+          class: `gallery-modal-btn ${addPromptMode === 'single' ? 'primary' : ''} gallery-dialog-tab`,
+          onClick: () => setAddPromptMode('single'),
         },
         '单个添加',
       ),
       h(
         'button',
         {
-          class: `gallery-modal-btn ${addArtistMode === 'batch' ? 'primary' : ''} gallery-dialog-tab`,
-          onClick: () => setAddArtistMode('batch'),
+          class: `gallery-modal-btn ${addPromptMode === 'batch' ? 'primary' : ''} gallery-dialog-tab`,
+          onClick: () => setAddPromptMode('batch'),
         },
         '批量添加',
       ),
@@ -245,7 +245,7 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
   };
 
   const renderForm = () => {
-    return addArtistMode === 'single' ? renderSingleForm() : renderBatchForm();
+    return addPromptMode === 'single' ? renderSingleForm() : renderBatchForm();
   };
 
   const renderFooter = () => {
@@ -263,7 +263,7 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
           variant: 'primary',
           onClick: handleSave,
         },
-        editModeArtist ? '保存' : '确定',
+        editModePrompt ? '保存' : '确定',
       ),
     ];
   };
@@ -275,9 +275,9 @@ export function AddArtistDialog({ isOpen, mode, editModeArtist, currentCategoryI
     {
       isOpen,
       onClose: handleClose,
-      title: editModeArtist ? '编辑Prompt' : '添加Prompt',
+      title: editModePrompt ? '编辑Prompt' : '添加Prompt',
       titleIcon: h(Icon, {
-        name: editModeArtist ? 'edit' : 'plus',
+        name: editModePrompt ? 'edit' : 'plus',
         size: 18,
       }),
       maxWidth: '500px',

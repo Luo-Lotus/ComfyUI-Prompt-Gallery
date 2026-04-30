@@ -1,215 +1,215 @@
 /* ============ 多选功能样式 ============ */
 /* 通用选择样式 — 适用于所有使用 .selection-mode / .selected 类的元素
- * 包括：BaseCard 子组件（.gallery-card、.category-card）和图片项（.artist-detail-image-item）
+ * 包括：BaseCard 子组件（.gallery-card、.category-card）和图片项（.prompt-detail-image-item）
  * BaseCard 组件自动添加这些类，子组件无需关心选择态 UI
  */
 
 /* 选择模式基础 */
 .selection-mode {
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
 }
 
 .selection-mode:hover {
-    transform: translateY(-2px);
+  transform: translateY(-2px);
 }
 
 /* 多选模式下显示复选框占位 */
 .selection-mode::after {
-    content: '';
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    width: 22px;
-    height: 22px;
-    border: 2px solid rgba(255, 255, 255, 0.6);
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.3);
-    transition: all 0.2s;
-    z-index: 10;
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  transition: all 0.2s;
+  z-index: 10;
 }
 
 /* 选中状态：outline + 勾选标记 */
 .selection-mode.selected {
-    outline: 3px solid #ff6b9d;
-    outline-offset: -3px;
+  outline: 3px solid #ff6b9d;
+  outline-offset: -3px;
 }
 
 .selection-mode.selected::after {
-    background: #ff6b9d;
-    border-color: #ff6b9d;
-    content: '✓';
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: bold;
-    z-index: 10;
+  background: #ff6b9d;
+  border-color: #ff6b9d;
+  content: '✓';
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  z-index: 10;
 }
 
 /* ============ 批量操作工具栏 ============ */
 .batch-action-bar {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 10px 20px;
-    background: linear-gradient(135deg, #ff6b9d 0%, #ffb6c1 100%);
-    border-radius: 12px;
-    margin: 0 0 8px 0;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #ff6b9d 0%, #ffb6c1 100%);
+  border-radius: 12px;
+  margin: 0 0 8px 0;
+  flex-wrap: wrap;
 }
 
 .batch-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: white;
-    font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-weight: 600;
 }
 
 .batch-icon {
-    font-size: 20px;
+  font-size: 20px;
 }
 
 .batch-title {
-    font-size: 15px;
+  font-size: 15px;
 }
 
 .batch-count {
-    font-size: 13px;
-    opacity: 0.9;
+  font-size: 13px;
+  opacity: 0.9;
 }
 
 .batch-actions {
-    display: flex;
-    gap: 8px;
-    margin-left: auto;
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .batch-action-btn {
-    padding: 6px 12px;
-    border: 2px solid white;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    transition: all 0.2s;
+  padding: 6px 12px;
+  border: 2px solid white;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
 }
 
 .batch-action-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: scale(1.05);
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
 }
 
 .batch-operations {
-    display: flex;
-    gap: 8px;
+  display: flex;
+  gap: 8px;
 }
 
 .batch-op-btn {
-    padding: 8px 16px;
-    border: 2px solid white;
-    border-radius: 8px;
-    background: white;
-    color: #ff6b9d;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 5px;
+  padding: 8px 16px;
+  border: 2px solid white;
+  border-radius: 8px;
+  background: white;
+  color: #ff6b9d;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .batch-op-btn:hover {
-    background: #fff5f8;
-    transform: scale(1.05);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #fff5f8;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .batch-op-btn.delete-btn:hover {
-    background: #ffe5e8;
-    color: #dc3545;
+  background: #ffe5e8;
+  color: #dc3545;
 }
 
 .batch-op-btn.exit-btn {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    border-color: white;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border-color: white;
 }
 
 .batch-op-btn.exit-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    color: white;
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
 }
 
 /* 批量确认对话框 */
 .batch-confirm-content {
-    padding: 10px 0;
+  padding: 10px 0;
 }
 
 .batch-confirm-summary {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 12px;
-    margin-bottom: 15px;
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 15px;
 }
 
 .batch-confirm-summary p {
-    margin: 5px 0;
-    font-weight: 600;
-    color: #333;
+  margin: 5px 0;
+  font-weight: 600;
+  color: #333;
 }
 
 .batch-confirm-summary ul {
-    margin: 10px 0 0 20px;
-    list-style-type: disc;
+  margin: 10px 0 0 20px;
+  list-style-type: disc;
 }
 
 .batch-confirm-summary li {
-    margin: 5px 0;
-    color: #555;
+  margin: 5px 0;
+  color: #555;
 }
 
 /* 批量确认警告 */
 .batch-confirm-warning-medium {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px;
-    background: rgba(255, 193, 7, 0.1);
-    border: 2px solid #ffc107;
-    border-radius: 12px;
-    color: #856404;
-    font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 2px solid #ffc107;
+  border-radius: 12px;
+  color: #856404;
+  font-weight: 600;
 }
 
 .batch-confirm-warning-high {
-    padding: 15px;
-    background: rgba(220, 53, 69, 0.1);
-    border: 2px solid #dc3545;
-    border-radius: 12px;
-    color: #721c24;
+  padding: 15px;
+  background: rgba(220, 53, 69, 0.1);
+  border: 2px solid #dc3545;
+  border-radius: 12px;
+  color: #721c24;
 }
 
 .batch-confirm-warning-high .warning-icon {
-    font-size: 24px;
-    text-align: center;
-    margin-bottom: 10px;
+  font-size: 24px;
+  text-align: center;
+  margin-bottom: 10px;
 }
 
 .batch-confirm-warning-high .warning-content p {
-    margin: 8px 0;
-    font-weight: 600;
+  margin: 8px 0;
+  font-weight: 600;
 }
 
 .batch-confirm-warning-high .critical-warning {
-    color: #dc3545;
-    font-size: 16px;
-    font-weight: 700;
-    margin-top: 10px;
+  color: #dc3545;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 10px;
 }

@@ -8,8 +8,8 @@ import { h } from '../lib/preact.mjs';
 export function ImportPreview({ preview, categories }) {
   if (!preview || preview.length === 0) return null;
 
-  const matched = preview.filter((p) => p.parsedArtist);
-  const unmatched = preview.filter((p) => !p.parsedArtist);
+  const matched = preview.filter((p) => p.parsedPrompt);
+  const unmatched = preview.filter((p) => !p.parsedPrompt);
 
   const getCategoryName = (categoryId) => {
     const category = categories.find((c) => c.id === categoryId);
@@ -31,7 +31,7 @@ export function ImportPreview({ preview, categories }) {
       'div',
       { class: 'preview-list' },
       preview.slice(0, 15).map((item, index) => {
-        const isMatched = !!item.parsedArtist;
+        const isMatched = !!item.parsedPrompt;
 
         return h(
           'div',
@@ -45,10 +45,10 @@ export function ImportPreview({ preview, categories }) {
             isMatched
               ? h(
                   'span',
-                  { class: 'preview-artist success' },
-                  `→ ${item.parsedArtist} (${getCategoryName(item.categoryId)})`,
+                  { class: 'preview-prompt success' },
+                  `→ ${item.parsedPrompt} (${getCategoryName(item.categoryId)})`,
                 )
-              : h('span', { class: 'preview-artist warning' }, '→ 未匹配'),
+              : h('span', { class: 'preview-prompt warning' }, '→ 未匹配'),
 
             item.willCreate && h('span', { class: 'preview-badge' }, '新建'),
           ],

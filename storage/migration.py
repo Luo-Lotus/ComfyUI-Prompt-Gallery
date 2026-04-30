@@ -4,6 +4,106 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 
+def _fix_image_path_prefix(mappings_file: Path):
+    """修复 image_prompts.json 中的旧 imagePath 前缀 artist_gallery/ → prompt_gallery/"""
+    if not mappings_file.exists():
+        return
+    try:
+        with open(mappings_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        changed = False
+        for mapping in data.get("mappings", []):
+            img_path = mapping.get("imagePath", "")
+            if img_path.startswith("artist_gallery/"):
+                mapping["imagePath"] = img_path.replace("artist_gallery/", "prompt_gallery/", 1)
+                changed = True
+
+        if changed:
+            with open(mappings_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            print(f"[Migration-PromptSchema] 修复 imagePath 前缀: {mappings_file}")
+    except Exception as e:
+        print(f"[Migration-PromptSchema] 修复 imagePath 失败: {e}")
+
+
+def _rename_output_subdir():
+    """将 output 目录下的 artist_gallery/ 物理文件夹重命名为 prompt_gallery/"""
+    try:
+        import folder_paths
+        output_dir = Path(folder_paths.get_output_directory())
+    except Exception:
+        return
+
+    old_dir = output_dir / "artist_gallery"
+    new_dir = output_dir / "prompt_gallery"
+
+    if not old_dir.exists():
+        return
+
+    if new_dir.exists():
+        # 两个都存在，合并：把旧目录文件移到新目录
+        for item in old_dir.iterdir():
+            target = new_dir / item.name
+            if not target.exists():
+                shutil.move(str(item), str(target))
+        # 清理旧目录（如果为空）
+        try:
+            old_dir.rmdir()
+            print(f"[Migration-PromptSchema] 已合并并删除旧目录: {old_dir}")
+        except OSError:
+            print(f"[Migration-PromptSchema] 旧目录非空，保留: {old_dir}")
+    else:
+        shutil.move(str(old_dir), str(new_dir))
+        print(f"[Migration-PromptSchema] 物理目录重命名: {old_dir} → {new_dir}")
+
+
+def _fix_cover_image_paths(storage_dir: Path):
+    """修复 prompts.json 和 combinations.json 中 coverImageId 的旧路径前缀"""
+    prompts_file = storage_dir / "prompts.json"
+    combinations_file = storage_dir / "combinations.json"
+
+    # 修复 prompts.json
+    if prompts_file.exists():
+        try:
+            with open(prompts_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            changed = False
+            for prompt in data.get("prompts", []):
+                cover = prompt.get("coverImageId", "")
+                if cover and cover.startswith("artist_gallery/"):
+                    prompt["coverImageId"] = cover.replace("artist_gallery/", "prompt_gallery/", 1)
+                    changed = True
+
+            if changed:
+                with open(prompts_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                print(f"[Migration-PromptSchema] 修复 prompts.json coverImageId 前缀")
+        except Exception as e:
+            print(f"[Migration-PromptSchema] 修复 prompts.json coverImageId 失败: {e}")
+
+    # 修复 combinations.json
+    if combinations_file.exists():
+        try:
+            with open(combinations_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            changed = False
+            for comb in data.get("combinations", []):
+                cover = comb.get("coverImageId", "")
+                if cover and cover.startswith("artist_gallery/"):
+                    comb["coverImageId"] = cover.replace("artist_gallery/", "prompt_gallery/", 1)
+                    changed = True
+
+            if changed:
+                with open(combinations_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                print(f"[Migration-PromptSchema] 修复 combinations.json coverImageId 前缀")
+        except Exception as e:
+            print(f"[Migration-PromptSchema] 修复 combinations.json coverImageId 失败: {e}")
+
+
 def migrate_to_prompt_schema(storage_dir: Path) -> dict:
     """
     迁移数据从旧字段命名到新 prompt schema：
@@ -19,21 +119,31 @@ def migrate_to_prompt_schema(storage_dir: Path) -> dict:
     new_mappings_file = storage_dir / "image_prompts.json"
     combinations_file = storage_dir / "combinations.json"
 
-    # 如果新文件已存在且有数据，说明已经迁移过
+    # 如果新文件已存在且有数据，说明 prompt 结构已迁移
+    # 但仍需检查 imagePath 前缀是否需要修复
+    prompts_migrated = False
     if new_artists_file.exists():
-        # 检查是否为空数据（可能是之前实例化时创建的空文件）
         try:
             with open(new_artists_file, 'r', encoding='utf-8') as f:
                 existing = json.load(f)
-            if existing.get("artists"):  # 有实际数据，已迁移
-                return {"success": True, "message": "已是新格式，无需迁移", "migrated": False}
-            # 空文件但旧数据存在 → 删除空文件继续迁移
-            if old_artists_file.exists():
-                new_artists_file.unlink()
+            if existing.get("prompts"):
+                prompts_migrated = True
             else:
-                return {"success": True, "message": "无旧数据", "migrated": False}
+                # 空文件但旧数据存在 → 删除空文件继续迁移
+                if old_artists_file.exists():
+                    new_artists_file.unlink()
+                else:
+                    return {"success": True, "message": "无旧数据", "migrated": False}
         except Exception:
             pass
+
+    # 修复 imagePath 前缀 + 封面图路径 + 重命名物理目录（无论 prompt 是否已迁移）
+    _fix_image_path_prefix(new_mappings_file)
+    _fix_cover_image_paths(storage_dir)
+    _rename_output_subdir()
+
+    if prompts_migrated:
+        return {"success": True, "message": "已是新格式，无需迁移", "migrated": False}
 
     # 如果旧文件不存在，也无需迁移
     if not old_artists_file.exists():
@@ -59,21 +169,21 @@ def migrate_to_prompt_schema(storage_dir: Path) -> dict:
             data = json.load(f)
 
         migrated_count = 0
-        for artist in data.get("artists", []):
+        old_artists = data.get("artists", [])
+        for artist in old_artists:
             old_name = artist.get("name", "")
             old_display = artist.get("displayName", old_name)
             artist["value"] = old_name
             artist["name"] = old_display
             artist["alias"] = ""
-            # 移除旧字段
             if "displayName" in artist:
                 del artist["displayName"]
-            # name 已经被重设，不需要删除
             migrated_count += 1
 
-        # 写入新文件
+        # 写入新文件，key 从 "artists" 改为 "prompts"
+        new_data = {"prompts": old_artists}
         with open(new_artists_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+            json.dump(new_data, f, ensure_ascii=False, indent=2)
 
         # 删除旧文件
         old_artists_file.unlink()
@@ -92,6 +202,10 @@ def migrate_to_prompt_schema(storage_dir: Path) -> dict:
                 mapping["prompts"] = old_names
                 if "artistNames" in mapping:
                     del mapping["artistNames"]
+                # 更新 imagePath 前缀 artist_gallery → prompt_gallery
+                img_path = mapping.get("imagePath", "")
+                if img_path.startswith("artist_gallery/"):
+                    mapping["imagePath"] = img_path.replace("artist_gallery/", "prompt_gallery/", 1)
 
             with open(new_mappings_file, 'w', encoding='utf-8') as f:
                 json.dump(mapping_data, f, ensure_ascii=False, indent=2)
@@ -147,31 +261,29 @@ def migrate_to_prompt_schema(storage_dir: Path) -> dict:
         }
 
 
-def migrate_artist_data(artist_storage) -> bool:
+def migrate_prompt_data(prompt_storage) -> bool:
     """
     迁移现有Prompt数据，添加新字段
-    :param artist_storage: Prompt存储实例
+    :param prompt_storage: Prompt存储实例
     :return: 是否进行了迁移
     """
-    import time
-
-    artists = artist_storage.get_all_artists()
+    prompts = prompt_storage.get_all_prompts()
     migrated = False
 
-    for artist in artists:
+    for prompt in prompts:
         updated = False
-        if "categoryId" not in artist:
-            artist["categoryId"] = "root"
+        if "categoryId" not in prompt:
+            prompt["categoryId"] = "root"
             updated = True
-        if "coverImageId" not in artist:
-            artist["coverImageId"] = None
+        if "coverImageId" not in prompt:
+            prompt["coverImageId"] = None
             updated = True
 
         if updated:
-            artist_storage.update_artist(
-                artist["id"],
-                categoryId=artist["categoryId"],
-                coverImageId=artist["coverImageId"]
+            prompt_storage.update_prompt_by_id(
+                prompt.get("id", ""),
+                categoryId=prompt["categoryId"],
+                coverImageId=prompt["coverImageId"]
             )
             migrated = True
 

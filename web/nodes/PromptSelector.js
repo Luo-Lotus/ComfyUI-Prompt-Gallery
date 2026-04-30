@@ -1,10 +1,10 @@
 /**
- * Artist Selector Widget
+ * Prompt Selector Widget
  * Prompt选择节点的自定义控件
  *
  * 主文件：负责扩展注册和节点初始化
- * UI 组件：ArtistSelectorWidget.js
- * 业务逻辑：hooks/useArtistSelector.js
+ * UI 组件：PromptSelectorWidget.js
+ * 业务逻辑：hooks/usePromptSelector.js
  */
 import { app } from '../../../scripts/app.js';
 import { $el } from '../../../scripts/ui.js';
@@ -16,10 +16,10 @@ if (!self.preactCore) self.preactCore = { h, render, createElement: h };
 if (!self.preactHooks) self.preactHooks = { useState, useEffect, useMemo };
 
 app.registerExtension({
-  name: 'ArtistGallery.ArtistSelector',
+  name: 'PromptGallery.PromptsSelector',
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
-    if (nodeData.name === 'ArtistSelector') {
+    if (nodeData.name === 'PromptsSelector') {
       const onNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         onNodeCreated?.apply(this, arguments);
@@ -30,7 +30,7 @@ app.registerExtension({
         const nodeInstance = this;
 
         // 获取由 INPUT_TYPES 自动创建的隐藏 widgets
-        const selectedInput = this.widgets.find((w) => w.name === 'selected_artists');
+        const selectedInput = this.widgets.find((w) => w.name === 'selected_prompts');
         const metadataInput = this.widgets.find((w) => w.name === 'metadata');
 
         // 配置隐藏显示
@@ -48,7 +48,7 @@ app.registerExtension({
         console.log(nodeInstance, 'initialized');
 
         // 创建容器
-        const container = $el('div.artist-selector-widget', {
+        const container = $el('div.prompt-selector-widget', {
           style: {
             width: '100%',
             minHeight: '260px',
@@ -65,10 +65,10 @@ app.registerExtension({
         });
 
         // 添加初始加载提示
-        container.innerHTML = '<div class="artist-selector-loading">Loading artist selector...</div>';
+        container.innerHTML = '<div class="prompt-selector-loading">Loading prompt selector...</div>';
 
         // 添加DOM widget
-        this.addDOMWidget('artist_selector_widget', 'div', container, {
+        this.addDOMWidget('prompt_selector_widget', 'div', container, {
           onDraw: () => {},
         });
 
@@ -76,10 +76,10 @@ app.registerExtension({
         setTimeout(async () => {
           try {
             // 动态导入组件
-            const { ArtistSelectorWidget } = await import('./components/ArtistSelectorWidget.js');
+            const { PromptSelectorWidget } = await import('./components/PromptSelectorWidget.js');
 
             // 渲染组件
-            const vnode = h(ArtistSelectorWidget, {
+            const vnode = h(PromptSelectorWidget, {
               nodeInstance,
               selectedInput,
               metadataInput,
@@ -87,9 +87,9 @@ app.registerExtension({
 
             render(vnode, container);
           } catch (error) {
-            console.error('[ArtistSelector] Failed to load widget:', error);
+            console.error('[PromptSelector] Failed to load widget:', error);
             container.innerHTML =
-              '<div class="artist-selector-loading" style="color: #ff4444;">加载失败，请刷新页面重试</div>';
+              '<div class="prompt-selector-loading" style="color: #ff4444;">加载失败，请刷新页面重试</div>';
           }
         }, 100);
       };

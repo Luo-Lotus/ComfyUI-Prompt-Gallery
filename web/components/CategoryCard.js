@@ -9,7 +9,7 @@ import { useContextMenu } from './ContextMenu.js';
 
 export function CategoryCard({
   category,
-  artistCount = 0,
+  promptCount = 0,
   onClick,
   onEdit,
   onDelete,
@@ -81,7 +81,7 @@ export function CategoryCard({
       // 分类信息
       h('div', { class: 'category-info' }, [
         h('div', { class: 'category-name' }, category.name),
-        h('div', { class: 'category-meta' }, artistCount > 0 ? `${artistCount} 位Prompt` : '空分类'),
+        h('div', { class: 'category-meta' }, promptCount > 0 ? `${promptCount} 位Prompt` : '空分类'),
       ]),
     ],
   );

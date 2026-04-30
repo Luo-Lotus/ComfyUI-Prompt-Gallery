@@ -8,12 +8,12 @@
 @import url('./toast.css');
 @import url('./dialogs.css');
 @import url('./category.css');
-@import url('./artist-detail.css');
+@import url('./prompt-detail.css');
 @import url('./selectors.css');
 @import url('./context-menu.css');
 @import url('./import.css');
 @import url('./batch.css');
-@import url('./artist-selector.css');
+@import url('./prompt-selector.css');
 @import url('./size-slider.css');
 @import url('./lazy-list.css');
 @import url('./combination.css');

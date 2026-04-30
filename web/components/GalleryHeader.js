@@ -9,7 +9,7 @@ import { useGallery } from './GalleryContext.js';
 export function GalleryHeader() {
   const ctx = useGallery();
   const isGallery = ctx.viewMode === 'gallery';
-  const isArtist = ctx.viewMode === 'artist';
+  const isPrompt = ctx.viewMode === 'prompt';
 
   const buttons = [];
 
@@ -48,7 +48,7 @@ export function GalleryHeader() {
         {
           class: 'gallery-modal-btn',
           onClick: () => {
-            const input = document.getElementById('artist-import-file-input');
+            const input = document.getElementById('prompt-import-file-input');
             if (input) input.click();
           },
         },
@@ -58,7 +58,7 @@ export function GalleryHeader() {
   }
 
   // Prompt详情视图：只显示导入图片
-  if (isArtist) {
+  if (isPrompt) {
     buttons.push(
       h(
         'button',
@@ -95,11 +95,11 @@ export function GalleryHeader() {
   // 隐藏的文件选择 input
   buttons.push(
     h('input', {
-      id: 'artist-import-file-input',
+      id: 'prompt-import-file-input',
       type: 'file',
       accept: '.zip',
       style: { display: 'none' },
-      onChange: ctx.handleImportArtists,
+      onChange: ctx.handleImportPrompts,
     }),
   );
 

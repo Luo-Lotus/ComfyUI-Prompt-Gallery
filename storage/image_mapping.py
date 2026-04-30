@@ -55,7 +55,7 @@ class ImageMappingStorage:
     def add_mapping(self, image_path: str, prompt_values: List[str], metadata: Optional[dict] = None):
         """
         添加图片-Prompt映射
-        :param image_path: 图片相对路径（如 "artist_gallery/1719123456789.png"）
+        :param image_path: 图片相对路径（如 "prompt_gallery/1719123456789.png"）
         :param prompt_values: 关联的Prompt值列表
         :param metadata: 图片元数据（宽高等）
         """
@@ -75,7 +75,7 @@ class ImageMappingStorage:
 
             return mapping
 
-    def get_mappings_by_artist(self, prompt_value: str) -> List[dict]:
+    def get_mappings_by_prompt(self, prompt_value: str) -> List[dict]:
         """
         获取指定Prompt的所有图片映射
         :param prompt_value: Prompt值
@@ -87,7 +87,7 @@ class ImageMappingStorage:
             if prompt_value in m.get("prompts", [])
         ]
 
-    def get_first_mapping_by_artist(self, prompt_value: str) -> Optional[dict]:
+    def get_first_mapping_by_prompt(self, prompt_value: str) -> Optional[dict]:
         """获取Prompt的第一张图片映射（用于封面图）"""
         with self._lock:
             data = self._read_data()
@@ -96,7 +96,7 @@ class ImageMappingStorage:
                     return m
             return None
 
-    def get_mappings_by_artist_id(self, artist_id: str) -> List[dict]:
+    def get_mappings_by_prompt_id(self, prompt_id: str) -> List[dict]:
         """
         获取指定Prompt的所有图片映射（使用 ID，兼容旧版本）
         注意：此方法仅用于迁移期间的兼容性
@@ -104,7 +104,7 @@ class ImageMappingStorage:
         mappings = self.get_all_mappings()
         return [
             m for m in mappings
-            if artist_id in m.get("artistIds", [])
+            if prompt_id in m.get("promptIds", [])
         ]
 
     def get_mappings_by_image(self, image_path: str) -> Optional[dict]:
@@ -115,7 +115,7 @@ class ImageMappingStorage:
                 return mapping
         return None
 
-    def remove_artist_from_mappings(self, prompt_value: str) -> List[str]:
+    def remove_prompt_from_mappings(self, prompt_value: str) -> List[str]:
         """
         从所有映射中移除指定Prompt
         :param prompt_value: Prompt值
@@ -181,7 +181,7 @@ class ImageMappingStorage:
 
             return False
 
-    def rename_artist_in_mappings(self, old_value: str, new_value: str) -> int:
+    def rename_prompt_in_mappings(self, old_value: str, new_value: str) -> int:
         """
         在所有映射中重命名Prompt
         :param old_value: 旧值
@@ -204,7 +204,7 @@ class ImageMappingStorage:
 
             return updated_count
 
-    def get_all_mappings_for_artist(self, prompt_value: str) -> List[dict]:
+    def get_all_mappings_for_prompt(self, prompt_value: str) -> List[dict]:
         """
         获取指定Prompt的所有映射（用于重命名时显示预览）
         :param prompt_value: Prompt值
@@ -217,7 +217,7 @@ class ImageMappingStorage:
             if prompt_value in m.get("prompts", [])
         ]
 
-    def build_artist_index(self) -> Dict[str, List[dict]]:
+    def build_prompt_index(self) -> Dict[str, List[dict]]:
         """
         一次性构建 prompt_value → [mapping, ...] 索引。
         用于批量查询场景，消除 N+1 问题。

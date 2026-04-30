@@ -15,12 +15,12 @@ export function CombinationDialog({
   mode = 'add',
   combination = null,
   currentCategoryId = 'root',
-  artists = [],
+  prompts = [],
   onClose,
   onSave,
 }) {
   const [name, setName] = useState('');
-  const [selectedArtistNames, setSelectedArtistNames] = useState(new Set());
+  const [selectedPromptNames, setSelectedPromptNames] = useState(new Set());
   const [outputContent, setOutputContent] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -28,28 +28,28 @@ export function CombinationDialog({
   useEffect(() => {
     if (isOpen && mode === 'edit' && combination) {
       setName(combination.name || '');
-      setSelectedArtistNames(new Set(combination.prompts || []));
+      setSelectedPromptNames(new Set(combination.prompts || []));
       setOutputContent(combination.outputContent || '');
     } else if (isOpen && mode === 'add') {
       setName('');
-      setSelectedArtistNames(new Set());
+      setSelectedPromptNames(new Set());
       setOutputContent('');
     }
   }, [isOpen, mode, combination]);
 
   // 自动生成的输出内容预览
   const autoOutput = useMemo(() => {
-    return Array.from(selectedArtistNames).join(',');
-  }, [selectedArtistNames]);
+    return Array.from(selectedPromptNames).join(',');
+  }, [selectedPromptNames]);
 
-  const toggleArtist = (key, artist) => {
-    const artistName = artist.value;
-    setSelectedArtistNames((prev) => {
+  const togglePrompt = (key, prompt) => {
+    const promptName = prompt.value;
+    setSelectedPromptNames((prev) => {
       const next = new Set(prev);
-      if (next.has(artistName)) {
-        next.delete(artistName);
+      if (next.has(promptName)) {
+        next.delete(promptName);
       } else {
-        next.add(artistName);
+        next.add(promptName);
       }
       return next;
     });
@@ -60,12 +60,12 @@ export function CombinationDialog({
       showToast('请输入组合名称', 'warning');
       return;
     }
-    if (selectedArtistNames.size === 0) {
+    if (selectedPromptNames.size === 0) {
       showToast('请至少选择一个Prompt', 'warning');
       return;
     }
 
-    const prompts = Array.from(selectedArtistNames);
+    const prompts = Array.from(selectedPromptNames);
     const content = outputContent.trim() || autoOutput;
 
     setSaving(true);
@@ -134,13 +134,13 @@ export function CombinationDialog({
       // 选择Prompt（使用 FlatSelector 多选模式）
       h(
         DialogFormItem,
-        { label: `选择Prompt (${selectedArtistNames.size})` },
+        { label: `选择Prompt (${selectedPromptNames.size})` },
         h(FlatSelector, {
-          type: 'artist',
-          artists: artists,
+          type: 'prompt',
+          prompts: prompts,
           multiSelect: true,
-          selectedIds: selectedArtistNames,
-          onToggleItem: toggleArtist,
+          selectedIds: selectedPromptNames,
+          onToggleItem: togglePrompt,
           placeholder: '搜索Prompt...',
         }),
       ),
