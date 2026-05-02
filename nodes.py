@@ -590,3 +590,74 @@ class SaveToGallery:
         print(f"[SaveToGallery] 总共保存了 {saved_count} 张图片")
         return ()
 
+
+class QuickSavePrompt:
+    """快速保存Prompt节点 - 将传入的字符串保存为Prompt"""
+
+    CATEGORY = "🎨 Prompt Gallery"
+    RETURN_TYPES = ()
+    FUNCTION = "save_prompt"
+    OUTPUT_NODE = True
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        _, _, category_storage, _ = get_storage()
+        categories = category_storage.get_all_categories()
+        category_list = [cat["name"] for cat in categories]
+        if not category_list:
+            category_list = ["root"]
+
+        return {
+            "required": {
+                "prompt_name": ("STRING", {"default": ""}),
+                "category": (category_list,),
+                "prompt_value": ("STRING", {"forceInput": True}),
+            }
+        }
+
+    def save_prompt(self, prompt_name, category, prompt_value):
+        if not prompt_name or not prompt_name.strip():
+            print("[QuickSavePrompt] 错误: 请填写 prompt 名称")
+            return ()
+
+        if not prompt_value or not prompt_value.strip():
+            print("[QuickSavePrompt] 错误: 传入的 prompt 内容为空")
+            return ()
+
+        prompt_name = prompt_name.strip()
+        prompt_value = prompt_value.strip()
+
+        prompt_storage, _, category_storage, _ = get_storage()
+
+        # 根据分类名称查找分类 ID
+        categories = category_storage.get_all_categories()
+        category_id = "root"
+        for cat in categories:
+            if cat["name"] == category:
+                category_id = cat["id"]
+                break
+
+        # 检查同分类下是否已有同名 prompt
+        existing = None
+        for p in prompt_storage.get_all_prompts():
+            if p.get("categoryId") == category_id and p.get("name") == prompt_name:
+                existing = p
+                break
+
+        if existing:
+            prompt_storage.update_prompt(
+                category_id=category_id,
+                old_value=existing["value"],
+                value=prompt_value,
+            )
+            print(f"[QuickSavePrompt] 已更新 prompt: {prompt_name} (value: {prompt_value}, 分类: {category})")
+        else:
+            prompt_storage.add_prompt(
+                value=prompt_value,
+                name=prompt_name,
+                category_id=category_id,
+            )
+            print(f"[QuickSavePrompt] 已创建 prompt: {prompt_name} (value: {prompt_value}, 分类: {category})")
+
+        return ()
+

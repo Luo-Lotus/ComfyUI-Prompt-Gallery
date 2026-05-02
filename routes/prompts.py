@@ -118,7 +118,7 @@ async def delete_prompt(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.get(r"/prompt_gallery/prompts/{category_id}/{value:.+}")
+@server.PromptServer.instance.routes.get(r"/prompt_gallery/prompts/{category_id}/{value:[\s\S]+}")
 async def get_prompt_composite(request):
     """获取单个Prompt详情（使用组合键）"""
     try:
@@ -136,7 +136,7 @@ async def get_prompt_composite(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.put(r"/prompt_gallery/prompts/{category_id}/{value:.+}")
+@server.PromptServer.instance.routes.put(r"/prompt_gallery/prompts/{category_id}/{value:[\s\S]+}")
 async def update_prompt_composite(request):
     """更新Prompt信息（使用组合键）"""
     try:
@@ -242,7 +242,7 @@ async def update_prompt_composite(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.delete(r"/prompt_gallery/prompts/{category_id}/{value:.+}")
+@server.PromptServer.instance.routes.delete(r"/prompt_gallery/prompts/{category_id}/{value:[\s\S]+}")
 async def delete_prompt_composite(request):
     """
     删除Prompt（使用组合键）
@@ -401,7 +401,7 @@ async def get_prompt_images(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-@server.PromptServer.instance.routes.post(r"/prompt_gallery/prompts/{category_id}/{value:.+}/copy")
+@server.PromptServer.instance.routes.post(r"/prompt_gallery/prompts/{category_id}/{value:[\s\S]+}/copy")
 async def copy_prompt(request):
     """
     复制Prompt到其他分类

@@ -72,14 +72,13 @@ export function GalleryHeader() {
     );
   }
 
-  // 通用按钮：刷新（历史视图不显示）
-  !isHistory &&
-    buttons.push(
-      h('button', { class: 'gallery-modal-btn', onClick: ctx.loadData }, [
-        h(Icon, { name: 'refresh-cw', size: 14 }),
-        ' 刷新',
-      ]),
-    );
+  // 通用按钮：刷新
+  buttons.push(
+    h('button', { class: 'gallery-modal-btn', onClick: ctx.loadData }, [
+      h(Icon, { name: 'refresh-cw', size: 14 }),
+      ' 刷新',
+    ]),
+  );
 
   // 批量操作按钮（历史视图不显示）
   !isHistory &&

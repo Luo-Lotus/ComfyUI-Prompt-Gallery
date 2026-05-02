@@ -10,7 +10,7 @@ from ..storage import get_storage
 
 # ============ Image Mapping API ============
 
-@server.PromptServer.instance.routes.get("/prompt_gallery/image/{filename:.+}/prompts")
+@server.PromptServer.instance.routes.get("/prompt_gallery/image/{filename:[\s\S]+}/prompts")
 async def get_image_prompts(request):
     """获取图片关联的Prompt列表"""
     try:

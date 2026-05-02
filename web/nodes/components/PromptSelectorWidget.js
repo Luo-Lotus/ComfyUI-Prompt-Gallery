@@ -12,6 +12,29 @@ import { PartitionList } from './PartitionList.js';
 import { PartitionConfigPanel } from './PartitionConfigPanel.js';
 import { LazyList } from '../../components/LazyList.js';
 import { showToast } from '../../components/Toast.js';
+import { useBodyRender } from './hooks/useBodyRender.js';
+import { AddPromptDialog } from '../../components/AddPromptDialog.js';
+import { CategoryDialog } from '../../components/CategoryDialog.js';
+import { addCategory } from '../../utils.js';
+
+// 辅助函数：构建面包屑路径
+function buildBreadcrumbPath(categoryId, categories) {
+  const path = [];
+  function findPath(id) {
+    const cat = categories.find((c) => c.id === id);
+    if (!cat) return;
+    path.unshift(cat);
+    if (cat.parentId) findPath(cat.parentId);
+  }
+  if (categoryId && categoryId !== 'root') findPath(categoryId);
+  return path;
+}
+
+// 辅助函数：获取分类的完整路径名
+function getCategoryPathName(categoryId, categories) {
+  const path = buildBreadcrumbPath(categoryId, categories);
+  return path.map((c) => c.name).join(' / ');
+}
 
 export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInput }) {
   const {
@@ -28,6 +51,8 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
     sortOrder,
     currentCategory,
     filteredPrompts,
+    filteredCategories,
+    filteredCombinations,
     selectedPromptsList,
     selectedCategoriesList,
     refreshing,
@@ -70,6 +95,13 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   const [showPartitionConfig, setShowPartitionConfig] = useState(false);
   const [editingPartitionId, setEditingPartitionId] = useState(null);
 
+  // 新建菜单和弹窗状态
+  const { renderToBody, clear } = useBodyRender();
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [showPromptDialog, setShowPromptDialog] = useState(false);
+  const hoverMenuTimerRef = useRef(null);
+
   // 拖拽分隔条状态
   const [splitPercent, setSplitPercent] = useState(35);
   const [isDragging, setIsDragging] = useState(false);
@@ -105,6 +137,68 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
+
+  // ============ 新建弹窗处理 ============
+
+  const openCategoryDialog = () => {
+    setShowCategoryDialog(true);
+  };
+
+  const openPromptDialog = () => {
+    setShowPromptDialog(true);
+  };
+
+  // 渲染分区配置面板到 body
+  useEffect(() => {
+    if (showPartitionConfig) {
+      renderToBody(
+        h('div', { class: 'prompt-selector-config-overlay' }, [
+          h(PartitionConfigPanel, {
+            partition: partitionData.partitions.find((p) => p.id === editingPartitionId) || partitionData.partitions[0],
+            globalConfig: partitionData.globalConfig,
+            onChange: (updates) => updatePartition(editingPartitionId, updates),
+            onClose: () => setShowPartitionConfig(false),
+          }),
+        ]),
+      );
+    }
+  }, [showPartitionConfig, editingPartitionId, partitionData]);
+
+  // 统一渲染弹窗到 body（避免多个 effect 互相 clear）
+  useEffect(() => {
+    if (showCategoryDialog) {
+      renderToBody(
+        h(CategoryDialog, {
+          isOpen: true,
+          mode: 'add',
+          categories: categories,
+          currentCategoryId: currentCategory,
+          onClose: () => setShowCategoryDialog(false),
+          onSave: async (data) => {
+            await addCategory(data);
+            setShowCategoryDialog(false);
+            handleRefresh();
+            showToast('分类创建成功', 'success');
+          },
+        }),
+      );
+    } else if (showPromptDialog) {
+      renderToBody(
+        h(AddPromptDialog, {
+          isOpen: true,
+          mode: 'add',
+          currentCategoryId: currentCategory,
+          onClose: () => setShowPromptDialog(false),
+          onSave: () => {
+            setShowPromptDialog(false);
+            handleRefresh();
+          },
+        }),
+      );
+    } else if (!showPartitionConfig) {
+      clear();
+    }
+  }, [showCategoryDialog, showPromptDialog, showPartitionConfig, categories, currentCategory]);
 
   // ============ 子组件渲染函数 ============
 
@@ -210,8 +304,12 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   /**
    * 渲染分类卡片
    */
-  const renderCategoryCard = (cat) => {
+  const renderCategoryCard = (cat, showPath) => {
     const isSelected = selectedCategories.has(cat.id);
+    // 搜索模式下显示父分类路径
+    const parentPath = showPath && cat.parentId
+      ? buildBreadcrumbPath(cat.parentId, categories).map((c) => c.name).join(' / ')
+      : '';
     return h(
       'div',
       {
@@ -250,7 +348,10 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
       },
       [
         h('span', { class: 'prompt-selector-category-icon' }, h(Icon, { name: 'folder', size: 16 })),
-        h('span', { class: 'prompt-selector-category-name' }, cat.name),
+        h('span', { class: 'prompt-selector-category-name' }, [
+          parentPath && h('span', { class: 'prompt-selector-item-path' }, parentPath + ' / '),
+          cat.name,
+        ]),
         h(
           'span',
           {
@@ -313,6 +414,49 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
           },
           refreshing ? h(Icon, { name: 'loader', size: 14, class: 'spin' }) : h(Icon, { name: 'refresh-cw', size: 14 }),
         ),
+        // 新建按钮（hover 展开菜单）
+        h(
+          'div',
+          {
+            class: 'prompt-selector-add-wrapper',
+            onMouseEnter: () => {
+              if (hoverMenuTimerRef.current) clearTimeout(hoverMenuTimerRef.current);
+              setShowAddMenu(true);
+            },
+            onMouseLeave: () => {
+              hoverMenuTimerRef.current = setTimeout(() => setShowAddMenu(false), 200);
+            },
+          },
+          [
+            h(
+              'button',
+              {
+                class: 'prompt-selector-add-button',
+                title: '新建',
+              },
+              h(Icon, { name: 'plus', size: 14 }),
+            ),
+            showAddMenu &&
+              h('div', { class: 'prompt-selector-add-menu' }, [
+                h(
+                  'div',
+                  {
+                    class: 'prompt-selector-add-menu-item',
+                    onClick: openCategoryDialog,
+                  },
+                  [h(Icon, { name: 'folder-plus', size: 14 }), '分类'],
+                ),
+                h(
+                  'div',
+                  {
+                    class: 'prompt-selector-add-menu-item',
+                    onClick: openPromptDialog,
+                  },
+                  [h(Icon, { name: 'plus', size: 14 }), 'Prompt'],
+                ),
+              ]),
+          ],
+        ),
       ]),
     ]);
   };
@@ -320,9 +464,10 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   /**
    * 渲染单个Prompt项
    */
-  const renderPromptItem = (prompt) => {
+  const renderPromptItem = (prompt, showCategoryPath) => {
     const key = makePromptKey(prompt.categoryId, prompt.value);
     const isSelected = selectedKeys.has(key);
+    const categoryPath = showCategoryPath ? getCategoryPathName(prompt.categoryId, categories) : '';
     return h(
       'div',
       {
@@ -359,7 +504,10 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
           ]);
         },
       },
-      [h('span', { class: 'prompt-selector-item-name' }, prompt.name || prompt.value)],
+      [
+        categoryPath && h('span', { class: 'prompt-selector-item-path' }, categoryPath),
+        h('span', { class: 'prompt-selector-item-name' }, prompt.name || prompt.value),
+      ],
     );
   };
 
@@ -440,16 +588,15 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
       return h('div', { class: 'prompt-selector-list' }, h('div', { class: 'prompt-selector-loading' }, '加载中...'));
     }
 
-    // 获取当前分类的子分类（从扁平列表中按 parentId 过滤）
-    const childrenCategories = categories.filter((c) => c.parentId === currentCategory);
+    const isSearching = !!searchQuery;
 
-    // 合并为扁平数组
+    // 合并为扁平数组（搜索时使用全局过滤结果）
     const listItems = [
-      ...childrenCategories.map((cat) => ({
+      ...filteredCategories.map((cat) => ({
         type: 'category',
         data: cat,
       })),
-      ...(combinations || []).map((comb) => ({
+      ...filteredCombinations.map((comb) => ({
         type: 'combination',
         data: comb,
       })),
@@ -460,9 +607,9 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
     ];
 
     const renderListItem = (item, index) => {
-      if (item.type === 'category') return renderCategoryCard(item.data);
+      if (item.type === 'category') return renderCategoryCard(item.data, isSearching);
       if (item.type === 'combination') return renderCombinationItem(item.data);
-      return renderPromptItem(item.data);
+      return renderPromptItem(item.data, isSearching);
     };
 
     return h(LazyList, {
@@ -471,7 +618,7 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
       layout: 'flex',
       className: 'prompt-selector-list',
       scrollContainer: 'self',
-      emptyMessage: h('div', { class: 'prompt-selector-empty-prompts' }, '没有找到Prompt'),
+      emptyMessage: h('div', { class: 'prompt-selector-empty-prompts' }, isSearching ? '没有找到匹配结果' : '没有找到Prompt'),
     });
   };
 
@@ -479,45 +626,31 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
 
   // 处理全局配置保存
   return h('div', { class: 'prompt-selector-container', ref: containerRef }, [
-    // 分区配置面板（覆盖在内容之上）
-    showPartitionConfig &&
-      h('div', { class: 'prompt-selector-config-overlay' }, [
-        h(PartitionConfigPanel, {
-          partition: partitionData.partitions.find((p) => p.id === editingPartitionId) || partitionData.partitions[0],
-          globalConfig: partitionData.globalConfig,
-          onChange: (updates) => updatePartition(editingPartitionId, updates),
-          onClose: () => setShowPartitionConfig(false),
-        }),
-      ]),
+    // 已选择区域（分区列表）
+    h('div', {
+      class: 'prompt-selector-section',
+      style: { flex: `${splitPercent} 1 0%` },
+    }, [renderSelectedPrompts()]),
 
-    // 主内容
-    !showPartitionConfig && [
-      // 已选择区域（分区列表）
-      h('div', {
-        class: 'prompt-selector-section',
-        style: { flex: `${splitPercent} 1 0%` },
-      }, [renderSelectedPrompts()]),
+    // 拖拽分隔条
+    h('div', {
+      class: `prompt-selector-resize-handle${isDragging ? ' active' : ''}`,
+      onMouseDown: handleResizeStart,
+    }),
 
-      // 拖拽分隔条
-      h('div', {
-        class: `prompt-selector-resize-handle${isDragging ? ' active' : ''}`,
-        onMouseDown: handleResizeStart,
-      }),
+    // 浏览区域
+    h('div', {
+      class: 'prompt-selector-section',
+      style: { flex: `${100 - splitPercent} 1 0%` },
+    }, [
+      // 面包屑导航
+      renderBreadcrumb(),
 
-      // 浏览区域
-      h('div', {
-        class: 'prompt-selector-section',
-        style: { flex: `${100 - splitPercent} 1 0%` },
-      }, [
-        // 面包屑导航
-        renderBreadcrumb(),
+      // 搜索和排序控件（同一行）
+      renderControls(),
 
-        // 搜索和排序控件（同一行）
-        renderControls(),
-
-        // Prompt列表（包含分类和Prompt）
-        renderPromptList(),
-      ]),
-    ],
+      // Prompt列表（包含分类和Prompt）
+      renderPromptList(),
+    ]),
   ]);
 }

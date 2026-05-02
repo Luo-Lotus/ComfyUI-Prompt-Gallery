@@ -139,10 +139,26 @@
   font-size: 13px;
   font-weight: 400;
   color: white;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 
 .prompt-selector-item.selected .prompt-selector-item-name {
   font-weight: 600;
+}
+
+.prompt-selector-item-path {
+  font-size: 11px;
+  color: #888;
+  margin-right: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 40%;
 }
 
 .prompt-selector-hover-preview {
@@ -300,6 +316,8 @@
   display: inline-flex;
   align-items: center;
   height: 38px;
+  min-width: 0;
+  overflow: hidden;
   padding: 0 14px;
   background: #2a2a2a;
   border: 1px solid #444;
@@ -327,6 +345,8 @@
   height: 38px;
   padding: 0px 4px 0px 8px;
   background: #2a2a2a;
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid #444;
   border-radius: 6px;
   cursor: pointer;
@@ -363,6 +383,11 @@
   font-size: 13px;
   color: #e0e0e0;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 
 /* 分类标签样式（已选择的分类） */
@@ -387,6 +412,7 @@
   border-radius: 4px;
   width: 24px;
   height: 24px;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -511,50 +537,57 @@
 }
 
 .config-preview {
-  background: #1a1a1a;
-  border: 1px solid #3a3a3a;
-  border-left: 3px solid #4caf50;
-  color: #888;
-  padding: 8px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-left: 3px solid #6c5ce7;
+  color: #999;
+  padding: 6px 8px;
   border-radius: 4px;
   font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 12px;
-  margin-top: 8px;
+  font-size: 11px;
+  margin-top: 6px;
 }
 
 .config-hint {
-  color: #666;
-  font-size: 11px;
-  margin-top: 8px;
+  color: #555;
+  font-size: 10px;
+  margin-top: 6px;
   line-height: 1.4;
 }
 
 .config-hint ul {
-  margin: 4px 0 0 0;
-  padding-left: 20px;
+  margin: 2px 0 0 0;
+  padding-left: 16px;
 }
 
 .config-hint li {
-  margin: 2px 0;
+  margin: 1px 0;
 }
 
 /* 配置单选框组 */
 .config-radio-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .config-radio-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.config-radio-item:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .config-radio-label {
   cursor: pointer;
-  color: #ccc;
-  font-size: 13px;
+  color: #bbb;
+  font-size: 12px;
 }
 
 .config-radio-label:hover {
@@ -568,19 +601,19 @@
 
 /* 配置数字输入框 */
 .config-number-input {
-  width: 80px;
-  background: #1a1a1a;
+  width: 64px;
+  background: #1e1e1e;
   border: 1px solid #3a3a3a;
-  color: #fff;
-  padding: 6px 8px;
+  color: #ddd;
+  padding: 4px 6px;
   border-radius: 4px;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .config-number-input:focus {
   outline: none;
-  border-color: #4caf50;
+  border-color: #6c5ce7;
 }
 
 .config-number-input:disabled {
@@ -592,15 +625,15 @@
 .config-checkbox-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 0;
+  gap: 6px;
+  padding: 4px 6px;
 }
 
 .config-checkbox-label {
   cursor: pointer;
-  color: #ccc;
-  font-size: 13px;
-  font-weight: 600;
+  color: #bbb;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .config-checkbox-label:hover {
@@ -614,17 +647,15 @@
 /* ============ Node Style Config Panel ============ */
 
 .node-config-panel {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #1a1a1a;
+  background: #1e1e1e;
   border: 1px solid #333;
-  border-radius: 4px;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
+  width: 360px;
+  max-height: 70vh;
   z-index: 1000;
+  overflow: hidden;
 }
 
 .node-config-header {
@@ -634,20 +665,21 @@
   padding: 8px 12px;
   background: #252525;
   border-bottom: 1px solid #333;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #ccc;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .node-config-close {
   background: transparent;
   border: none;
-  color: #888;
+  color: #666;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 2px 4px;
   border-radius: 3px;
-  transition: all 0.2s;
+  transition: all 0.15s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -655,22 +687,26 @@
 }
 
 .node-config-close:hover {
-  background: #333;
-  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ccc;
 }
 
 .node-config-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 10px 12px;
 }
 
 .node-config-section {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .node-config-section:last-child {
   margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .node-config-section.disabled {
@@ -680,84 +716,95 @@
 
 .node-config-section > label {
   display: block;
-  font-size: 12px;
-  color: #aaa;
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
   margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .node-config-input {
   width: 100%;
-  background: #252525;
-  border: 1px solid #444;
+  background: #161616;
+  border: 1px solid #333;
   color: #ddd;
-  padding: 6px 8px;
-  border-radius: 3px;
+  padding: 5px 8px;
+  border-radius: 4px;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 12px;
   box-sizing: border-box;
+  transition: border-color 0.15s;
 }
 
 .node-config-input:focus {
   outline: none;
-  border-color: #555;
+  border-color: #6c5ce7;
 }
 
 .node-config-number {
-  width: 60px;
-  background: #252525;
-  border: 1px solid #444;
+  width: 56px;
+  background: #161616;
+  border: 1px solid #333;
   color: #ddd;
   padding: 4px 6px;
-  border-radius: 3px;
+  border-radius: 4px;
   text-align: center;
   font-size: 12px;
-  margin-left: 8px;
+  margin-left: 6px;
 }
 
 .node-config-number:focus {
   outline: none;
-  border-color: #555;
+  border-color: #6c5ce7;
 }
 
 .node-config-hint {
-  font-size: 11px;
-  color: #666;
+  font-size: 10px;
+  color: #555;
   margin-top: 4px;
 }
 
 .node-config-info {
-  background: #252525;
-  border: 1px solid #444;
-  border-radius: 3px;
-  padding: 8px;
-  font-size: 12px;
-  color: #888;
+  background: #161616;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: #777;
 }
 
 .node-config-info code {
   display: block;
   margin-top: 4px;
-  background: #1a1a1a;
+  background: #161616;
   padding: 4px 6px;
   border-radius: 3px;
   font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 11px;
-  color: #4caf50;
+  font-size: 10px;
+  color: #6c5ce7;
 }
 
 .node-config-radio-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .node-config-radio {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11px;
   color: #bbb;
   cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.node-config-radio:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .node-config-radio input[type='radio'] {
@@ -772,10 +819,17 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11px;
   color: #bbb;
   cursor: pointer;
   user-select: none;
+  padding: 3px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.node-config-checkbox:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .node-config-checkbox input[type='checkbox'] {
@@ -783,58 +837,66 @@
 }
 
 .node-config-checkbox span {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .node-config-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   padding: 8px 12px;
   background: #252525;
   border-top: 1px solid #333;
+  flex-shrink: 0;
 }
 
 .node-config-btn {
-  background: #333;
-  border: 1px solid #444;
-  color: #ccc;
-  padding: 6px 12px;
-  border-radius: 3px;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  color: #bbb;
+  padding: 5px 14px;
+  border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 .node-config-btn:hover {
-  background: #444;
+  background: #3a3a3a;
   color: #fff;
+  border-color: #555;
 }
 
 .node-config-btn.primary {
-  background: #4a4a4a;
-  border-color: #555;
+  background: #6c5ce7;
+  border-color: #6c5ce7;
   color: #fff;
 }
 
 .node-config-btn.primary:hover {
-  background: #5a5a5a;
+  background: #7c6cf7;
+  border-color: #7c6cf7;
 }
 
 /* 配置面板覆盖层 */
 .prompt-selector-config-overlay {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 100;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
 }
 
-/* 修复配置面板在覆盖层中的定位 */
+/* 配置面板在覆盖层中居中 */
 .prompt-selector-config-overlay .node-config-panel {
   position: relative;
-  height: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 /* ============ 分区系统样式 ============ */
@@ -1525,6 +1587,8 @@
   cursor: pointer;
   transition: background 0.15s;
   border-radius: 4px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .prompt-selector-item.combination-item:hover {
@@ -1755,4 +1819,67 @@ svg.spin {
 
 .weight-slider-input::-webkit-slider-thumb:hover {
   background: #7c6cf7;
+}
+
+/* ============ 新建按钮 + Hover 菜单 ============ */
+
+.prompt-selector-add-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.prompt-selector-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  background: #6c5ce7;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.prompt-selector-add-button svg {
+  display: block;
+}
+
+.prompt-selector-add-button:hover {
+  background: #7c6cf7;
+}
+
+.prompt-selector-add-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 120px;
+  z-index: 10001;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.prompt-selector-add-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #e0e0e0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.prompt-selector-add-menu-item svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.prompt-selector-add-menu-item:hover {
+  background: #3a3a3a;
 }

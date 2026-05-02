@@ -175,14 +175,20 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
     loadPrompts();
   }, [currentCategory]);
 
-  // 过滤和排序
+  // 过滤和排序（搜索时全局搜索，否则按当前分类）
   const filteredPrompts = useMemo(() => {
-    if (!prompts || prompts.length === 0) return [];
-    let result = [...prompts];
+    const source = searchQuery ? allPrompts : prompts;
+    if (!source || source.length === 0) return [];
+    let result = [...source];
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter((a) => a.value.toLowerCase().includes(query) || a.name.toLowerCase().includes(query));
+      result = result.filter(
+        (a) =>
+          a.value.toLowerCase().includes(query) ||
+          a.name.toLowerCase().includes(query) ||
+          (a.alias && a.alias.toLowerCase().includes(query)),
+      );
     }
 
     result.sort((a, b) => {
@@ -198,7 +204,26 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
     });
 
     return result;
-  }, [prompts, searchQuery, sortBy, sortOrder]);
+  }, [prompts, allPrompts, searchQuery, sortBy, sortOrder]);
+
+  // 全局分类搜索
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery) return categories.filter((c) => c.parentId === currentCategory);
+    const query = searchQuery.toLowerCase();
+    return categories.filter((c) => c.name.toLowerCase().includes(query));
+  }, [categories, searchQuery, currentCategory]);
+
+  // 全局组合搜索（按 name、outputContent 搜索）
+  const filteredCombinations = useMemo(() => {
+    if (!searchQuery) return combinations;
+    const query = searchQuery.toLowerCase();
+    const source = allCombinations.length > 0 ? allCombinations : combinations;
+    return source.filter(
+      (c) =>
+        (c.name && c.name.toLowerCase().includes(query)) ||
+        (c.outputContent && c.outputContent.toLowerCase().includes(query)),
+    );
+  }, [combinations, allCombinations, searchQuery]);
 
   // 切换画师选择状态（扁平化更新，消除嵌套 setter）
   const toggleSelection = useCallback(
@@ -347,6 +372,8 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
     sortOrder,
     currentCategory,
     filteredPrompts,
+    filteredCategories,
+    filteredCombinations,
     selectedPromptsList,
     selectedCategoriesList,
     refreshing,
