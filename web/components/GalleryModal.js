@@ -12,6 +12,7 @@ import { CategoryDialog } from './CategoryDialog.js';
 import { MoveDialog } from './MoveDialog.js';
 import { CopyDialog } from './CopyDialog.js';
 import { ImportImagesDialog } from './ImportImagesDialog.js';
+import { ImportZipDialog } from './ImportZipDialog.js';
 import { ExportDialog } from './ExportDialog.js';
 import { CombinationDialog } from './CombinationDialog.js';
 import { BatchActionBar } from './BatchActionBar.js';
@@ -236,6 +237,17 @@ function DialogLayer() {
       onSuccess: async () => {
         await ctx.loadData();
         ctx.setShowImportDialog(false);
+      },
+    }),
+
+    h(ImportZipDialog, {
+      isOpen: ctx.showImportZipDialog,
+      currentCategory: ctx.currentCategory,
+      onClose: () => ctx.setShowImportZipDialog(false),
+      onSuccess: async () => {
+        await ctx.refreshCategories();
+        await ctx.loadData();
+        ctx.setShowImportZipDialog(false);
       },
     }),
 

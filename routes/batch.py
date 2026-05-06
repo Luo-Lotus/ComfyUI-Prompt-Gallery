@@ -5,6 +5,7 @@ from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ._utils import is_remote_path
 
 
 
@@ -99,8 +100,11 @@ async def batch_delete(request):
                 # 移除图片映射，获取孤儿图片
                 orphan_images = mapping_storage.remove_prompt_from_mappings(value)
 
-                # 删除孤儿图片文件
+                # 删除孤儿图片文件（跳过远程图片）
                 for image_path in orphan_images:
+                    if is_remote_path(image_path):
+                        deleted_images.append(image_path)
+                        continue
                     full_path = Path(output_dir) / image_path
                     try:
                         if full_path.exists():

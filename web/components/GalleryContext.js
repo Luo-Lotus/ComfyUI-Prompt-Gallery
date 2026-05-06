@@ -6,7 +6,6 @@ import { h, createContext } from '../lib/preact.mjs';
 import { useState, useEffect, useMemo, useRef, useCallback, useContext } from '../lib/hooks.mjs';
 import {
   Storage,
-  importPrompts,
   createCombination as createCombinationApi,
   updateCombination as updateCombinationApi,
   deleteCombination as deleteCombinationApi,
@@ -56,6 +55,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   const [promptToDelete, setPromptToDelete] = useState(null);
   const [editModePrompt, setEditModePrompt] = useState(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showImportZipDialog, setShowImportZipDialog] = useState(false);
 
   // ============ 组合相关状态 ============
   const [showCombinationDialog, setShowCombinationDialog] = useState(false);
@@ -408,32 +408,10 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     [exportPayload, selection],
   );
 
-  // 导入Prompt
-  const handleImportPrompts = useCallback(
-    async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      try {
-        const result = await importPrompts(file, currentCategory);
-        if (result.success) {
-          const parts = [];
-          if (result.addedCategories > 0) parts.push(`${result.addedCategories} 个分类`);
-          if (result.addedPrompts > 0) parts.push(`${result.addedPrompts} 个Prompt`);
-          if (result.addedCombinations > 0) parts.push(`${result.addedCombinations} 个组合`);
-          if (result.addedImages > 0) parts.push(`${result.addedImages} 张图片`);
-          showToast(`导入成功: ${parts.join(', ') || '无新增内容'}`, 'success');
-          await categoryMgr.refreshCategories();
-          await loadData();
-        } else {
-          showToast(result.error || '导入失败', 'error');
-        }
-      } catch (error) {
-        showToast('导入失败: ' + error.message, 'error');
-      }
-      e.target.value = '';
-    },
-    [currentCategory, loadData, categoryMgr],
-  );
+  // 导入Prompt（打开ZIP导入对话框）
+  const handleImportPrompts = useCallback(() => {
+    setShowImportZipDialog(true);
+  }, []);
 
   // Prompt详情回调
   const handlePromptDeleteImageSuccess = useCallback(async () => {
@@ -724,6 +702,8 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       openDeleteConfirm,
       showImportDialog,
       setShowImportDialog,
+      showImportZipDialog,
+      setShowImportZipDialog,
       showExportDialog,
       setShowExportDialog,
       exportPayload,
@@ -809,6 +789,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       showDeleteConfirm,
       promptToDelete,
       showImportDialog,
+      showImportZipDialog,
       showExportDialog,
       exportPayload,
       showCombinationDialog,

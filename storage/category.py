@@ -11,6 +11,7 @@ class CategoryStorage:
     def __init__(self, storage_dir: Path):
         self.storage_dir = storage_dir
         self.categories_file = storage_dir / "categories.json"
+        self._glob_pattern = "*.categories.json"
         self._lock = threading.Lock()
         self._cache = None
         self._ensure_storage_dir()
@@ -20,41 +21,70 @@ class CategoryStorage:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
         if not self.categories_file.exists():
-            # 创建默认根分类
-            import time
-            default_data = {
-                "categories": [{
-                    "id": "root",
-                    "name": "全部",
-                    "parentId": None,
-                    "order": 0,
-                    "createdAt": int(time.time() * 1000)
-                }]
-            }
-            self._write_data(default_data)
+            split_files = [f for f in self.storage_dir.glob(self._glob_pattern)
+                           if f.resolve() != self.categories_file.resolve()]
+            if not split_files:
+                import time
+                default_data = {
+                    "categories": [{
+                        "id": "root",
+                        "name": "全部",
+                        "parentId": None,
+                        "order": 0,
+                        "createdAt": int(time.time() * 1000)
+                    }]
+                }
+                self._write_data(default_data)
+
+    def _glob_source_files(self) -> list:
+        """查找所有源文件：主文件 + glob 匹配的分片文件"""
+        sources = []
+        if self.categories_file.exists():
+            sources.append(self.categories_file)
+        for f in sorted(self.storage_dir.glob(self._glob_pattern)):
+            if f.resolve() != self.categories_file.resolve():
+                sources.append(f)
+        return sources
 
     def _read_data(self) -> dict:
-        """读取数据文件（带缓存）"""
+        """读取并合并所有源文件（带缓存）"""
         if self._cache is not None:
             return self._cache
-        try:
-            with open(self.categories_file, 'r', encoding='utf-8') as f:
-                self._cache = json.load(f)
-            return self._cache
-        except Exception as e:
-            print(f"Error reading categories file: {e}")
-            self._cache = {"categories": []}
-            return self._cache
+        merged_items = []
+        for source_file in self._glob_source_files():
+            try:
+                with open(source_file, 'r', encoding='utf-8') as f:
+                    file_data = json.load(f)
+                for item in file_data.get("categories", []):
+                    item["_source_file"] = str(source_file)
+                    merged_items.append(item)
+            except Exception as e:
+                print(f"Error reading {source_file.name}: {e}")
+        self._cache = {"categories": merged_items}
+        return self._cache
 
     def _write_data(self, data: dict):
-        """写入数据文件（同时更新缓存）"""
+        """按来源文件分组回写，新数据写入主文件"""
         try:
-            with open(self.categories_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self._cache = data
+            groups: Dict[str, list] = {}
+            for item in data.get("categories", []):
+                source = item.pop("_source_file", None) or str(self.categories_file)
+                groups.setdefault(source, []).append(item)
+
+            main_key = str(self.categories_file)
+            if main_key not in groups and len(groups) > 0:
+                groups[main_key] = []
+
+            for file_path_str, items in groups.items():
+                file_path = Path(file_path_str)
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump({"categories": items}, f, ensure_ascii=False, indent=2)
+
+            self._cache = None
         except Exception as e:
             self._cache = None
-            print(f"Error writing categories file: {e}")
+            print(f"Error writing categories files: {e}")
             raise
 
     def get_all_categories(self) -> List[dict]:
@@ -88,7 +118,7 @@ class CategoryStorage:
 
         return build_tree(None)
 
-    def add_category(self, name: str, parent_id: str = "root") -> dict:
+    def add_category(self, name: str, parent_id: str = "root", target_file: Optional[str] = None) -> dict:
         """添加分类"""
         import time
 
@@ -109,6 +139,8 @@ class CategoryStorage:
             "order": max_order + 1,
             "createdAt": int(time.time() * 1000)
         }
+        if target_file:
+            new_category["_source_file"] = target_file
 
         with self._lock:
             data = self._read_data()

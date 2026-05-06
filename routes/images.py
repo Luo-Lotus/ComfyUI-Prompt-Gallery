@@ -6,6 +6,7 @@ from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ._utils import is_remote_path
 
 
 # ============ Image Mapping API ============
@@ -50,41 +51,61 @@ async def get_image_info(request):
 
         import folder_paths
         output_dir = Path(folder_paths.get_output_directory())
-        full_path = Path(output_dir) / image_path
 
-        if not full_path.exists():
-            return web.json_response({"error": "图片文件不存在"}, status=404)
+        remote = is_remote_path(image_path)
 
         result = {"mapping": None, "pnginfo": {}, "fileInfo": {}}
 
         # 1. 从映射存储获取Prompt关联
         prompt_storage, mapping_storage, _, _ = get_storage()
         mapping = mapping_storage.get_mappings_by_image(image_path)
+
+        # 远程图片必须有映射记录，本地图片必须有文件
+        if remote:
+            if not mapping:
+                return web.json_response({"error": "远程图片映射不存在"}, status=404)
+        else:
+            full_path = Path(output_dir) / image_path
+            if not full_path.exists():
+                return web.json_response({"error": "图片文件不存在"}, status=404)
+
         if mapping:
             result["mapping"] = {
+                "type": mapping.get("type", "local"),
                 "prompts": mapping.get("prompts", []),
-                "savedAt": mapping.get("savedAt"),
-                "metadata": mapping.get("metadata", {}),
+                "fileInfo": mapping.get("fileInfo", {}),
+                "promptString": mapping.get("promptString", ""),
+                "generatePrompt": mapping.get("generatePrompt"),
             }
 
-        # 2. 读取 PNG 元数据
-        try:
-            from PIL import Image
-            with Image.open(full_path) as img:
-                if hasattr(img, "text"):
-                    result["pnginfo"] = dict(img.text)
-                result["fileInfo"]["width"] = img.width
-                result["fileInfo"]["height"] = img.height
-        except Exception:
-            pass
+        if remote:
+            # 远程图片：从映射中获取文件信息
+            fi = mapping.get("fileInfo", {}) if mapping else {}
+            result["fileInfo"] = {
+                "width": fi.get("width", 0),
+                "height": fi.get("height", 0),
+                "size": fi.get("size", 0),
+                "sizeFormatted": "远程图片",
+            }
+        else:
+            # 2. 读取 PNG 元数据
+            try:
+                from PIL import Image
+                with Image.open(full_path) as img:
+                    if hasattr(img, "text"):
+                        result["pnginfo"] = dict(img.text)
+                    result["fileInfo"]["width"] = img.width
+                    result["fileInfo"]["height"] = img.height
+            except Exception:
+                pass
 
-        # 3. 文件基本信息
-        try:
-            stat = full_path.stat()
-            result["fileInfo"]["size"] = stat.st_size
-            result["fileInfo"]["sizeFormatted"] = f"{stat.st_size / 1024:.1f} KB"
-        except Exception:
-            pass
+            # 3. 文件基本信息
+            try:
+                stat = full_path.stat()
+                result["fileInfo"]["size"] = stat.st_size
+                result["fileInfo"]["sizeFormatted"] = f"{stat.st_size / 1024:.1f} KB"
+            except Exception:
+                pass
 
         return web.json_response({"success": True, "info": result})
     except Exception as e:
@@ -108,9 +129,22 @@ async def save_to_gallery(request):
         # 构建图片路径
         image_path = f"prompt_gallery/{image_filename}"
 
+        # 构建 fileInfo
+        file_info = {}
+        if "width" in metadata:
+            file_info["width"] = metadata["width"]
+        if "height" in metadata:
+            file_info["height"] = metadata["height"]
+
         # 创建映射关系
         _, mapping_storage, _, _ = get_storage()
-        mapping = mapping_storage.add_mapping(image_path, prompt_values, metadata)
+        mapping = mapping_storage.add_mapping(
+            image_path=image_path,
+            prompt_values=prompt_values,
+            file_info=file_info,
+            prompt_string=metadata.get("promptString", ""),
+            mapping_type="local",
+        )
 
         # 更新Prompt的图片计数
         prompt_storage, _, _, _ = get_storage()
@@ -165,9 +199,10 @@ async def restore_from_metadata(request):
                             image_rel_path = f"prompt_gallery/{filename}"
                             _, mapping_storage, _, _ = get_storage()
                             mapping_storage.add_mapping(
-                                image_rel_path,
-                                prompt_ids,
-                                {"width": img.width, "height": img.height}
+                                image_path=image_rel_path,
+                                prompt_values=prompt_ids,
+                                file_info={"width": img.width, "height": img.height},
+                                mapping_type="local",
                             )
 
                             # 更新Prompt的图片计数
@@ -228,18 +263,18 @@ async def delete_image(request):
         # 获取关联的Prompt列表
         prompt_values = mapping.get("prompts", [])
 
-        # 删除图片文件
-        import folder_paths
-        output_dir = Path(folder_paths.get_output_directory())
-        full_path = Path(output_dir) / image_path
-
+        # 删除图片文件（远程图片无本地文件，跳过）
         file_deleted = False
-        try:
-            if full_path.exists():
-                full_path.unlink()
-                file_deleted = True
-        except Exception as e:
-            return web.json_response({"error": f"删除文件失败: {str(e)}"}, status=500)
+        if not is_remote_path(image_path, mapping.get("type", "")):
+            import folder_paths
+            output_dir = Path(folder_paths.get_output_directory())
+            full_path = Path(output_dir) / image_path
+            try:
+                if full_path.exists():
+                    full_path.unlink()
+                    file_deleted = True
+            except Exception as e:
+                return web.json_response({"error": f"删除文件失败: {str(e)}"}, status=500)
 
         # 删除映射关系
         mapping_storage.delete_mapping_by_image(image_path)

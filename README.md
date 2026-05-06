@@ -22,7 +22,9 @@
 - **格式模板** - 自定义输出格式，支持 `{content}` 和 `{random(min,max,step)}` 变量
 - **图片保存** - 将生成的图片保存到画廊并关联Prompt信息，支持通过 `metadata_json` 或 `prompt_string` 两种方式关联Prompt
 - **批量操作** - 批量添加Prompt、批量删除、批量移动
-- **导入导出** - 支持Prompt和分类数据的导入导出
+- **导入导出** - 支持数据导入导出，批量导入和ZIP导入均支持分离存储选项
+- **远程图片** - 支持远程URL图片，所有画廊功能（浏览、搜索、组合、删除）均兼容
+- **历史视图** - 按日期分组浏览所有已保存图片，支持Prompt和组合过滤
 
 ## 安装方法
 
@@ -197,62 +199,85 @@ git clone <repository-url> prompt_gallery
 ## 项目结构
 
 ```
-prompt_gallery/
+artist_gallery/
 ├── __init__.py                  # 插件入口，注册节点
 ├── nodes.py                     # 节点类定义 & 输出处理逻辑
 ├── utils.py                     # 工具函数（文件扫描、辅助方法）
-├── import_handler.py            # 图片导入处理
-├── storage/                     # 数据持久化层
-│   ├── __init__.py              # 存储模块导出
-│   ├── prompt.py                # Prompt存储 (PromptStorage)
-│   ├── category.py              # 分类存储 (CategoryStorage)
-│   ├── combination.py           # 组合存储 (CombinationStorage)
-│   ├── image_mapping.py         # 图片-Prompt映射 (ImageMappingStorage)
+├── storage/                     # 数据持久化层（多文件 glob 架构）
+│   ├── __init__.py              # 存储模块导出 + get_storage()
+│   ├── prompt.py                # Prompt存储 (PromptStorage) — *.prompts.json
+│   ├── category.py              # 分类存储 (CategoryStorage) — *.categories.json
+│   ├── combination.py           # 组合存储 (CombinationStorage) — *.combinations.json
+│   ├── image_mapping.py         # 图片映射 (ImageMappingStorage) — *.images.json
 │   ├── migration.py             # 数据迁移
 │   └── _resolve.py              # 存储目录解析
 ├── routes/                      # HTTP API 端点
 │   ├── __init__.py              # 路由注册入口
+│   ├── _utils.py                # 共用工具函数 (is_remote_path)
 │   ├── prompts.py               # Prompt CRUD API
 │   ├── categories.py            # 分类 CRUD API
 │   ├── combinations.py          # 组合 CRUD API
 │   ├── gallery.py               # 图库数据 API
-│   ├── images.py                # 图片服务 API
-│   ├── batch.py                 # 批量操作 API
-│   ├── import_export.py         # 导入导出 API
+│   ├── images.py                # 图片信息、保存、删除/移动/复制
+│   ├── batch.py                 # 批量删除/移动/复制
+│   ├── import_export.py         # 导入导出 API（批量导入 + ZIP 导入）
+│   ├── history.py               # 历史图片 API（按日期分组）
+│   ├── init.py                  # 初始化数据 API（分类+Prompt+组合一次性返回）
 │   ├── cycle_state.py           # 循环状态 API
 │   └── migration.py             # 数据迁移 API
-├── prompts.json                 # Prompt数据（自动生成）
-├── categories.json              # 分类数据（自动生成）
-├── combinations.json            # 组合数据（自动生成）
-├── image_prompts.json           # 图片-Prompt映射（自动生成）
+├── docs/
+│   └── data-flow.md             # 数据流文档
+├── IMPORT_FORMAT.md             # 导入格式说明文档
 └── web/                         # 前端资源
     ├── prompt_gallery.js        # 图库前端入口
     ├── utils.js                 # 共享工具函数
     ├── Draggable.js             # 拖拽功能
     ├── lib/                     # 第三方库
     │   ├── preact.mjs           # Preact 核心
-    │   └── feather.mjs          # 图标库
+    │   ├── hooks.mjs            # Preact hooks
+    │   └── icons.mjs            # SVG 图标系统
     ├── components/              # Preact 组件
     │   ├── GalleryModal.js      # 图库主容器
+    │   ├── GalleryContext.js     # 共享状态 (context provider)
+    │   ├── GalleryHeader.js     # 图库头部操作栏
     │   ├── GalleryGrid.js       # Prompt网格布局
     │   ├── GalleryCard.js       # Prompt卡片
+    │   ├── GalleryFilterBar.js  # 过滤/搜索栏
     │   ├── CombinationCard.js   # 组合卡片
     │   ├── CombinationDialog.js # 组合创建/编辑对话框
+    │   ├── CombinationDetailView.js # 组合详情视图
     │   ├── Lightbox.js          # 全屏图片查看器
     │   ├── BaseCard.js          # 卡片基础组件
     │   ├── ContextMenu.js       # 右键菜单组件
     │   ├── LazyList.js          # 虚拟滚动列表
     │   ├── Toast.js             # 通知提示系统
+    │   ├── Dialog.js            # 可复用模态对话框
     │   ├── AddPromptDialog.js   # 添加Prompt对话框
     │   ├── DeleteConfirmDialog.js # 删除确认对话框
     │   ├── CopyDialog.js        # 复制对话框
     │   ├── MoveDialog.js        # 移动对话框
     │   ├── CategoryDialog.js    # 分类对话框
-    │   ├── ImportImagesDialog.js # 导入图片对话框
+    │   ├── ImportImagesDialog.js # 批量导入对话框（支持分离存储）
+    │   ├── ImportZipDialog.js   # ZIP导入对话框（拖拽+分离存储）
+    │   ├── ExportDialog.js      # 导出对话框
+    │   ├── HistoryView.js       # 历史视图（按日期分组）
+    │   ├── ImageGroupView.js    # 图片分组展示
+    │   ├── PromptDetailModal.js # Prompt详情弹窗
+    │   ├── PromptDetailView.js  # Prompt详情视图
+    │   ├── Breadcrumb.js        # 面包屑导航
+    │   ├── BatchActionBar.js    # 批量操作栏
+    │   ├── BatchConfirmDialog.js # 批量确认对话框
+    │   ├── CategoryCard.js      # 分类卡片
+    │   ├── FileUploader.js      # 文件上传组件
+    │   ├── FlatSelector.js      # 扁平选择器
+    │   ├── TreeSelector.js      # 树形选择器
+    │   ├── ImportPreview.js     # 导入预览
     │   └── hooks/               # 自定义 Hooks
     │       ├── useGalleryData.js      # 数据获取
     │       ├── useFilteredPrompts.js  # 过滤排序
-    │       └── useFormatProcessor.js  # 格式处理
+    │       ├── useCategoryManager.js  # 分类管理
+    │       ├── useSelection.js        # 选择状态
+    │       └── useItemOperations.js   # 条目操作
     ├── nodes/                   # 节点专用组件
     │   ├── PromptSelector.js    # 选择器节点入口
     │   └── components/
@@ -263,7 +288,6 @@ prompt_gallery/
     │       ├── PartitionConfigPanel.js  # 分区配置面板
     │       └── hooks/
     │           ├── usePromptSelector.js  # 选择器逻辑
-    │           ├── useBodyRender.js      # Body 级 Preact 渲染
     │           ├── useImagePreview.js    # 图片预览
     │           ├── useNodeSync.js        # 节点同步
     │           └── usePartitionState.js  # 分区状态管理
@@ -288,21 +312,26 @@ prompt_gallery/
 
 | 方法 | 路径                   | 说明                                           |
 | ---- | ---------------------- | ---------------------------------------------- |
+| GET  | `/prompt_gallery/init` | 初始化数据（分类+Prompt+组合，一次性返回）     |
 | GET  | `/prompt_gallery/data` | 获取Prompt和组合数据（支持 `?category=` 过滤） |
 | GET  | `/prompt_gallery/html` | 图库 HTML 页面                                 |
 
 ### Prompt管理
 
-| 方法   | 路径                                 | 说明                         |
-| ------ | ------------------------------------ | ---------------------------- |
-| GET    | `/prompt_gallery/prompts`            | 获取所有Prompt列表           |
-| POST   | `/prompt_gallery/prompts`            | 添加Prompt                   |
-| PUT    | `/prompt_gallery/prompts/{id}`       | 更新Prompt                   |
-| DELETE | `/prompt_gallery/prompts/{id}`       | 删除Prompt                   |
-| POST   | `/prompt_gallery/prompts/batch`      | 批量添加Prompt               |
-| GET    | `/prompt_gallery/prompt/{id}/images` | 获取Prompt图片列表           |
-| GET    | `/prompt_gallery/prompt_images`      | 获取Prompt图片（按名称查询） |
-| PUT    | `/prompt_gallery/prompts/{id}/cover` | 设置Prompt封面图             |
+| 方法   | 路径                                             | 说明                         |
+| ------ | ------------------------------------------------ | ---------------------------- |
+| GET    | `/prompt_gallery/prompts`                        | 获取所有Prompt列表           |
+| POST   | `/prompt_gallery/prompts`                        | 添加Prompt                   |
+| POST   | `/prompt_gallery/prompts/batch`                  | 批量添加Prompt               |
+| PUT    | `/prompt_gallery/prompts/{id}`                   | 更新Prompt（按ID）           |
+| DELETE | `/prompt_gallery/prompts/{id}`                   | 删除Prompt（按ID）           |
+| GET    | `/prompt_gallery/prompts/{categoryId}/{value}`   | 获取Prompt详情（组合键）     |
+| PUT    | `/prompt_gallery/prompts/{categoryId}/{value}`   | 更新Prompt（组合键）         |
+| DELETE | `/prompt_gallery/prompts/{categoryId}/{value}`   | 删除Prompt（组合键）         |
+| POST   | `/prompt_gallery/prompts/{categoryId}/{value}/copy` | 复制Prompt到其他分类      |
+| POST   | `/prompt_gallery/prompts/{id}/move`              | 移动Prompt到其他分类         |
+| GET    | `/prompt_gallery/prompt/{id}/images`             | 获取Prompt图片列表           |
+| GET    | `/prompt_gallery/prompt_images`                  | 获取Prompt图片（?value= 查询） |
 
 ### 分类管理
 
@@ -326,18 +355,42 @@ prompt_gallery/
 | DELETE | `/prompt_gallery/combinations/{id}`           | 删除组合                               |
 | POST   | `/prompt_gallery/combinations/{id}/duplicate` | 复制组合                               |
 | POST   | `/prompt_gallery/combinations/{id}/move`      | 移动组合                               |
-| GET    | `/prompt_gallery/combinations/{id}/images`    | 获取组合图片                           |
+| GET    | `/prompt_gallery/combinations/{id}/images`    | 获取组合图片（交集）                   |
 | DELETE | `/prompt_gallery/combinations/batch`          | 批量删除组合                           |
 
-### 图片与导入导出
+### 图片操作
 
-| 方法 | 路径                            | 说明           |
-| ---- | ------------------------------- | -------------- |
-| GET  | `/prompt_gallery/image/{path}`  | 获取图片文件   |
-| POST | `/prompt_gallery/import`        | 导入Prompt数据 |
-| GET  | `/prompt_gallery/export`        | 导出Prompt数据 |
-| POST | `/prompt_gallery/images/import` | 导入图片       |
-| POST | `/prompt_gallery/batch/delete`  | 批量删除       |
+| 方法   | 路径                                  | 说明                       |
+| ------ | ------------------------------------- | -------------------------- |
+| GET    | `/prompt_gallery/image/info`          | 获取图片详细信息           |
+| POST   | `/prompt_gallery/save`                | 保存图片到画廊             |
+| DELETE | `/prompt_gallery/image`               | 删除单张图片               |
+| POST   | `/prompt_gallery/image/move`          | 移动图片到其他Prompt       |
+| POST   | `/prompt_gallery/image/copy`          | 复制图片到其他Prompt       |
+| POST   | `/prompt_gallery/restore_from_metadata` | 从PNG元数据恢复映射      |
+
+### 历史视图
+
+| 方法 | 路径                              | 说明                             |
+| ---- | --------------------------------- | -------------------------------- |
+| GET  | `/prompt_gallery/images_grouped`  | 图片按日期分组（支持prompt过滤） |
+
+### 导入导出
+
+| 方法 | 路径                            | 说明                                         |
+| ---- | ------------------------------- | -------------------------------------------- |
+| POST | `/prompt_gallery/import`        | 导入数据（批量JSON，支持分离存储）           |
+| POST | `/prompt_gallery/import/zip`    | 导入ZIP文件（支持分离存储）                  |
+| POST | `/prompt_gallery/images/import` | 导入图片（批量导入，支持分离存储）           |
+| GET  | `/prompt_gallery/export`        | 导出数据                                     |
+
+### 批量操作
+
+| 方法   | 路径                            | 说明             |
+| ------ | ------------------------------- | ---------------- |
+| DELETE | `/prompt_gallery/batch/delete`  | 批量删除         |
+| POST   | `/prompt_gallery/batch/move`    | 批量移动         |
+| POST   | `/prompt_gallery/batch/copy`    | 批量复制         |
 
 ## 故障排除
 

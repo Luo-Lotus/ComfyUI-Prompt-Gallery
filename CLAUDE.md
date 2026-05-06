@@ -43,37 +43,44 @@ Prompt Gallery is a ComfyUI custom node plugin that provides:
 
 **`storage/`**: Data persistence layer (split into modules)
 
-| Module             | Class                 | Storage File         | Purpose                                        |
-| ------------------ | --------------------- | -------------------- | ---------------------------------------------- |
-| `prompt.py`        | `PromptStorage`       | `prompts.json`       | Prompt CRUD, batch operations                  |
-| `category.py`      | `CategoryStorage`     | `categories.json`    | Hierarchical category tree                     |
-| `combination.py`   | `CombinationStorage`  | `combinations.json`  | Combination CRUD, duplicate, move              |
-| `image_mapping.py` | `ImageMappingStorage` | `image_prompts.json` | Image-prompt relationships, cover image lookup |
-| `migration.py`     | —                     | —                    | Data migration utilities                       |
-| `_resolve.py`      | —                     | —                    | Storage directory resolution                   |
+| Module             | Class                 | Main Storage File  | Glob Pattern          | Purpose                                        |
+| ------------------ | --------------------- | ------------------ | --------------------- | ---------------------------------------------- |
+| `prompt.py`        | `PromptStorage`       | `prompts.json`     | `*.prompts.json`      | Prompt CRUD, batch operations, import batch    |
+| `category.py`      | `CategoryStorage`     | `categories.json`  | `*.categories.json`   | Hierarchical category tree                     |
+| `combination.py`   | `CombinationStorage`  | `combinations.json`| `*.combinations.json` | Combination CRUD, duplicate, move              |
+| `image_mapping.py` | `ImageMappingStorage` | `images.json`      | `*.images.json`       | Image-prompt relationships, cover image lookup |
+| `migration.py`     | —                     | —                  | —                     | Data migration utilities                       |
+| `_resolve.py`      | —                     | —                  | —                     | Storage directory resolution                   |
 
 All storage classes are thread-safe with locking mechanism. Access via `get_storage()` from `storage/__init__.py`.
+
+**Multi-file glob storage**: Each storage class reads from its main file + all glob-matched shard files (e.g., `import_20260506_120000.prompts.json`), merges items on read, and splits back by `_source_file` tag on write. This supports the "separate storage" import option — imported data writes to new shard files instead of appending to the main file.
 
 **`routes/`**: HTTP API endpoints (split into modules)
 
 | Module             | Endpoints                                                                                        |
 | ------------------ | ------------------------------------------------------------------------------------------------ |
 | `gallery.py`       | `GET /data` — returns prompts + combinations with `coverImagePath` (no full `images` array)      |
-| `prompts.py`       | Prompt CRUD, batch operations, `GET /prompt_images` (lazy-load prompt images), `PUT /{id}/cover` |
+| `prompts.py`       | Prompt CRUD, batch operations, `GET /prompt_images` (lazy-load prompt images)                    |
 | `categories.py`    | Category CRUD, move                                                                              |
 | `combinations.py`  | Combination CRUD, duplicate, move, images (intersection of member prompts), batch delete         |
-| `images.py`        | Image file serving, import                                                                       |
-| `batch.py`         | Batch delete operations                                                                          |
-| `import_export.py` | Prompt/category data import/export                                                               |
+| `images.py`        | Image info, save to gallery, delete/move/copy image, restore from metadata                       |
+| `batch.py`         | Batch delete, move, copy operations                                                              |
+| `import_export.py` | Data import/export (batch import, ZIP import, JSON export)                                       |
+| `history.py`       | `GET /images_grouped` — images grouped by date, with prompt/combination filtering                |
+| `init.py`          | `GET /init` — combined init data (categories + prompts + combinations) for faster frontend load  |
 | `cycle_state.py`   | Cycle mode state persistence                                                                     |
 | `migration.py`     | Data migration endpoints                                                                         |
+| `_utils.py`        | Shared utilities (`is_remote_path()`)                                                            |
 
 **Key design decisions**:
 
 - Gallery list API (`/data`) returns `coverImagePath` only (no `images` array) for performance
-- Prompt images are lazy-loaded via `/prompt_images?name=` when entering detail view
+- Prompt images are lazy-loaded via `/prompt_images?value=` when entering detail view
 - `coverImageId` is the internal storage field; API responses compute and expose only `coverImagePath`
 - Combination images endpoint returns intersection of all member prompts' images
+- Remote images (`type: "remote"`, imagePath is URL) are supported across all endpoints via `is_remote_path()` check
+- Init endpoint (`/init`) returns categories + prompts + combinations in one call for faster frontend initialization
 
 ### Frontend (JavaScript/Preact)
 
@@ -99,25 +106,47 @@ web/
 │   └── icons.mjs                  # SVG icon system (Icon component + iconToSvg helper)
 ├── components/                    # Preact components
 │   ├── GalleryModal.js            # Main gallery container (lazy-loads prompt images, "set as cover" menu)
+│   ├── GalleryContext.js           # Shared gallery state (context provider)
+│   ├── GalleryHeader.js           # Gallery header with actions
 │   ├── GalleryGrid.js             # Prompt grid layout
 │   ├── GalleryCard.js             # Individual prompt card (uses coverImagePath)
+│   ├── GalleryFilterBar.js        # Filter/search bar
 │   ├── CombinationCard.js         # Combination card (uses coverImagePath)
 │   ├── CombinationDialog.js       # Create/edit combination dialog
-│   ├── Lightbox.js                # Full-screen image viewer (shows promptNames tags)
+│   ├── CombinationDetailView.js   # Combination detail view
+│   ├── Lightbox.js                # Full-screen image viewer (shows prompt tags)
 │   ├── BaseCard.js                # Card base component (selection, context menu)
 │   ├── ContextMenu.js             # Right-click context menu
 │   ├── LazyList.js                # Virtual scroll list
 │   ├── Toast.js                   # Toast notification system
+│   ├── Dialog.js                  # Reusable modal dialog
 │   ├── AddPromptDialog.js         # Add/Edit prompt dialog
 │   ├── DeleteConfirmDialog.js     # Delete confirmation dialog
 │   ├── CopyDialog.js              # Copy to category dialog
 │   ├── MoveDialog.js              # Move to category dialog
 │   ├── CategoryDialog.js          # Category CRUD dialog
-│   ├── ImportImagesDialog.js      # Image import dialog
+│   ├── ImportImagesDialog.js      # Batch image import dialog (with separate storage option)
+│   ├── ImportZipDialog.js         # ZIP file import dialog (drag/drop + separate storage)
+│   ├── ExportDialog.js            # Export dialog
+│   ├── HistoryView.js             # History view (images grouped by date)
+│   ├── ImageGroupView.js          # Image group display
+│   ├── PromptDetailModal.js       # Prompt detail modal
+│   ├── PromptDetailView.js        # Prompt detail view
+│   ├── Breadcrumb.js              # Breadcrumb navigation
+│   ├── BatchActionBar.js          # Batch action bar
+│   ├── BatchConfirmDialog.js      # Batch confirmation dialog
+│   ├── CategoryCard.js            # Category card component
+│   ├── FileUploader.js            # File upload component
+│   ├── FlatSelector.js            # Flat selector
+│   ├── TreeSelector.js            # Tree selector
+│   ├── ImportPreview.js           # Import preview
+│   ├── SizePresets.js             # Size preset options
 │   └── hooks/
 │       ├── useGalleryData.js      # Data fetching & caching
 │       ├── useFilteredPrompts.js  # Filtering & sorting
-│       └── useFormatProcessor.js  # Format template processing
+│       ├── useCategoryManager.js  # Category management
+│       ├── useSelection.js        # Selection state
+│       └── useItemOperations.js   # Item CRUD operations
 ├── nodes/                         # Node-specific components
 │   ├── PromptSelector.js          # Node extension entry (beforeRegisterNodeDef)
 │   └── components/
@@ -178,11 +207,11 @@ web/
 **Combination System**:
 
 - `CombinationStorage`: CRUD in `combinations.json`
-- Fields: `id`, `name`, `categoryId`, `promptKeys[]`, `outputContent`, `coverImageId`
+- Fields: `id`, `name`, `categoryId`, `prompts[]`, `outputContent`, `coverImageId`
 - Auto-create: When partition has `autoCreateCombination` enabled, `SaveToGallery` creates a combination with:
     - `name` = comma-joined prompt names
     - `outputContent` = formatted content (e.g., `@prompt_one,@prompt_two` if format is `@{content}`)
-    - `promptKeys` = actually used prompts (after random/cycle filtering)
+    - `prompts` = actually used prompts (after random/cycle filtering)
 - Auto-create requires `saveToGallery` enabled on the partition
 
 **Partition System**:
@@ -350,23 +379,25 @@ showToast('数据已更新', 'info');
 
 ## Data Persistence
 
-The plugin maintains JSON files in the plugin storage directory:
+The plugin maintains JSON files in the plugin storage directory. Each storage class uses a main file + glob-matched shard files (e.g., `import_20260506_120000.prompts.json`).
 
-**`prompts.json`**: Prompt metadata (PromptStorage)
+**`prompts.json`** (glob: `*.prompts.json`): Prompt metadata (PromptStorage)
 
-- Fields: id, name, displayName, categoryId, coverImageId, createdAt
+- Fields: `value`, `name`, `alias`, `categoryId`, `coverImageId`, `createdAt`, `imageCount`, `metadata`
 
-**`categories.json`**: Category tree (CategoryStorage)
+**`categories.json`** (glob: `*.categories.json`): Category tree (CategoryStorage)
 
-- Fields: id, name, parentId, children[]
+- Fields: `id`, `name`, `parentId`, `order`, `createdAt`
 
-**`combinations.json`**: Combination data (CombinationStorage)
+**`combinations.json`** (glob: `*.combinations.json`): Combination data (CombinationStorage)
 
-- Fields: id, name, categoryId, promptKeys[], outputContent, coverImageId, createdAt
+- Fields: `id`, `name`, `categoryId`, `prompts[]`, `outputContent`, `coverImageId`, `createdAt`
 
-**`image_prompts.json`**: Image-to-prompt mappings (ImageMappingStorage)
+**`images.json`** (glob: `*.images.json`): Image-to-prompt mappings (ImageMappingStorage)
 
-- Fields: imagePath, promptNames[], dimensions, saveTimestamp
+- Fields: `type` ("local"/"remote"), `imagePath`, `prompts[]`, `fileInfo`, `promptString`, `generatePrompt`
+
+**Remote images**: When `type` is `"remote"`, `imagePath` is a URL. All endpoints use `is_remote_path()` to skip local file I/O for remote images.
 
 ## Image Filename Pattern
 
@@ -537,12 +568,16 @@ svg.spin {
 - **Lazy image loading**: Prompt images fetched on-demand when entering detail view
 - **Cover image preview**: Hover preview uses `coverImagePath` directly (no API call)
 - **Single data endpoint**: `/prompt_gallery/data` returns both prompts and combinations in one call
+- **Init endpoint**: `/prompt_gallery/init` returns categories + prompts + combinations in one call
 - **Pre-computed maxTime**: Calculated during data fetch for faster sorting
 - **Memoized filtering**: `useFilteredPrompts` with `useMemo`
 - **Image lazy loading**: `loading="lazy"` attribute on images
 - **Event listener cleanup**: Proper cleanup in `useEffect` return functions
 - **Virtual scroll**: `LazyList` component for large lists
 - **Prompt string prompt matching**: SaveToGallery matches prompt names via compiled regex alternation pattern (longest-first, case-insensitive), cached at module level with frozenset fingerprint invalidation
+- **Batch import methods**: `add_prompts_import()` and `add_mappings_import()` do single read → batch append → single write (O(1) instead of O(N) storage writes)
+- **Multi-file glob storage**: Read merges all shard files, write splits by `_source_file` tag
+- **Remote image support**: All endpoints use `is_remote_path()` to handle remote images (URL-based) consistently, skipping local file I/O
 
 ### Best Practices
 

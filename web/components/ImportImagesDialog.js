@@ -32,6 +32,7 @@ export function ImportImagesDialog({
   const [regexPattern, setRegexPattern] = useState('@([^,]+),');
   const [autoCreatePrompt, setAutoCreatePrompt] = useState(true);
   const [urlDecode, setUrlDecode] = useState(false);
+  const [separateStorage, setSeparateStorage] = useState(false);
 
   // ============ 工具函数 ============
 
@@ -43,6 +44,7 @@ export function ImportImagesDialog({
         categoryId: currentPrompt.categoryId,
         promptName: currentPrompt.value,
         displayName: currentPrompt.name || currentPrompt.value,
+        separateStorage,
       };
     } else {
       // 分类视图：使用解析配置
@@ -53,6 +55,7 @@ export function ImportImagesDialog({
         regexPattern: regexPattern,
         autoCreatePrompt: autoCreatePrompt,
         urlDecode: urlDecode,
+        separateStorage,
       };
     }
   };
@@ -64,12 +67,14 @@ export function ImportImagesDialog({
         mode: 'single',
         images: null, // 稍后在handleImport中填充
         config: buildConfig(),
+        separateStorage,
       };
     } else {
       return {
         mode: 'custom',
         images: null, // 稍后在handleImport中填充
         config: buildConfig(),
+        separateStorage,
       };
     }
   };
@@ -135,6 +140,7 @@ export function ImportImagesDialog({
         mode: viewMode === 'prompt' ? 'single' : 'custom',
         images: images,
         config: buildConfig(),
+        separateStorage,
       };
 
       console.log('[ImportImagesDialog] 发送导入请求:', requestBody);
@@ -186,56 +192,70 @@ export function ImportImagesDialog({
   // ============ 渲染函数 ============
 
   const renderConfigOptions = () => {
-    // 仅在分类视图显示配置选项
-    if (viewMode === 'prompt') return null;
+    const separateStorageCheckbox = h('div', { class: 'form-checkbox' }, [
+      h('input', {
+        type: 'checkbox',
+        checked: separateStorage,
+        onInput: (e) => setSeparateStorage(e.target.checked),
+      }),
+      h('label', {}, '分离存储（写入新文件而非追加到主文件）'),
+    ]);
 
-    return h('div', { class: 'import-config' }, [
-      h('div', { class: 'form-group' }, [
-        h('label', {}, '解析策略:'),
-        h(
-          'select',
-          {
-            value: parseStrategy,
-            onInput: (e) => setParseStrategy(e.target.value),
-          },
-          [h('option', { value: 'regex' }, '正则提取'), h('option', { value: 'auto_create' }, '直接使用文件名')],
-        ),
-      ]),
-
-      parseStrategy === 'regex' &&
+    // 分类视图：显示完整配置
+    if (viewMode !== 'prompt') {
+      return h('div', { class: 'import-config' }, [
         h('div', { class: 'form-group' }, [
-          h('label', {}, '正则模式:'),
-          h('input', {
-            type: 'text',
-            value: regexPattern,
-            placeholder: '例如: @([^,]+),',
-            onInput: (e) => setRegexPattern(e.target.value),
-          }),
+          h('label', {}, '解析策略:'),
           h(
-            'div',
-            { class: 'form-hint' },
-            '提示: 使用捕获组()提取Prompt名，例如 @([^,]+), 会从 @akakura,_1.png 提取 akakura',
+            'select',
+            {
+              value: parseStrategy,
+              onInput: (e) => setParseStrategy(e.target.value),
+            },
+            [h('option', { value: 'regex' }, '正则提取'), h('option', { value: 'auto_create' }, '直接使用文件名')],
           ),
         ]),
 
-      h('div', { class: 'form-checkbox' }, [
-        h('input', {
-          type: 'checkbox',
-          checked: autoCreatePrompt,
-          onInput: (e) => setAutoCreatePrompt(e.target.checked),
-        }),
-        h('label', {}, '自动创建不存在的Prompt'),
-      ]),
+        parseStrategy === 'regex' &&
+          h('div', { class: 'form-group' }, [
+            h('label', {}, '正则模式:'),
+            h('input', {
+              type: 'text',
+              value: regexPattern,
+              placeholder: '例如: @([^,]+),',
+              onInput: (e) => setRegexPattern(e.target.value),
+            }),
+            h(
+              'div',
+              { class: 'form-hint' },
+              '提示: 使用捕获组()提取Prompt名，例如 @([^,]+), 会从 @akakura,_1.png 提取 akakura',
+            ),
+          ]),
 
-      h('div', { class: 'form-checkbox' }, [
-        h('input', {
-          type: 'checkbox',
-          checked: urlDecode,
-          onInput: (e) => setUrlDecode(e.target.checked),
-        }),
-        h('label', {}, 'URL解码文件名'),
-      ]),
-    ]);
+        h('div', { class: 'form-checkbox' }, [
+          h('input', {
+            type: 'checkbox',
+            checked: autoCreatePrompt,
+            onInput: (e) => setAutoCreatePrompt(e.target.checked),
+          }),
+          h('label', {}, '自动创建不存在的Prompt'),
+        ]),
+
+        h('div', { class: 'form-checkbox' }, [
+          h('input', {
+            type: 'checkbox',
+            checked: urlDecode,
+            onInput: (e) => setUrlDecode(e.target.checked),
+          }),
+          h('label', {}, 'URL解码文件名'),
+        ]),
+
+        separateStorageCheckbox,
+      ]);
+    }
+
+    // Prompt视图：仅显示分离存储选项
+    return h('div', { class: 'import-config' }, [separateStorageCheckbox]);
   };
 
   const renderFooter = () => {

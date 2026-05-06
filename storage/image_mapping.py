@@ -9,7 +9,8 @@ class ImageMappingStorage:
 
     def __init__(self, storage_dir: Path):
         self.storage_dir = storage_dir
-        self.mappings_file = storage_dir / "image_prompts.json"
+        self.mappings_file = storage_dir / "images.json"
+        self._glob_pattern = "*.images.json"
         self._lock = threading.Lock()
         self._cache = None
         self._ensure_storage_dir()
@@ -18,32 +19,61 @@ class ImageMappingStorage:
         """确保存储目录存在"""
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
-        # 初始化 image_prompts.json
         if not self.mappings_file.exists():
-            self._write_data({"mappings": []})
+            split_files = [f for f in self.storage_dir.glob(self._glob_pattern)
+                           if f.resolve() != self.mappings_file.resolve()]
+            if not split_files:
+                self._write_data({"mappings": []})
+
+    def _glob_source_files(self) -> list:
+        """查找所有源文件：主文件 + glob 匹配的分片文件"""
+        sources = []
+        if self.mappings_file.exists():
+            sources.append(self.mappings_file)
+        for f in sorted(self.storage_dir.glob(self._glob_pattern)):
+            if f.resolve() != self.mappings_file.resolve():
+                sources.append(f)
+        return sources
 
     def _read_data(self) -> dict:
-        """读取数据文件（带缓存）"""
+        """读取并合并所有源文件（带缓存）"""
         if self._cache is not None:
             return self._cache
-        try:
-            with open(self.mappings_file, 'r', encoding='utf-8') as f:
-                self._cache = json.load(f)
-            return self._cache
-        except Exception as e:
-            print(f"Error reading mappings file: {e}")
-            self._cache = {"mappings": []}
-            return self._cache
+        merged_items = []
+        for source_file in self._glob_source_files():
+            try:
+                with open(source_file, 'r', encoding='utf-8') as f:
+                    file_data = json.load(f)
+                for item in file_data.get("mappings", []):
+                    item["_source_file"] = str(source_file)
+                    merged_items.append(item)
+            except Exception as e:
+                print(f"Error reading {source_file.name}: {e}")
+        self._cache = {"mappings": merged_items}
+        return self._cache
 
     def _write_data(self, data: dict):
-        """写入数据文件（同时更新缓存）"""
+        """按来源文件分组回写，新数据写入主文件"""
         try:
-            with open(self.mappings_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self._cache = data
+            groups: Dict[str, list] = {}
+            for item in data.get("mappings", []):
+                source = item.pop("_source_file", None) or str(self.mappings_file)
+                groups.setdefault(source, []).append(item)
+
+            main_key = str(self.mappings_file)
+            if main_key not in groups and len(groups) > 0:
+                groups[main_key] = []
+
+            for file_path_str, items in groups.items():
+                file_path = Path(file_path_str)
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump({"mappings": items}, f, ensure_ascii=False, indent=2)
+
+            self._cache = None
         except Exception as e:
             self._cache = None
-            print(f"Error writing mappings file: {e}")
+            print(f"Error writing mappings files: {e}")
             raise
 
     def get_all_mappings(self) -> List[dict]:
@@ -52,28 +82,75 @@ class ImageMappingStorage:
             data = self._read_data()
             return data.get("mappings", [])
 
-    def add_mapping(self, image_path: str, prompt_values: List[str], metadata: Optional[dict] = None):
+    def add_mapping(self, image_path: str, prompt_values: List[str],
+                    file_info: Optional[dict] = None, prompt_string: str = "",
+                    generate_prompt=None, mapping_type: str = "local",
+                    target_file: Optional[str] = None):
         """
         添加图片-Prompt映射
-        :param image_path: 图片相对路径（如 "prompt_gallery/1719123456789.png"）
+        :param image_path: 图片相对路径或远程URL
         :param prompt_values: 关联的Prompt值列表
-        :param metadata: 图片元数据（宽高等）
+        :param file_info: 文件信息 {createdAt, size, type, width, height}
+        :param prompt_string: 提示词字符串
+        :param generate_prompt: 生成时的prompt dict
+        :param mapping_type: 'local' 或 'remote'
         """
         import time
 
         with self._lock:
             mapping = {
+                "type": mapping_type,
                 "imagePath": image_path,
                 "prompts": prompt_values,
-                "savedAt": int(time.time() * 1000),
-                "metadata": metadata or {}
             }
+
+            if file_info:
+                mapping["fileInfo"] = file_info
+            else:
+                mapping["fileInfo"] = {}
+
+            if prompt_string:
+                mapping["promptString"] = prompt_string
+
+            if generate_prompt is not None:
+                mapping["generatePrompt"] = generate_prompt
+
+            if target_file:
+                mapping["_source_file"] = target_file
 
             data = self._read_data()
             data["mappings"].append(mapping)
             self._write_data(data)
 
             return mapping
+
+    def add_mappings_import(self, items: List[dict], target_file: Optional[str] = None) -> int:
+        """
+        导入批量添加映射（一次读写）
+        :param items: [{"image_path": str, "prompt_values": list, "file_info": dict, "mapping_type": str}, ...]
+        :param target_file: 分离存储目标文件
+        :return: 成功添加数量
+        """
+        with self._lock:
+            data = self._read_data()
+            count = 0
+            for item in items:
+                mapping = {
+                    "type": item.get("mapping_type", "local"),
+                    "imagePath": item["image_path"],
+                    "prompts": item["prompt_values"],
+                    "fileInfo": item.get("file_info") or {},
+                }
+                if item.get("prompt_string"):
+                    mapping["promptString"] = item["prompt_string"]
+                if item.get("generate_prompt") is not None:
+                    mapping["generatePrompt"] = item["generate_prompt"]
+                if target_file:
+                    mapping["_source_file"] = target_file
+                data["mappings"].append(mapping)
+                count += 1
+            self._write_data(data)
+            return count
 
     def get_mappings_by_prompt(self, prompt_value: str) -> List[dict]:
         """
@@ -160,12 +237,14 @@ class ImageMappingStorage:
                 return True
             return False
 
-    def update_mapping(self, image_path: str, prompt_values: List[str], metadata: Optional[dict] = None) -> bool:
+    def update_mapping(self, image_path: str, prompt_values: List[str],
+                       file_info: Optional[dict] = None, prompt_string: Optional[str] = None) -> bool:
         """
-        更新图片映射的Prompt列表
+        更新图片映射
         :param image_path: 图片路径
         :param prompt_values: 新的Prompt值列表
-        :param metadata: 可选的元数据更新
+        :param file_info: 可选的文件信息更新（合并）
+        :param prompt_string: 可选的prompt_string更新
         :return: 是否更新成功
         """
         with self._lock:
@@ -174,8 +253,11 @@ class ImageMappingStorage:
             for mapping in data["mappings"]:
                 if mapping.get("imagePath") == image_path:
                     mapping["prompts"] = prompt_values
-                    if metadata is not None:
-                        mapping["metadata"] = {**mapping.get("metadata", {}), **metadata}
+                    if file_info is not None:
+                        mapping.setdefault("fileInfo", {})
+                        mapping["fileInfo"] = {**mapping["fileInfo"], **file_info}
+                    if prompt_string is not None:
+                        mapping["promptString"] = prompt_string
                     self._write_data(data)
                     return True
 

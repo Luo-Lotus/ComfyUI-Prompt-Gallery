@@ -481,3 +481,148 @@ def validate_migration(storage_dir: Path) -> dict:
             "valid": False,
             "errors": [f"验证过程出错: {str(e)}"]
         }
+
+
+def migrate_image_schema(storage_dir: Path) -> dict:
+    """
+    迁移图片映射存储结构：
+    - image_prompts.json → images.json（含 glob 分片文件）
+    - 字段重构：savedAt → fileInfo.createdAt，metadata → fileInfo + prompt_string + generate_prompt
+    - 新增 type 字段（local/remote）
+    """
+    from datetime import datetime
+
+    old_main_file = storage_dir / "image_prompts.json"
+    new_main_file = storage_dir / "images.json"
+
+    # 如果新文件已存在且有数据，说明已迁移
+    if new_main_file.exists():
+        try:
+            with open(new_main_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if data.get("mappings"):
+                return {"success": True, "message": "images.json 已存在，无需迁移", "migrated": False}
+        except Exception:
+            pass
+
+    # 收集所有旧文件（主文件 + glob 分片）
+    old_files = []
+    if old_main_file.exists():
+        old_files.append(old_main_file)
+    for f in sorted(storage_dir.glob("*.image_prompts.json")):
+        if f.resolve() != old_main_file.resolve():
+            old_files.append(f)
+
+    if not old_files:
+        return {"success": True, "message": "无旧图片映射数据", "migrated": False}
+
+    backup_dir = None
+
+    try:
+        # 1. 创建备份
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_dir = storage_dir / f"backup_image_schema_{timestamp}"
+        backup_dir.mkdir(exist_ok=True)
+
+        for f in old_files:
+            shutil.copy2(f, backup_dir / f.name)
+        print(f"[Migration-ImageSchema] 备份已创建: {backup_dir}")
+
+        # 2. 读取并合并所有旧文件
+        all_mappings = []
+        for old_file in old_files:
+            try:
+                with open(old_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                all_mappings.extend(data.get("mappings", []))
+            except Exception as e:
+                print(f"[Migration-ImageSchema] 读取 {old_file.name} 失败: {e}")
+
+        # 3. 转换每条映射到新格式
+        import time
+        migrated_mappings = []
+        for mapping in all_mappings:
+            new_mapping = {
+                "type": "local",
+                "imagePath": mapping.get("imagePath", ""),
+                "prompts": mapping.get("prompts", []),
+            }
+
+            # 构建 fileInfo
+            file_info = {}
+            old_saved_at = mapping.get("savedAt")
+            if old_saved_at:
+                file_info["createdAt"] = old_saved_at
+
+            old_metadata = mapping.get("metadata", {})
+            if "width" in old_metadata:
+                file_info["width"] = old_metadata["width"]
+            if "height" in old_metadata:
+                file_info["height"] = old_metadata["height"]
+
+            # 尝试从文件读取 size 和 type
+            image_path = mapping.get("imagePath", "")
+            if image_path:
+                try:
+                    import folder_paths
+                    output_dir = Path(folder_paths.get_output_directory())
+                    full_path = output_dir / image_path
+                    if full_path.exists():
+                        stat = full_path.stat()
+                        file_info["size"] = stat.st_size
+                        # 从扩展名推断 type
+                        ext = full_path.suffix.lower()
+                        type_map = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+                        file_info["type"] = type_map.get(ext, "image/png")
+                except Exception:
+                    pass
+
+            if file_info:
+                new_mapping["fileInfo"] = file_info
+            else:
+                new_mapping["fileInfo"] = {}
+
+            # prompt_string 从 metadata 中提取到顶层
+            if "prompt_string" in old_metadata:
+                new_mapping["promptString"] = old_metadata["prompt_string"]
+
+            migrated_mappings.append(new_mapping)
+
+        # 4. 写入新文件
+        with open(new_main_file, 'w', encoding='utf-8') as f:
+            json.dump({"mappings": migrated_mappings}, f, ensure_ascii=False, indent=2)
+
+        # 5. 删除旧文件
+        for old_file in old_files:
+            old_file.unlink()
+        print(f"[Migration-ImageSchema] 迁移完成: {len(migrated_mappings)} 条映射")
+
+        return {
+            "success": True,
+            "message": f"迁移完成: {len(migrated_mappings)} 条映射",
+            "backup_dir": str(backup_dir),
+            "migrated": True,
+        }
+
+    except Exception as e:
+        print(f"[Migration-ImageSchema] 迁移失败: {e}")
+        # 回滚
+        if backup_dir and backup_dir.exists():
+            try:
+                # 恢复旧文件
+                for backup_file in backup_dir.iterdir():
+                    target = storage_dir / backup_file.name
+                    if not target.exists():
+                        shutil.copy2(backup_file, target)
+                # 删除可能创建的新文件
+                if new_main_file.exists():
+                    new_main_file.unlink()
+                print("[Migration-ImageSchema] 已从备份恢复")
+            except Exception as restore_error:
+                print(f"[Migration-ImageSchema] 恢复备份失败: {restore_error}")
+
+        return {
+            "success": False,
+            "message": f"迁移失败: {str(e)}",
+            "migrated": False,
+        }

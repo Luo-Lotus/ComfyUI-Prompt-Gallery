@@ -243,7 +243,7 @@ export function ImageGroupView({
           onContextMenu: handleContextMenu,
         },
         h('img', {
-          src: buildImageUrl(img.path),
+          src: buildImageUrl(img.path, img.type),
           alt: `${lightboxName} - ${imgIndex + 1}`,
           loading: 'lazy',
         }),

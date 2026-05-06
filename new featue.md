@@ -1,29 +1,28 @@
-对项目的搜索系统进行优化：1.目前只能搜索当前目录下prompt，包括两部分，画廊里的搜索，与prompt选择节点里的搜索2.改为两种模式，一种当前目录搜索，一种全局搜索
+我想优化一下保存到画廊节点的功能和整个图片存储的结构1.现在"保存的文件是写死在 prompt_gallery 中的，现在节点有个filename_prefix参数， 我想把prompt_gallery 显示展示在节点参数中，这样用户可以自己更改目录，比如 /a/gallery, 会根据/自动创建文件夹，参数名称也改为"prefix"，并且在文件命中可以添加时间格式，例如 '/prompts/[YYYY]/[DD]'，最后保存的文件为/prompt/2026/05_xxxx，格式的要求遵循python的时间格式化型式，2.修改image_prompts.json存储结构，并且在storage\migration.py添加对应的迁移代码，
 
-- 当前目录搜索：只能搜索当前目录下prompt、分类
-- 全局搜索： 可以搜索所有的prompt、分类3.可以搜索的信息
+- 文件改名为images.json（包括global模式）
+- 原格式：{
+  "imagePath": "prompt_gallery/\_1777204480193_00000.png",
+  "savedAt": 1777204480359,
+  "metadata": {
+  "width": 1216,
+  "height": 832,
+  "prompt_string": "xxx"
+  },
+  "prompts": ['xxx']
+  },
+    - 新格式 {
+      "imagePath": "prompt_gallery/\_1777204480193_00000.png",
+      "fileInfo": {
+      "createdAt": 1777204480359,
+      "size": 1024000,
+      "type": "image/png",
+      "width": 1216,
+      "height": 832,
+      },
+      "prompt_string": "xxx",
+      "prompts": ['xxx'],
+      "generate_prompt": "xx",
+      },
 
-3.
-
-帮我对创建prompt功能进行优化：
-
-- 对数据存储结构进行优化，
-    - prompt.json 改名为prompt.json，
-        - displayName 修改为 name
-        - name 修改为 value
-        - 增加 alias 字段，
-    - image_prompts.json 改名为image_prompts.json，
-        - promptNames 修改为 prompts
-    - combinations.json 改名为combinations.json，
-        - promptKeys 修改为 prompts, 2.单个创建字段优化
-    - 增加迁移逻辑，每次打开时进行检测，如果发现当前数据为老数据 自动执行迁移操作
-    - 对系统内所有使用老字段的地方都要进行修改
-    - 对导出数据的格式也要进行适配
-- 对prompt创建弹窗进行优化，修改如下
-    - 创建单个
-        - 输入框：名称（可选如果不填以value为名称）
-        - textArea：值,value
-        - 输入框：别名，多个别名用逗号隔开,alias
-    - 创建多个
-        - 输入框：分隔符，默认为"+"
-        - textArea：多个prompt，每个prompt占一行，以如下形式填写：[值][分隔符][名称][分隔符][别名]，如分割符是"+"，则填写为：1girl+一个女孩+one girl+solo girl，如果 只给value 自动填充name,
+    其中generate_prompt 节点保存图片时，存入metadata中的prompt，

@@ -8,6 +8,7 @@ from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ._utils import is_remote_path
 
 
 @server.PromptServer.instance.routes.get("/prompt_gallery/images_grouped")
@@ -45,9 +46,12 @@ async def get_images_grouped(request):
             if not image_path:
                 continue
 
-            full_path = output_dir / image_path
-            if not full_path.exists():
-                continue
+            remote = is_remote_path(image_path, mapping.get("type", ""))
+
+            if not remote:
+                full_path = output_dir / image_path
+                if not full_path.exists():
+                    continue
 
             prompts_list = mapping.get("prompts", [])
 
@@ -67,14 +71,12 @@ async def get_images_grouped(request):
                     for p in prompts_list
                 )
                 if not matched:
-                    # 也检查 metadata 中的 prompt_string
-                    prompt_string = mapping.get("metadata", {}).get("prompt_string", "").lower()
-                    if search_query not in prompt_string:
+                    ps = mapping.get("promptString", "").lower()
+                    if search_query not in ps:
                         continue
 
-            saved_at = mapping.get("savedAt", 0)
-            if not saved_at:
-                # 没有 savedAt 的用文件修改时间
+            saved_at = mapping.get("fileInfo", {}).get("createdAt", 0)
+            if not saved_at and not remote:
                 try:
                     saved_at = int(full_path.stat().st_mtime * 1000)
                 except Exception:
@@ -82,9 +84,10 @@ async def get_images_grouped(request):
 
             valid_items.append({
                 "path": image_path,
+                "type": mapping.get("type", "local"),
                 "savedAt": saved_at,
                 "prompts": prompts_list,
-                "metadata": mapping.get("metadata", {}),
+                "promptString": mapping.get("promptString", ""),
             })
 
         # 按日期分组

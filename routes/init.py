@@ -6,6 +6,7 @@ from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ._utils import is_remote_path
 
 
 
@@ -37,8 +38,7 @@ async def get_init_data(request):
                 for prompt_name in comb.get("prompts", []):
                     for m in prompt_mapping_index.get(prompt_name, []):
                         image_path = m.get("imagePath")
-                        full_path = Path(output_dir) / image_path
-                        if full_path.exists():
+                        if is_remote_path(image_path, m.get("type", "")) or (Path(output_dir) / image_path).exists():
                             cover_path = image_path
                             break
                     if cover_path:

@@ -11,6 +11,7 @@ class PromptStorage:
     def __init__(self, storage_dir: Path):
         self.storage_dir = storage_dir
         self.prompts_file = storage_dir / "prompts.json"
+        self._glob_pattern = "*.prompts.json"
         self._lock = threading.Lock()
         self._cache = None
         self._ensure_storage_dir()
@@ -19,32 +20,62 @@ class PromptStorage:
         """确保存储目录存在"""
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
-        # 初始化 prompts.json
+        # 有分片文件时不创建主文件
         if not self.prompts_file.exists():
-            self._write_data({"prompts": []})
+            split_files = [f for f in self.storage_dir.glob(self._glob_pattern)
+                           if f.resolve() != self.prompts_file.resolve()]
+            if not split_files:
+                self._write_data({"prompts": []})
+
+    def _glob_source_files(self) -> list:
+        """查找所有源文件：主文件 + glob 匹配的分片文件"""
+        sources = []
+        if self.prompts_file.exists():
+            sources.append(self.prompts_file)
+        for f in sorted(self.storage_dir.glob(self._glob_pattern)):
+            if f.resolve() != self.prompts_file.resolve():
+                sources.append(f)
+        return sources
 
     def _read_data(self) -> dict:
-        """读取数据文件（带缓存）"""
+        """读取并合并所有源文件（带缓存）"""
         if self._cache is not None:
             return self._cache
-        try:
-            with open(self.prompts_file, 'r', encoding='utf-8') as f:
-                self._cache = json.load(f)
-            return self._cache
-        except Exception as e:
-            print(f"Error reading prompts file: {e}")
-            self._cache = {"prompts": []}
-            return self._cache
+        merged_items = []
+        for source_file in self._glob_source_files():
+            try:
+                with open(source_file, 'r', encoding='utf-8') as f:
+                    file_data = json.load(f)
+                for item in file_data.get("prompts", []):
+                    item["_source_file"] = str(source_file)
+                    merged_items.append(item)
+            except Exception as e:
+                print(f"Error reading {source_file.name}: {e}")
+        self._cache = {"prompts": merged_items}
+        return self._cache
 
     def _write_data(self, data: dict):
-        """写入数据文件（同时更新缓存）"""
+        """按来源文件分组回写，新数据写入主文件"""
         try:
-            with open(self.prompts_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self._cache = data
+            groups: Dict[str, list] = {}
+            for item in data.get("prompts", []):
+                source = item.pop("_source_file", None) or str(self.prompts_file)
+                groups.setdefault(source, []).append(item)
+
+            main_key = str(self.prompts_file)
+            if main_key not in groups and len(groups) > 0:
+                groups[main_key] = []
+
+            for file_path_str, items in groups.items():
+                file_path = Path(file_path_str)
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump({"prompts": items}, f, ensure_ascii=False, indent=2)
+
+            self._cache = None
         except Exception as e:
-            self._cache = None  # 写入失败，清除缓存
-            print(f"Error writing prompts file: {e}")
+            self._cache = None
+            print(f"Error writing prompts files: {e}")
             raise
 
     def get_all_prompts(self) -> List[dict]:
@@ -91,7 +122,7 @@ class PromptStorage:
         return self.get_prompt_by_name(value)
 
     def add_prompt(self, value: str, name: Optional[str] = None, alias: str = "",
-                   category_id: str = "root") -> dict:
+                   category_id: str = "root", target_file: Optional[str] = None) -> dict:
         """
         添加Prompt
         :param value: Prompt值（同一分类下唯一）
@@ -128,6 +159,8 @@ class PromptStorage:
                 "customFields": {}
             }
         }
+        if target_file:
+            new_prompt["_source_file"] = target_file
 
         # 获取锁并写入
         with self._lock:
@@ -137,7 +170,8 @@ class PromptStorage:
 
             return new_prompt
 
-    def add_prompts_batch(self, prompts_data: List[dict], category_id: str = "root") -> Tuple[List[dict], List[str]]:
+    def add_prompts_batch(self, prompts_data: List[dict], category_id: str = "root",
+                          target_file: Optional[str] = None) -> Tuple[List[dict], List[str]]:
         """
         批量添加Prompt
         :param prompts_data: Prompt数据列表，每个元素包含 {"value": str, "name": str(可选), "alias": str(可选)}
@@ -173,6 +207,8 @@ class PromptStorage:
                     "createdAt": int(__import__('time').time() * 1000),
                     "imageCount": 0
                 }
+                if target_file:
+                    new_prompt["_source_file"] = target_file
 
                 data["prompts"].append(new_prompt)
                 success_prompts.append(new_prompt)
@@ -180,6 +216,44 @@ class PromptStorage:
 
             self._write_data(data)
             return success_prompts, failed_values
+
+    def add_prompts_import(self, items: List[dict], target_file: Optional[str] = None) -> Tuple[List[dict], List[str]]:
+        """
+        导入批量添加Prompt（一次读写，支持不同categoryId）
+        :param items: [{"value": str, "name": str, "alias": str, "categoryId": str}, ...]
+        :param target_file: 分离存储目标文件
+        :return: (成功列表, 失败值列表)
+        """
+        import time as _time
+        with self._lock:
+            data = self._read_data()
+            existing = {(a.get("value"), a.get("categoryId")) for a in data["prompts"]}
+            success, failed = [], []
+            for item in items:
+                value = (item.get("value") or "").strip()
+                cat_id = item.get("categoryId", "root")
+                if not value:
+                    failed.append("(空值)")
+                    continue
+                if (value, cat_id) in existing:
+                    failed.append(value)
+                    continue
+                new_prompt = {
+                    "value": value,
+                    "name": item.get("name") or value,
+                    "alias": item.get("alias", ""),
+                    "categoryId": cat_id,
+                    "coverImageId": None,
+                    "createdAt": int(_time.time() * 1000),
+                    "imageCount": 0,
+                }
+                if target_file:
+                    new_prompt["_source_file"] = target_file
+                data["prompts"].append(new_prompt)
+                success.append(new_prompt)
+                existing.add((value, cat_id))
+            self._write_data(data)
+            return success, failed
 
     def update_prompt(self, category_id: str, old_value: str, **kwargs) -> bool:
         """

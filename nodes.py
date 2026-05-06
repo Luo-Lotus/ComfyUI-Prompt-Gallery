@@ -471,7 +471,7 @@ class SaveToGallery:
             "optional": {
                 "metadata_json": ("STRING", {"default": "{}", "forceInput": True}),
                 "prompt_string": ("STRING", {"default": "", "forceInput": True}),
-                "filename_prefix": ("STRING", {"default": "AG"}),
+                "prefix": ("STRING", {"default": "prompt_gallery/AG"}),
             },
             "hidden": {
                 "prompt": "PROMPT",
@@ -479,10 +479,11 @@ class SaveToGallery:
             }
         }
 
-    def save_image(self, images, metadata_json="{}", filename_prefix="AG", prompt_string="", prompt=None, extra_pnginfo=None):
+    def save_image(self, images, metadata_json="{}", prefix="prompt_gallery/AG", prompt_string="", prompt=None, extra_pnginfo=None):
         """
-        保存图片到 output/prompt_gallery/ 并创建映射关系
+        保存图片并创建映射关系
         支持两种输入源（合并使用，结果去重）：
+        :param prefix: 保存路径前缀，支持 strftime 时间格式化（如 "gallery/%Y/%m/AG"）
         :param metadata_json: 由 PromptSelector 输出的 JSON
         :param prompt_string: 提示词字符串，自动匹配已知画师名（含别名）
         """
@@ -491,6 +492,7 @@ class SaveToGallery:
         from PIL import Image, PngImagePlugin
         import time
         import json
+        import os
 
         # 解析 metadata_json
         try:
@@ -532,8 +534,23 @@ class SaveToGallery:
         # 去重（按 value）用于映射和日志
         saveable_names = list(dict.fromkeys(a["value"] for a in saveable_prompts))
 
+        # 解析 prefix：最后一个 / 分割为目录模板和文件名前缀
+        prefix = prefix or "prompt_gallery/AG"
+        now = time.time()
+        now_struct = time.localtime(now)
+
+        parts = prefix.rsplit("/", 1)
+        if len(parts) == 2:
+            dir_template, file_prefix = parts
+        else:
+            dir_template, file_prefix = "", parts[0]
+
+        # 对目录和文件名前缀都应用 strftime 时间格式化
+        dir_path = time.strftime(dir_template, now_struct) if dir_template else ""
+        file_prefix = time.strftime(file_prefix, now_struct)
+
         output_dir = Path(folder_paths.get_output_directory())
-        save_dir = output_dir / "prompt_gallery"
+        save_dir = output_dir / dir_path if dir_path else output_dir
         save_dir.mkdir(parents=True, exist_ok=True)
 
         saved_count = 0
@@ -541,8 +558,8 @@ class SaveToGallery:
             i = 255. * image_tensor.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
 
-            timestamp = int(time.time() * 1000)
-            filename = f"{filename_prefix}_{timestamp}_{idx:05}.png"
+            timestamp = int(now * 1000)
+            filename = f"{file_prefix}_{timestamp}_{idx:05}.png"
             save_path = save_dir / filename
 
             pnginfo = PngImagePlugin.PngInfo()
@@ -552,7 +569,7 @@ class SaveToGallery:
             pnginfo.add_text("prompt_gallery", json.dumps({
                 "prompt_names": saveable_names,
                 "selected_prompts": saveable_prompts,
-                "prompt_string": prompt_string or "",
+                "promptString": prompt_string or "",
             }))
 
             if extra_pnginfo is not None:
@@ -563,13 +580,28 @@ class SaveToGallery:
                 img.save(save_path, format="PNG", pnginfo=pnginfo)
                 saved_count += 1
 
-                # 创建映射关系（仅 saveToGallery=true 的画师）
-                image_path = f"prompt_gallery/{filename}"
+                # 构建相对路径
+                image_path = f"{dir_path}/{filename}" if dir_path else filename
+
+                # 构建 fileInfo
+                file_stat = save_path.stat()
+                file_info = {
+                    "createdAt": timestamp,
+                    "size": file_stat.st_size,
+                    "type": "image/png",
+                    "width": img.width,
+                    "height": img.height,
+                }
+
+                # 创建映射关系
                 mapping_storage = get_storage()[1]
                 mapping_storage.add_mapping(
-                    image_path,
-                    saveable_names,
-                    {"width": img.width, "height": img.height, "prompt_string": prompt_string or ""}
+                    image_path=image_path,
+                    prompt_values=saveable_names,
+                    file_info=file_info,
+                    prompt_string=prompt_string or "",
+                    generate_prompt=prompt,
+                    mapping_type="local",
                 )
 
                 # 更新画师图片计数（仅 saveToGallery=true 的画师）
@@ -627,7 +659,7 @@ class QuickSavePrompt:
         prompt_name = prompt_name.strip()
         prompt_value = prompt_value.strip()
 
-        prompt_storage, _, category_storage, _ = get_storage()
+        prompt_storage, mapping_storage, category_storage, _ = get_storage()
 
         # 根据分类名称查找分类 ID
         categories = category_storage.get_all_categories()
@@ -645,12 +677,18 @@ class QuickSavePrompt:
                 break
 
         if existing:
-            prompt_storage.update_prompt(
-                category_id=category_id,
-                old_value=existing["value"],
-                value=prompt_value,
-            )
-            print(f"[QuickSavePrompt] 已更新 prompt: {prompt_name} (value: {prompt_value}, 分类: {category})")
+            old_value = existing["value"]
+            if old_value != prompt_value:
+                prompt_storage.update_prompt(
+                    category_id=category_id,
+                    old_value=old_value,
+                    value=prompt_value,
+                )
+                # 同步更新图片映射中的旧值
+                mapping_storage.rename_prompt_in_mappings(old_value, prompt_value)
+                print(f"[QuickSavePrompt] 已更新 prompt: {prompt_name} (value: {old_value} -> {prompt_value}, 分类: {category})")
+            else:
+                print(f"[QuickSavePrompt] prompt 未变化: {prompt_name} (value: {prompt_value}, 分类: {category})")
         else:
             prompt_storage.add_prompt(
                 value=prompt_value,

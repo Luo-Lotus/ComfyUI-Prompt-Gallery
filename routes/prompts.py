@@ -5,6 +5,7 @@ from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ._utils import is_remote_path
 
 
 # ============ Prompt CRUD API ============
@@ -93,11 +94,14 @@ async def delete_prompt(request):
         # 移除映射关系，获取孤儿图片（没有其他Prompt关联的图片）
         orphan_images = mapping_storage.remove_prompt_from_mappings(prompt.get("value"))
 
-        # 删除孤儿图片文件
+        # 删除孤儿图片文件（跳过远程图片）
         import folder_paths
         output_dir = Path(folder_paths.get_output_directory())
         deleted_files = []
         for image_path in orphan_images:
+            if is_remote_path(image_path):
+                deleted_files.append(image_path)
+                continue
             full_path = output_dir / image_path
             try:
                 if full_path.exists():
@@ -275,10 +279,13 @@ async def delete_prompt_composite(request):
             # 移除映射关系，获取孤儿图片（没有其他Prompt关联的图片）
             orphan_images = mapping_storage.remove_prompt_from_mappings(value)
 
-            # 删除孤儿图片文件
+            # 删除孤儿图片文件（跳过远程图片）
             import folder_paths
             output_dir = Path(folder_paths.get_output_directory())
             for image_path in orphan_images:
+                if is_remote_path(image_path):
+                    deleted_files.append(image_path)
+                    continue
                 full_path = output_dir / image_path
                 try:
                     if full_path.exists():
@@ -389,8 +396,10 @@ async def get_prompt_images(request):
         for mapping in mappings:
             images.append({
                 "path": mapping.get("imagePath"),
-                "savedAt": mapping.get("savedAt"),
-                "metadata": mapping.get("metadata", {})
+                "type": mapping.get("type", "local"),
+                "savedAt": mapping.get("fileInfo", {}).get("createdAt"),
+                "fileInfo": mapping.get("fileInfo", {}),
+                "promptString": mapping.get("promptString", ""),
             })
 
         # 按时间倒序排序
@@ -471,6 +480,15 @@ async def get_prompt_images_by_composite(request):
         images = []
         for mapping in mappings:
             image_path = mapping.get("imagePath")
+            if is_remote_path(image_path, mapping.get("type", "")):
+                images.append({
+                    "path": image_path,
+                    "type": "remote",
+                    "size": 0,
+                    "mtime": mapping.get("fileInfo", {}).get("createdAt", 0),
+                    "prompts": mapping.get("prompts", []),
+                })
+                continue
             full_path = output_dir / image_path
             if full_path.exists():
                 try:

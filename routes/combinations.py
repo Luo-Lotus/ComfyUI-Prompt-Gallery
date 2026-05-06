@@ -6,6 +6,7 @@ from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ._utils import is_remote_path
 
 
 
@@ -39,8 +40,7 @@ async def get_combinations(request):
                     mappings = mapping_storage.get_mappings_by_prompt(prompt_name)
                     for m in mappings:
                         image_path = m.get("imagePath")
-                        full_path = Path(output_dir) / image_path
-                        if full_path.exists():
+                        if is_remote_path(image_path, m.get("type", "")) or (Path(output_dir) / image_path).exists():
                             cover_path = image_path
                             break
                     if cover_path:
@@ -78,8 +78,7 @@ async def get_all_combinations(request):
                     mappings = mapping_storage.get_mappings_by_prompt(prompt_name)
                     for m in mappings:
                         image_path = m.get("imagePath")
-                        full_path = Path(output_dir) / image_path
-                        if full_path.exists():
+                        if is_remote_path(image_path, m.get("type", "")) or (Path(output_dir) / image_path).exists():
                             cover_path = image_path
                             break
                     if cover_path:
@@ -260,8 +259,7 @@ async def get_combination_images(request):
             paths = set()
             for m in mappings:
                 image_path = m.get("imagePath")
-                full_path = Path(output_dir) / image_path
-                if full_path.exists():
+                if is_remote_path(image_path, m.get("type", "")) or (Path(output_dir) / image_path).exists():
                     paths.add(image_path)
             prompt_image_sets.append(paths)
 
@@ -280,6 +278,15 @@ async def get_combination_images(request):
         # 构建图片信息
         images = []
         for image_path in common_paths:
+            if is_remote_path(image_path):
+                images.append({
+                    "path": image_path,
+                    "type": "remote",
+                    "size": 0,
+                    "mtime": 0,
+                    "prompts": prompts,
+                })
+                continue
             full_path = Path(output_dir) / image_path
             try:
                 stat = full_path.stat()

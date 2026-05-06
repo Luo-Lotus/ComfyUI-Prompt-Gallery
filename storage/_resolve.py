@@ -6,7 +6,7 @@ from .prompt import PromptStorage
 from .image_mapping import ImageMappingStorage
 from .category import CategoryStorage
 from .combination import CombinationStorage
-from .migration import migrate_prompt_data, migrate_to_prompt_schema
+from .migration import migrate_prompt_data, migrate_to_prompt_schema, migrate_image_schema
 
 
 def _resolve_storage_dir() -> Path:
@@ -31,13 +31,19 @@ def _resolve_storage_dir() -> Path:
     if not new_storage_dir:
         return plugin_dir
 
-    # 新目录已有数据，直接使用（含旧格式兼容）
+    # 新目录已有数据，直接使用（含旧格式兼容 + 分片文件检测）
     new_has_data = (
         (new_storage_dir / "prompts.json").exists()
         or (new_storage_dir / "image_prompts.json").exists()
+        or (new_storage_dir / "images.json").exists()
         or (new_storage_dir / "categories.json").exists()
         or (new_storage_dir / "artists.json").exists()
         or (new_storage_dir / "image_artists.json").exists()
+        or any(new_storage_dir.glob("*.prompts.json"))
+        or any(new_storage_dir.glob("*.categories.json"))
+        or any(new_storage_dir.glob("*.combinations.json"))
+        or any(new_storage_dir.glob("*.image_prompts.json"))
+        or any(new_storage_dir.glob("*.images.json"))
     )
     if new_has_data:
         return new_storage_dir
@@ -46,6 +52,7 @@ def _resolve_storage_dir() -> Path:
     old_files = [
         plugin_dir / "prompts.json",
         plugin_dir / "image_prompts.json",
+        plugin_dir / "images.json",
         plugin_dir / "categories.json",
         plugin_dir / "combinations.json",
         plugin_dir / "artists.json",
@@ -80,6 +87,11 @@ def get_storage() -> Tuple[PromptStorage, ImageMappingStorage, CategoryStorage, 
         migrate_to_prompt_schema(storage_dir)
     except Exception as e:
         print(f"Warning: Failed to migrate to prompt schema: {e}")
+
+    try:
+        migrate_image_schema(storage_dir)
+    except Exception as e:
+        print(f"Warning: Failed to migrate image schema: {e}")
 
     prompt_storage = PromptStorage(storage_dir)
     mapping_storage = ImageMappingStorage(storage_dir)

@@ -206,10 +206,12 @@ export async function exportCategory(categoryId, options = {}) {
 /**
  * 导入（从 ZIP 文件，支持 v1 Prompt格式和 v2 分类格式）
  */
-export async function importPrompts(file, categoryId) {
+export async function importPrompts(file, categoryId, separateStorage = false) {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await fetch(`/prompt_gallery/import?categoryId=${encodeURIComponent(categoryId)}`, {
+  const params = new URLSearchParams({ categoryId });
+  if (separateStorage) params.set('separate', 'true');
+  const response = await fetch(`/prompt_gallery/import?${params}`, {
     method: 'POST',
     body: formData,
   });

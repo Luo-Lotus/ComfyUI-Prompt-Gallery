@@ -8,6 +8,23 @@ import server
 from ..storage import get_storage
 
 
+def _make_shard_targets(storage_dir: Path, separate: bool):
+    """
+    生成分离存储的目标文件路径。
+    返回 dict: {"prompts": path|None, "images": path|None, "categories": path|None, "combinations": path|None}
+    """
+    if not separate:
+        return {"prompts": None, "images": None, "categories": None, "combinations": None}
+    from datetime import datetime
+    prefix = datetime.now().strftime("import_%Y%m%d_%H%M%S")
+    return {
+        "prompts": str(storage_dir / f"{prefix}.prompts.json"),
+        "images": str(storage_dir / f"{prefix}.images.json"),
+        "categories": str(storage_dir / f"{prefix}.categories.json"),
+        "combinations": str(storage_dir / f"{prefix}.combinations.json"),
+    }
+
+
 
 
 # ============ Import API ============
@@ -35,6 +52,7 @@ async def import_images_batch(request):
         mode = data.get("mode", "single")  # "single" | "custom"
         images = data.get("images", [])
         config = data.get("config", {})
+        separate_storage = data.get("separateStorage", False)
 
         print(f"[ImportBatch] 收到导入请求")
         print(f"  mode: {mode}")
@@ -48,6 +66,7 @@ async def import_images_batch(request):
 
         # 获取存储实例
         prompt_storage, mapping_storage, category_storage, _ = get_storage()
+        shard_targets = _make_shard_targets(prompt_storage.storage_dir, separate_storage)
 
         # 准备输出目录
         output_dir = Path(folder_paths.get_output_directory())
@@ -57,136 +76,113 @@ async def import_images_batch(request):
         # 并发控制（最多5个并发）
         semaphore = asyncio.Semaphore(5)
 
-        async def import_single_image(image_data: dict):
-            """导入单张图片"""
+        async def process_single_image(image_data: dict):
+            """并发：解析 + 保存图片文件（不做存储写入）"""
             async with semaphore:
                 try:
-                    # 1. 解码base64
                     image_bytes = base64.b64decode(image_data['data'])
                     filename = image_data['filename']
 
-                    # 2. 解析Prompt信息
+                    # 解析Prompt信息
                     if mode == "single":
-                        # 单个Prompt模式：直接使用配置中的Prompt信息
                         value = config.get("value", "").strip()
                         display_name = config.get("name", value)
                         category_id = config.get("categoryId", "root")
                         will_create_prompt = False
                         error_msg = None
                     else:
-                        # 自定义模式：从文件名解析
                         value, display_name, error_msg, will_create_prompt = \
                             parse_prompt_info_from_filename(filename, config)
                         category_id = config.get("defaultCategoryId", "root")
 
                     if not value:
-                        return {
-                            'filename': filename,
-                            'success': False,
-                            'error': error_msg or '无法解析Prompt名称'
-                        }
+                        return {'filename': filename, 'success': False,
+                                'error': error_msg or '无法解析Prompt名称'}
 
-                    # 3. 确保Prompt存在
-                    prompt = prompt_storage.get_prompt(category_id, value)
-                    if not prompt and will_create_prompt:
-                        try:
-                            prompt = prompt_storage.add_prompt(
-                                value=value,
-                                name=display_name,
-                                category_id=category_id
-                            )
-                        except ValueError:
-                            # Prompt已存在（并发情况）
-                            prompt = prompt_storage.get_prompt(category_id, value)
-
-                    if not prompt:
-                        return {
-                            'filename': filename,
-                            'success': False,
-                            'error': 'Prompt不存在且未启用自动创建'
-                        }
-
-                    # 4. 生成唯一文件名
+                    # 生成唯一文件名并保存
                     timestamp = int(time.time() * 1000)
                     counter = random.randint(0, 99999)
                     new_filename = f"AG_{timestamp}_{counter:05}.png"
                     save_path = save_dir / new_filename
 
-                    # 5. 保存图片并嵌入metadata（一次性完成）
-                    selected_prompts = [{
-                        "categoryId": category_id,
-                        "value": value,
-                        "name": display_name
-                    }]
-
+                    selected_prompts = [{"categoryId": category_id, "value": value, "name": display_name}]
                     success, metadata = save_image_with_metadata(
                         image_bytes=image_bytes,
                         save_path=save_path,
                         prompt_names=[value],
                         display_names=[display_name],
                         categories=[category_id],
-                        selected_prompts=selected_prompts
+                        selected_prompts=selected_prompts,
                     )
 
                     if not success:
-                        # 保存失败，删除文件（如果已创建）
                         if save_path.exists():
                             save_path.unlink()
-                        return {
-                            'filename': filename,
-                            'success': False,
-                            'error': '图片保存失败'
-                        }
+                        return {'filename': filename, 'success': False, 'error': '图片保存失败'}
 
-                    # 6. 创建映射关系
-                    image_rel_path = f"prompt_gallery/{new_filename}"
-                    mapping_storage.add_mapping(
-                        image_rel_path,
-                        [value],
-                        metadata or {"width": 0, "height": 0}
-                    )
-
-                    # 7. 更新Prompt计数
-                    prompt_storage.update_image_count(category_id, value, 1)
+                    # 构建 file_info
+                    file_info = {}
+                    if metadata:
+                        if "width" in metadata:
+                            file_info["width"] = metadata["width"]
+                        if "height" in metadata:
+                            file_info["height"] = metadata["height"]
 
                     return {
                         'filename': filename,
                         'success': True,
-                        'imagePath': image_rel_path,
                         'value': value,
                         'name': display_name,
-                        'categoryId': category_id
+                        'categoryId': category_id,
+                        'willCreate': will_create_prompt,
+                        'imagePath': f"prompt_gallery/{new_filename}",
+                        'fileInfo': file_info,
                     }
 
                 except Exception as e:
                     import traceback
                     traceback.print_exc()
-                    return {
-                        'filename': image_data.get('filename', 'unknown'),
-                        'success': False,
-                        'error': str(e)
-                    }
+                    return {'filename': image_data.get('filename', 'unknown'),
+                            'success': False, 'error': str(e)}
 
-        # 并发处理所有图片
-        tasks = [import_single_image(img) for img in images]
-        results = await asyncio.gather(*tasks)
+        # 1. 并发保存所有图片文件
+        results = await asyncio.gather(*[process_single_image(img) for img in images])
 
-        # 统计结果
+        # 2. 批量创建 Prompt（一次读写）
+        prompt_specs = []
+        for r in results:
+            if r['success'] and r.get('willCreate'):
+                prompt_specs.append({
+                    "value": r["value"],
+                    "name": r["name"],
+                    "categoryId": r["categoryId"],
+                })
+        if prompt_specs:
+            prompt_storage.add_prompts_import(prompt_specs, target_file=shard_targets["prompts"])
+
+        # 3. 批量创建映射（一次读写）
+        mapping_specs = []
+        for r in results:
+            if r['success']:
+                mapping_specs.append({
+                    "image_path": r["imagePath"],
+                    "prompt_values": [r["value"]],
+                    "file_info": r.get("fileInfo") or None,
+                    "mapping_type": "local",
+                })
+        if mapping_specs:
+            mapping_storage.add_mappings_import(mapping_specs, target_file=shard_targets["images"])
+
         imported = sum(1 for r in results if r['success'])
         failed = len(results) - imported
-
-        # 收集创建的Prompt
-        created_prompts = [
-            r for r in results
-            if r['success'] and r.get('value')
-        ]
+        created_prompts = [r for r in results if r['success'] and r.get('value')]
 
         return web.json_response({
             'success': True,
             'imported': imported,
             'failed': failed,
             'results': results,
-            'createdPrompts': created_prompts
+            'createdPrompts': created_prompts,
         })
 
     except Exception as e:
@@ -507,6 +503,7 @@ async def import_unified(request):
 
         zip_bytes = await field.read(decode=True)
         target_category_id = request.query.get("categoryId", "root")
+        separate_storage = request.query.get("separate", "").lower() in ("1", "true", "yes")
 
         prompt_storage, mapping_storage, category_storage, combination_storage = get_storage()
         output_dir = Path(folder_paths.get_output_directory()) / "prompt_gallery"
@@ -523,13 +520,13 @@ async def import_unified(request):
                 return await _import_v2(
                     zf, manifest_data, target_category_id,
                     prompt_storage, mapping_storage, category_storage, combination_storage,
-                    output_dir,
+                    output_dir, separate_storage,
                 )
             else:
                 # v1: 仅Prompt+图片
                 return await _import_v1(
                     zf, manifest_data, target_category_id,
-                    prompt_storage, mapping_storage, output_dir,
+                    prompt_storage, mapping_storage, output_dir, separate_storage,
                 )
 
     except Exception as e:
@@ -538,69 +535,79 @@ async def import_unified(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-async def _import_v1(zf, manifest_data, target_category_id, prompt_storage, mapping_storage, output_dir):
+async def _import_v1(zf, manifest_data, target_category_id, prompt_storage, mapping_storage, output_dir, separate_storage=False):
     """v1 导入：仅Prompt + 图片"""
     import time
     import random
 
-    added_prompts = []
-    added_images = 0
+    shard_targets = _make_shard_targets(prompt_storage.storage_dir, separate_storage)
 
+    # 1. 批量导入 Prompt（一次读写）
+    prompt_specs = []
     for prompt_info in manifest_data.get("prompts", []):
-        # 支持新格式(value)和旧格式(name)的向后兼容
-        name = (prompt_info.get("value") or prompt_info.get("name", "")).strip()
-        if not name:
+        value = (prompt_info.get("value") or prompt_info.get("name", "")).strip()
+        if not value:
             continue
-        display_name = prompt_info.get("name") or prompt_info.get("displayName", name)
-        existing = prompt_storage.get_prompt(target_category_id, name)
-        if not existing:
-            try:
-                prompt_storage.add_prompt(
-                    value=name,
-                    name=display_name,
-                    category_id=target_category_id,
-                )
-                added_prompts.append(name)
-            except ValueError:
-                pass
+        prompt_specs.append({
+            "value": value,
+            "name": prompt_info.get("name") or prompt_info.get("displayName", value),
+            "alias": prompt_info.get("alias", ""),
+            "categoryId": target_category_id,
+        })
+    added_prompts_list, _ = prompt_storage.add_prompts_import(prompt_specs, target_file=shard_targets["prompts"])
 
+    # 2. 提取图片文件 + 收集映射（一次读写）
+    mapping_specs = []
     for img_info in manifest_data.get("images", []):
-        zip_img_path = img_info.get("path")
-        # 支持新格式(prompts)和旧格式(promptNames)的向后兼容
+        img_path = img_info.get("path")
+        img_type = img_info.get("type", "")
         prompt_names = img_info.get("prompts") or img_info.get("promptNames", [])
-        if not zip_img_path or zip_img_path not in zf.namelist():
+        if not img_path:
             continue
 
-        timestamp = int(time.time() * 1000)
-        rand_num = random.randint(0, 99999)
-        new_filename = f"AG_{timestamp}_{rand_num:05d}.png"
-        new_path = output_dir / new_filename
+        is_remote = img_type == "remote" or img_path.startswith("http://") or img_path.startswith("https://")
 
-        with open(new_path, 'wb') as f:
-            f.write(zf.read(zip_img_path))
+        if is_remote:
+            mapping_specs.append({
+                "image_path": img_path,
+                "prompt_values": prompt_names,
+                "mapping_type": "remote",
+            })
+        else:
+            if img_path not in zf.namelist():
+                continue
+            timestamp = int(time.time() * 1000)
+            rand_num = random.randint(0, 99999)
+            new_filename = f"AG_{timestamp}_{rand_num:05d}.png"
+            new_path = output_dir / new_filename
+            with open(new_path, 'wb') as f:
+                f.write(zf.read(img_path))
+            mapping_specs.append({
+                "image_path": f"prompt_gallery/{new_filename}",
+                "prompt_values": prompt_names,
+                "mapping_type": "local",
+            })
 
-        relative_path = f"prompt_gallery/{new_filename}"
-        mapping_storage.add_mapping(
-            image_path=relative_path,
-            prompt_values=prompt_names,
-        )
-        added_images += 1
+    mapping_storage.add_mappings_import(mapping_specs, target_file=shard_targets["images"])
 
     return web.json_response({
         "success": True,
-        "addedPrompts": len(added_prompts),
+        "addedPrompts": len(added_prompts_list),
         "addedCombinations": 0,
-        "addedImages": added_images,
+        "addedImages": len(mapping_specs),
         "addedCategories": 0,
-        "prompts": added_prompts,
+        "prompts": [p["value"] for p in added_prompts_list],
     })
 
 
 async def _import_v2(zf, manifest_data, target_category_id,
-                     prompt_storage, mapping_storage, category_storage, combination_storage, output_dir):
+                     prompt_storage, mapping_storage, category_storage, combination_storage, output_dir,
+                     separate_storage=False):
     """v2 导入：分类树 + Prompt + 组合 + 图片"""
     import time
     import random
+
+    shard_targets = _make_shard_targets(prompt_storage.storage_dir, separate_storage)
 
     # A. 重建分类树
     old_to_new_cat = {}  # old_category_id -> new_category_id
@@ -613,7 +620,8 @@ async def _import_v2(zf, manifest_data, target_category_id,
         suffix = 2
         while True:
             try:
-                new_cat = category_storage.add_category(name=final_name, parent_id=target_category_id)
+                new_cat = category_storage.add_category(name=final_name, parent_id=target_category_id,
+                                                         target_file=shard_targets["categories"])
                 break
             except ValueError:
                 final_name = f"{root_cat_name} ({suffix})"
@@ -642,7 +650,8 @@ async def _import_v2(zf, manifest_data, target_category_id,
         suffix = 2
         while True:
             try:
-                new_cat = category_storage.add_category(name=final_name, parent_id=new_parent_id)
+                new_cat = category_storage.add_category(name=final_name, parent_id=new_parent_id,
+                                                         target_file=shard_targets["categories"])
                 break
             except ValueError:
                 final_name = f"{name} ({suffix})"
@@ -651,30 +660,23 @@ async def _import_v2(zf, manifest_data, target_category_id,
         old_to_new_cat[old_id] = new_cat["id"]
         added_categories += 1
 
-    # B. 导入Prompt
-    added_prompts = []
+    # B. 批量导入Prompt（一次读写）
+    prompt_specs = []
     for prompt_info in manifest_data.get("prompts", []):
-        # 支持新格式(value)和旧格式(name)的向后兼容
-        name = (prompt_info.get("value") or prompt_info.get("name", "")).strip()
-        if not name:
+        value = (prompt_info.get("value") or prompt_info.get("name", "")).strip()
+        if not value:
             continue
-        display_name = prompt_info.get("name") or prompt_info.get("displayName", name)
         old_cat_id = prompt_info.get("categoryId")
         new_cat_id = old_to_new_cat.get(old_cat_id, target_category_id)
+        prompt_specs.append({
+            "value": value,
+            "name": prompt_info.get("name") or prompt_info.get("displayName", value),
+            "alias": prompt_info.get("alias", ""),
+            "categoryId": new_cat_id,
+        })
+    added_prompts_list, _ = prompt_storage.add_prompts_import(prompt_specs, target_file=shard_targets["prompts"])
 
-        existing = prompt_storage.get_prompt(new_cat_id, name)
-        if not existing:
-            try:
-                prompt_storage.add_prompt(
-                    value=name,
-                    name=display_name,
-                    category_id=new_cat_id,
-                )
-                added_prompts.append(name)
-            except ValueError:
-                pass
-
-    # C. 导入组合
+    # C. 导入组合（数量通常很少，保持逐条）
     added_combinations = 0
     for comb_info in manifest_data.get("combinations", []):
         name = comb_info.get("name", "").strip()
@@ -682,52 +684,61 @@ async def _import_v2(zf, manifest_data, target_category_id,
             continue
         old_cat_id = comb_info.get("categoryId")
         new_cat_id = old_to_new_cat.get(old_cat_id, target_category_id)
-        # 支持新格式(prompts)和旧格式(promptKeys)的向后兼容
         prompt_keys = comb_info.get("prompts") or comb_info.get("promptKeys", [])
         output_content = comb_info.get("outputContent", "")
-
         try:
             combination_storage.add_combination(
                 name=name,
                 category_id=new_cat_id,
                 prompts=prompt_keys,
                 output_content=output_content,
+                target_file=shard_targets["combinations"],
             )
             added_combinations += 1
         except Exception:
             pass
 
-    # D. 导入图片文件
-    added_images = 0
+    # D. 批量导入图片映射（先提取文件，再一次写入）
+    mapping_specs = []
     for img_info in manifest_data.get("images", []):
-        zip_img_path = img_info.get("path")
-        # 支持新格式(prompts)和旧格式(promptNames)的向后兼容
+        img_path = img_info.get("path")
+        img_type = img_info.get("type", "")
         prompt_names = img_info.get("prompts") or img_info.get("promptNames", [])
-        if not zip_img_path or zip_img_path not in zf.namelist():
+        if not img_path:
             continue
 
-        timestamp = int(time.time() * 1000)
-        rand_num = random.randint(0, 99999)
-        new_filename = f"AG_{timestamp}_{rand_num:05d}.png"
-        new_path = output_dir / new_filename
+        is_remote = img_type == "remote" or img_path.startswith("http://") or img_path.startswith("https://")
 
-        with open(new_path, 'wb') as f:
-            f.write(zf.read(zip_img_path))
+        if is_remote:
+            mapping_specs.append({
+                "image_path": img_path,
+                "prompt_values": prompt_names,
+                "mapping_type": "remote",
+            })
+        else:
+            if img_path not in zf.namelist():
+                continue
+            timestamp = int(time.time() * 1000)
+            rand_num = random.randint(0, 99999)
+            new_filename = f"AG_{timestamp}_{rand_num:05d}.png"
+            new_path = output_dir / new_filename
+            with open(new_path, 'wb') as f:
+                f.write(zf.read(img_path))
+            mapping_specs.append({
+                "image_path": f"prompt_gallery/{new_filename}",
+                "prompt_values": prompt_names,
+                "mapping_type": "local",
+            })
 
-        relative_path = f"prompt_gallery/{new_filename}"
-        mapping_storage.add_mapping(
-            image_path=relative_path,
-            prompt_values=prompt_names,
-        )
-        added_images += 1
+    mapping_storage.add_mappings_import(mapping_specs, target_file=shard_targets["images"])
 
     return web.json_response({
         "success": True,
         "addedCategories": added_categories,
-        "addedPrompts": len(added_prompts),
+        "addedPrompts": len(added_prompts_list),
         "addedCombinations": added_combinations,
-        "addedImages": added_images,
-        "prompts": added_prompts,
+        "addedImages": len(mapping_specs),
+        "prompts": [p["value"] for p in added_prompts_list],
     })
 
 

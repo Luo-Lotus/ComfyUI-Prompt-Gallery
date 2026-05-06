@@ -6,6 +6,7 @@ from aiohttp import web
 import server
 from ..storage import get_storage
 from ..utils import decode_filename
+from ._utils import is_remote_path
 
 
 # ============ Gallery 数据 API ============
@@ -43,11 +44,11 @@ async def get_gallery_data(request):
             prompt_value = prompt.get("value")
             mappings = prompt_mapping_index.get(prompt_value, [])
 
-            # 计数（只统计文件存在的映射）
+            # 计数
             image_count = 0
             for mapping in mappings:
                 image_path = mapping.get("imagePath")
-                if (output_dir / image_path).exists():
+                if is_remote_path(image_path, mapping.get("type", "")) or (output_dir / image_path).exists():
                     image_count += 1
 
             # 获取封面图片路径：优先用设置的封面，否则取第一张存在的映射
@@ -55,7 +56,7 @@ async def get_gallery_data(request):
             if not cover_path:
                 for m in mappings:
                     image_path = m.get("imagePath")
-                    if (output_dir / image_path).exists():
+                    if is_remote_path(image_path, m.get("type", "")) or (output_dir / image_path).exists():
                         cover_path = image_path
                         break
 
@@ -85,7 +86,7 @@ async def get_gallery_data(request):
                 for prompt_value in comb.get("prompts", []):
                     for m in prompt_mapping_index.get(prompt_value, []):
                         image_path = m.get("imagePath")
-                        if (output_dir / image_path).exists():
+                        if is_remote_path(image_path, m.get("type", "")) or (output_dir / image_path).exists():
                             cover_path = image_path
                             break
                     if cover_path:

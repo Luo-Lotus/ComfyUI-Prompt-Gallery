@@ -48,10 +48,7 @@ export function GalleryHeader() {
         'button',
         {
           class: 'gallery-modal-btn',
-          onClick: () => {
-            const input = document.getElementById('prompt-import-file-input');
-            if (input) input.click();
-          },
+          onClick: () => ctx.setShowImportZipDialog(true),
         },
         [h(Icon, { name: 'upload', size: 14 }), ' 导入'],
       ),
@@ -92,18 +89,6 @@ export function GalleryHeader() {
         },
         [h(Icon, { name: 'clipboard-list', size: 14 }), ctx.selectionMode ? ' 已选' : ' 批量操作'],
       ),
-    );
-
-  // 隐藏的文件选择 input（历史视图不需要）
-  !isHistory &&
-    buttons.push(
-      h('input', {
-        id: 'prompt-import-file-input',
-        type: 'file',
-        accept: '.zip',
-        style: { display: 'none' },
-        onChange: ctx.handleImportPrompts,
-      }),
     );
 
   buttons.push(

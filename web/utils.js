@@ -64,7 +64,10 @@ export const Storage = {
   },
 };
 
-export function buildImageUrl(path) {
+export function buildImageUrl(path, type) {
+  if (type === 'remote' || (path && (path.startsWith('http://') || path.startsWith('https://')))) {
+    return path;
+  }
   const parts = path.split(/[/\\]/);
   const filename = parts[parts.length - 1];
   const subfolder = parts.slice(0, -1).join('/');
@@ -467,10 +470,12 @@ export async function exportCategory(categoryId, options = {}) {
   );
 }
 
-export async function importPrompts(file, categoryId) {
+export async function importPrompts(file, categoryId, separateStorage = false) {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await fetch(`/prompt_gallery/import?categoryId=${encodeURIComponent(categoryId)}`, {
+  const params = new URLSearchParams({ categoryId });
+  if (separateStorage) params.set('separate', 'true');
+  const response = await fetch(`/prompt_gallery/import?${params}`, {
     method: 'POST',
     body: formData,
   });

@@ -165,7 +165,7 @@ export function PromptDetailModal({ isOpen, prompt, onClose, onImageDelete, cate
                     },
                     [
                       h('img', {
-                        src: buildImageUrl(img.path),
+                        src: buildImageUrl(img.path, img.type),
                         alt: `${prompt.name || prompt.value} - ${index + 1}`,
                         loading: 'lazy',
                       }),

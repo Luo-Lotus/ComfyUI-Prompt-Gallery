@@ -59,8 +59,8 @@ function parseImageInfo(info, imagePath) {
     promptText = pnginfo.prompt || '';
   }
 
-  const metaPromptString = mapping?.metadata?.prompt_string || galleryData.prompt_string || '';
-  const metaPrompt = mapping?.metadata?.prompt || '';
+  const metaPromptString = mapping?.promptString || galleryData.prompt_string || '';
+  const metaPrompt = mapping?.generatePrompt || '';
   const displayPrompt = promptText || metaPrompt;
 
   let workflowText = '';
@@ -241,7 +241,7 @@ export function Lightbox({ isOpen, prompt, imageIndex, onClose, onNavigate }) {
       h('div', { class: 'gallery-lightbox-image-section' }, [
         h('img', {
           class: 'gallery-lightbox-img',
-          src: buildImageUrl(img.path),
+          src: buildImageUrl(img.path, img.type),
           alt: prompt.name || prompt.value,
         }),
 

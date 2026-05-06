@@ -75,7 +75,7 @@
 - 请求：`GET /prompt_gallery/data?category={currentCategory}`
 - 这是一个**合并接口**，同时返回当前分类下的：
     - `prompts[]`：Prompt列表（只含 `coverImagePath` + `imageCount`，不含完整图片）
-    - `combinations[]`：组合列表（含 `coverImagePath`、`promptKeys`、`outputContent`）
+    - `combinations[]`：组合列表（含 `coverImagePath`、`prompts`、`outputContent`）
 - 当用户点击分类导航切换时，会重新请求此接口
 
 ### 2.3 分区状态管理
@@ -290,7 +290,7 @@ useNodeSync useEffect 触发
 - 处理：提取 UUID，从 `CombinationStorage` 查询组合详情
 - 获取两个关键字段：
     - `outputContent`：组合的格式化输出文本（如 `"@prompt_a,@prompt_b"`）
-    - `promptKeys`：组合包含的Prompt名称列表
+    - `prompts`：组合包含的Prompt名称列表
 
 #### 合并为工作列表
 
@@ -355,7 +355,7 @@ working_items = [
 
 - 去重：用 `seen_keys` 集合防止同一Prompt被重复收集
 - 记录 `saveToGallery` 标记：来自分区配置
-- 组合条目中的Prompt也会被收集：遍历组合的 `promptKeys`，逐一调用 `collect_prompt`
+- 组合条目中的Prompt也会被收集：遍历组合的 `prompts`，逐一调用 `collect_prompt`
 - 这些收集到的Prompt会用于：
     1. 构建富化 metadata 中的 `prompt_names` 和 `selected_prompts`
     2. 供 `SaveToGallery` 使用
@@ -388,7 +388,7 @@ working_items = [
 - 分区选择了Prompt `mike`, `sarah`，格式模板为 `@{content}`
 - `outputContent` = `"@mike,@sarah"`
 - `name` = `"mike,sarah"`
-- `promptKeys` = `["mike", "sarah"]`
+- `prompts` = `["mike", "sarah"]`
 
 ### 3.7 富化 Metadata 输出
 
@@ -466,7 +466,7 @@ Tensor → numpy → PIL Image             │
 保存 PNG 到磁盘                         │
     ↓                                  │
 创建映射关系 (image_mapping):           │
-  imagePath → promptNames[]             │
+  imagePath → prompts[]                 │
     ↓                                  │
 更新Prompt图片计数 +1                     │
     ↓                                  │
@@ -521,18 +521,19 @@ saveable_names = [a["name"] for a in saveable_prompts]
 
 #### 映射关系创建
 
-每张保存的图片会在 `image_prompts.json` 中创建一条映射记录：
+每张保存的图片会在 `images.json` 中创建一条映射记录：
 
 ```json
 {
+    "type": "local",
     "imagePath": "prompt_gallery/AG_1712345678900_00000.png",
-    "promptNames": ["mike", "sarah"],
-    "width": 512,
-    "height": 768
+    "prompts": ["mike", "sarah"],
+    "fileInfo": { "width": 512, "height": 768, "createdAt": 1712345678900 }
 }
 ```
 
-- `promptNames` 是一个数组：一张图片可以关联多个Prompt
+- `prompts` 是一个数组：一张图片可以关联多个Prompt
+- `type` 可以是 `"local"` 或 `"remote"`（远程图片的 `imagePath` 是 URL）
 - 这些关联信息用于：
     1. 画廊中按Prompt筛选图片
     2. 组合图片查询（取所有成员Prompt图片的交集）
@@ -598,7 +599,7 @@ saveable_names = [a["name"] for a in saveable_prompts]
 **解析阶段**：
 
 - 默认分区：`mike`（直接选择）+ `sarah`（直接选择）+ `alice`, `bob`（从 cat2 解析）
-- 分区2：组合 `uuid-123` → outputContent=`@tom,@jerry`, promptKeys=[`tom`, `jerry`]
+- 分区2：组合 `uuid-123` → outputContent=`@tom,@jerry`, prompts=[`tom`, `jerry`]
 
 **随机模式处理**（默认分区）：
 
@@ -674,7 +675,11 @@ partitionData = {
 
 ### 存储层格式
 
-- **prompts.json**: `{ id, name, displayName, categoryId, coverImageId, createdAt }`
-- **combinations.json**: `{ id, name, categoryId, promptKeys[], outputContent, coverImageId, createdAt }`
-- **image_prompts.json**: `{ imagePath, promptNames[], width, height }`
-- **categories.json**: `{ id, name, parentId, children[] }`
+存储采用多文件 glob 架构：每个存储类读取主文件 + glob 匹配的分片文件（如 `import_20260506_120000.prompts.json`），读取时合并，写入时按 `_source_file` 标签分组回写。
+
+- **prompts.json** (glob: `*.prompts.json`): `{ value, name, alias, categoryId, coverImageId, createdAt, imageCount, metadata }`
+- **combinations.json** (glob: `*.combinations.json`): `{ id, name, categoryId, prompts[], outputContent, coverImageId, createdAt }`
+- **images.json** (glob: `*.images.json`): `{ type, imagePath, prompts[], fileInfo, promptString, generatePrompt }`
+- **categories.json** (glob: `*.categories.json`): `{ id, name, parentId, order, createdAt }`
+
+远程图片：`type` 为 `"remote"` 时，`imagePath` 是 URL。所有端点通过 `is_remote_path()` 跳过本地文件 I/O。

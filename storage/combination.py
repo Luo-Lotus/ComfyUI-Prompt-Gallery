@@ -12,6 +12,7 @@ class CombinationStorage:
     def __init__(self, storage_dir: Path):
         self.storage_dir = storage_dir
         self.combinations_file = storage_dir / "combinations.json"
+        self._glob_pattern = "*.combinations.json"
         self._lock = threading.Lock()
         self._cache = None
         self._ensure_storage_dir()
@@ -21,30 +22,60 @@ class CombinationStorage:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
         if not self.combinations_file.exists():
-            self._write_data({"combinations": []})
+            split_files = [f for f in self.storage_dir.glob(self._glob_pattern)
+                           if f.resolve() != self.combinations_file.resolve()]
+            if not split_files:
+                self._write_data({"combinations": []})
+
+    def _glob_source_files(self) -> list:
+        """查找所有源文件：主文件 + glob 匹配的分片文件"""
+        sources = []
+        if self.combinations_file.exists():
+            sources.append(self.combinations_file)
+        for f in sorted(self.storage_dir.glob(self._glob_pattern)):
+            if f.resolve() != self.combinations_file.resolve():
+                sources.append(f)
+        return sources
 
     def _read_data(self) -> dict:
-        """读取数据文件（带缓存）"""
+        """读取并合并所有源文件（带缓存）"""
         if self._cache is not None:
             return self._cache
-        try:
-            with open(self.combinations_file, 'r', encoding='utf-8') as f:
-                self._cache = json.load(f)
-            return self._cache
-        except Exception as e:
-            print(f"Error reading combinations file: {e}")
-            self._cache = {"combinations": []}
-            return self._cache
+        merged_items = []
+        for source_file in self._glob_source_files():
+            try:
+                with open(source_file, 'r', encoding='utf-8') as f:
+                    file_data = json.load(f)
+                for item in file_data.get("combinations", []):
+                    item["_source_file"] = str(source_file)
+                    merged_items.append(item)
+            except Exception as e:
+                print(f"Error reading {source_file.name}: {e}")
+        self._cache = {"combinations": merged_items}
+        return self._cache
 
     def _write_data(self, data: dict):
-        """写入数据文件（同时更新缓存）"""
+        """按来源文件分组回写，新数据写入主文件"""
         try:
-            with open(self.combinations_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self._cache = data
+            groups: Dict[str, list] = {}
+            for item in data.get("combinations", []):
+                source = item.pop("_source_file", None) or str(self.combinations_file)
+                groups.setdefault(source, []).append(item)
+
+            main_key = str(self.combinations_file)
+            if main_key not in groups and len(groups) > 0:
+                groups[main_key] = []
+
+            for file_path_str, items in groups.items():
+                file_path = Path(file_path_str)
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump({"combinations": items}, f, ensure_ascii=False, indent=2)
+
+            self._cache = None
         except Exception as e:
             self._cache = None
-            print(f"Error writing combinations file: {e}")
+            print(f"Error writing combinations files: {e}")
             raise
 
     def get_all_combinations(self) -> List[dict]:
@@ -67,7 +98,7 @@ class CombinationStorage:
         return None
 
     def add_combination(self, name: str, category_id: str, prompts: List[str],
-                        output_content: str = "") -> dict:
+                        output_content: str = "", target_file: Optional[str] = None) -> dict:
         """
         添加组合
         :param name: 组合名称
@@ -86,6 +117,8 @@ class CombinationStorage:
             "outputContent": output_content,
             "createdAt": int(time.time() * 1000),
         }
+        if target_file:
+            new_combination["_source_file"] = target_file
 
         with self._lock:
             data = self._read_data()
