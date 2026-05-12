@@ -65,9 +65,12 @@ export function useNodeSync({
     nodeInstance.setDirtyCanvas(true, true);
   }, [nodeInstance, selectedInput, metadataInput, selectedKeys, selectedPromptsCache, partitionData]);
 
-  // 自动同步：当关键状态变化时更新节点值
+  // 自动同步：当关键状态变化时更新节点值（使用 rAF 防抖，合并同一次事件循环中的多次状态更新）
   useEffect(() => {
-    updateNodeValue();
+    const rafId = requestAnimationFrame(() => {
+      updateNodeValue();
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [updateNodeValue]);
 
   return { updateNodeValue };

@@ -24,10 +24,10 @@ export function LazyList({
   const sentinelRef = useRef(null);
   const observerRef = useRef(null);
 
-  // items 变化时重置
+  // items 长度变化时重置（依赖 items.length 而非 items 引用，避免父组件重渲染导致滚动位置重置）
   useEffect(() => {
     setVisibleCount(items.length > threshold ? initialCount : items.length);
-  }, [items, threshold, initialCount]);
+  }, [items.length, threshold, initialCount]);
 
   // IntersectionObserver
   useEffect(() => {

@@ -207,6 +207,9 @@ async def import_preview(request):
 
         from ..import_handler import parse_prompt_info_from_filename
 
+        # 预先获取存储实例（循环内复用）
+        prompt_storage, _, category_storage, _ = get_storage()
+
         preview = []
 
         for filename in filenames:
@@ -216,12 +219,10 @@ async def import_preview(request):
             category_id = config.get("defaultCategoryId", "root")
 
             # 获取分类名称
-            _, _, category_storage, _ = get_storage()
             category = category_storage.get_category_by_id(category_id)
             category_name = category.get("name", "unknown") if category else "unknown"
 
             # 检查Prompt是否存在
-            prompt_storage, _, _, _ = get_storage()
             prompt_exists = prompt_storage.get_prompt(category_id, value) is not None if value else False
 
             preview.append({

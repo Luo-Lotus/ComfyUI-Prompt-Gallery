@@ -7,6 +7,14 @@ INPUT = "data.json"
 OUTPUT = "artist_gallery_import.zip"
 CDN_BASE = "https://cdn.mooshieblob.com/20260325_anima_all_artists/images"
 
+
+def format_value(tag: str) -> str:
+    """去掉开头@、下划线，括号前加转义反斜杠"""
+    v = tag.lstrip("@").replace("_", " ")
+    v = v.replace("(", "\\(").replace(")", "\\)")
+    return v
+
+
 with open(INPUT, "r", encoding="utf-8") as f:
     data = json.load(f)
 
@@ -26,19 +34,20 @@ manifest = {
 }
 
 for item in data:
-    slug = item["slug"]
+    tag = item["tag"]
     image_id = item["imageId"]
+    value = format_value(tag)
 
     manifest["prompts"].append({
-        "value": slug,
-        "name": slug,
-        "alias": item.get("tag", ""),
+        "value": value,
+        "name": value,
+        "alias": tag,
         "categoryId": CATEGORY_ID,
     })
     manifest["images"].append({
         "path": f"{CDN_BASE}/{image_id}.webp",
         "type": "remote",
-        "prompts": [slug],
+        "prompts": [value],
     })
 
 with zipfile.ZipFile(OUTPUT, "w", zipfile.ZIP_DEFLATED) as zf:

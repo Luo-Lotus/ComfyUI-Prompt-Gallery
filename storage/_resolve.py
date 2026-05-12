@@ -1,4 +1,5 @@
 import shutil
+import threading
 from pathlib import Path
 from typing import Tuple
 
@@ -7,6 +8,9 @@ from .image_mapping import ImageMappingStorage
 from .category import CategoryStorage
 from .combination import CombinationStorage
 from .migration import migrate_prompt_data, migrate_to_prompt_schema, migrate_image_schema
+
+_storage_instances = None
+_storage_init_lock = threading.Lock()
 
 
 def _resolve_storage_dir() -> Path:
@@ -79,29 +83,39 @@ def _resolve_storage_dir() -> Path:
 
 
 def get_storage() -> Tuple[PromptStorage, ImageMappingStorage, CategoryStorage, CombinationStorage]:
-    """获取存储实例"""
-    storage_dir = _resolve_storage_dir()
+    """获取存储实例（懒加载单例，首次调用时初始化，后续返回缓存实例）"""
+    global _storage_instances
+    if _storage_instances is not None:
+        return _storage_instances
 
-    # 先执行迁移，再创建存储实例（避免实例缓存空数据）
-    try:
-        migrate_to_prompt_schema(storage_dir)
-    except Exception as e:
-        print(f"Warning: Failed to migrate to prompt schema: {e}")
+    with _storage_init_lock:
+        # 双重检查锁定
+        if _storage_instances is not None:
+            return _storage_instances
 
-    try:
-        migrate_image_schema(storage_dir)
-    except Exception as e:
-        print(f"Warning: Failed to migrate image schema: {e}")
+        storage_dir = _resolve_storage_dir()
 
-    prompt_storage = PromptStorage(storage_dir)
-    mapping_storage = ImageMappingStorage(storage_dir)
-    category_storage = CategoryStorage(storage_dir)
-    combination_storage = CombinationStorage(storage_dir)
+        # 迁移只在首次初始化时运行
+        try:
+            migrate_to_prompt_schema(storage_dir)
+        except Exception as e:
+            print(f"Warning: Failed to migrate to prompt schema: {e}")
 
-    # 自动迁移现有Prompt数据（旧版本兼容）
-    try:
-        migrate_prompt_data(prompt_storage)
-    except Exception as e:
-        print(f"Warning: Failed to migrate prompt data: {e}")
+        try:
+            migrate_image_schema(storage_dir)
+        except Exception as e:
+            print(f"Warning: Failed to migrate image schema: {e}")
 
-    return prompt_storage, mapping_storage, category_storage, combination_storage
+        prompt_storage = PromptStorage(storage_dir)
+        mapping_storage = ImageMappingStorage(storage_dir)
+        category_storage = CategoryStorage(storage_dir)
+        combination_storage = CombinationStorage(storage_dir)
+
+        # 自动迁移现有Prompt数据（旧版本兼容）
+        try:
+            migrate_prompt_data(prompt_storage)
+        except Exception as e:
+            print(f"Warning: Failed to migrate prompt data: {e}")
+
+        _storage_instances = (prompt_storage, mapping_storage, category_storage, combination_storage)
+        return _storage_instances

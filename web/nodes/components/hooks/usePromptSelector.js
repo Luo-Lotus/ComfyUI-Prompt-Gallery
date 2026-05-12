@@ -3,7 +3,6 @@
  * 处理画师数据加载、选择状态管理、排序过滤等逻辑
  */
 import { useState, useEffect, useMemo, useCallback } from '../../../lib/hooks.mjs';
-import { useImagePreview } from './useImagePreview.js';
 import { useNodeSync } from './useNodeSync.js';
 import { usePartitionState } from './usePartitionState.js';
 
@@ -30,9 +29,6 @@ function buildBreadcrumbPath(categoryId, categories) {
 }
 
 export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
-  // 使用图片预览 hook
-  const { showPreview, removePreview } = useImagePreview();
-
   // 基础状态管理
   const [prompts, setPrompts] = useState([]); // 当前分类的画师
   const [allPrompts, setAllPrompts] = useState([]); // 所有画师（用于分类选择）
@@ -152,20 +148,17 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
     const loadPrompts = async () => {
       setLoading(true);
       try {
-        // 加载当前分类的画师
-        const url =
-          currentCategory === 'root'
-            ? '/prompt_gallery/data?category=root'
-            : `/prompt_gallery/data?category=${currentCategory}`;
-        const response = await fetch(url);
-        const data = await response.json();
-
-        // 从响应中提取画师数据
-        const promptsList = data.prompts || [];
-        setPrompts(promptsList);
-
-        // 直接使用 data 接口返回的组合数据（不再单独请求）
-        setCombinations(data.combinations || []);
+        if (currentCategory === 'root' && allPrompts.length > 0) {
+          // root 分类：直接从已加载的 /init 数据中过滤，避免重复请求
+          setPrompts(allPrompts.filter((p) => p.categoryId === 'root' || !p.categoryId));
+          setCombinations(allCombinations.filter((c) => c.categoryId === 'root' || !c.categoryId));
+        } else if (currentCategory !== 'root') {
+          // 非 root 分类：请求 /data 接口
+          const response = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
+          const data = await response.json();
+          setPrompts(data.prompts || []);
+          setCombinations(data.combinations || []);
+        }
       } catch (error) {
         console.error('[PromptSelector] Failed to load prompts:', error);
       } finally {
@@ -173,7 +166,7 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
       }
     };
     loadPrompts();
-  }, [currentCategory]);
+  }, [currentCategory, allPrompts, allCombinations]);
 
   // 过滤和排序（搜索时全局搜索，否则按当前分类）
   const filteredPrompts = useMemo(() => {
@@ -333,22 +326,25 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      // 刷新初始化数据（分类、所有画师、所有组合）
       const initResponse = await fetch('/prompt_gallery/init');
       const initData = await initResponse.json();
-      setCategories(initData.categories || []);
-      setAllPrompts(initData.prompts || []);
-      setAllCombinations(initData.combinations || []);
+      const newPrompts = initData.prompts || [];
+      const newCombinations = initData.combinations || [];
 
-      // 同时刷新当前分类的画师
-      const url =
-        currentCategory === 'root'
-          ? '/prompt_gallery/data?category=root'
-          : `/prompt_gallery/data?category=${currentCategory}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      setPrompts(data.prompts || []);
-      setCombinations(data.combinations || []);
+      setCategories(initData.categories || []);
+      setAllPrompts(newPrompts);
+      setAllCombinations(newCombinations);
+
+      // root 分类直接从 /init 数据过滤，非 root 分类请求 /data
+      if (currentCategory === 'root') {
+        setPrompts(newPrompts.filter((p) => p.categoryId === 'root' || !p.categoryId));
+        setCombinations(newCombinations.filter((c) => c.categoryId === 'root' || !c.categoryId));
+      } else {
+        const response = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
+        const data = await response.json();
+        setPrompts(data.prompts || []);
+        setCombinations(data.combinations || []);
+      }
     } catch (error) {
       console.error('[PromptSelector] Failed to refresh:', error);
     } finally {

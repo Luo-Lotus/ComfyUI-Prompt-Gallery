@@ -137,7 +137,7 @@ async def save_to_gallery(request):
             file_info["height"] = metadata["height"]
 
         # 创建映射关系
-        _, mapping_storage, _, _ = get_storage()
+        prompt_storage, mapping_storage, _, _ = get_storage()
         mapping = mapping_storage.add_mapping(
             image_path=image_path,
             prompt_values=prompt_values,
@@ -147,7 +147,6 @@ async def save_to_gallery(request):
         )
 
         # 更新Prompt的图片计数
-        prompt_storage, _, _, _ = get_storage()
         for prompt_id in prompt_values:
             prompt_storage.update_image_count(prompt_id, 1)
 
@@ -175,6 +174,9 @@ async def restore_from_metadata(request):
         output_dir = Path(folder_paths.get_output_directory())
         gallery_dir = output_dir / "prompt_gallery"
 
+        # 预先获取存储实例（循环内复用）
+        prompt_storage, mapping_storage, _, _ = get_storage()
+
         restored_count = 0
         errors = []
 
@@ -197,7 +199,6 @@ async def restore_from_metadata(request):
                         if prompt_ids:
                             # 创建映射关系
                             image_rel_path = f"prompt_gallery/{filename}"
-                            _, mapping_storage, _, _ = get_storage()
                             mapping_storage.add_mapping(
                                 image_path=image_rel_path,
                                 prompt_values=prompt_ids,
@@ -206,7 +207,6 @@ async def restore_from_metadata(request):
                             )
 
                             # 更新Prompt的图片计数
-                            prompt_storage, _, _, _ = get_storage()
                             for prompt_id in prompt_ids:
                                 prompt_storage.update_image_count(prompt_id, 1)
 

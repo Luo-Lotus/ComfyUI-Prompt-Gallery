@@ -114,7 +114,7 @@ async def get_images_grouped(request):
 
         return web.json_response({
             "success": True,
-            "groups": json.loads(json.dumps(groups)),  # 确保可序列化
+            "groups": groups,
             "totalImages": len(valid_items),
             "dateList": date_list,
         })

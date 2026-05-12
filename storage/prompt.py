@@ -14,6 +14,8 @@ class PromptStorage:
         self._glob_pattern = "*.prompts.json"
         self._lock = threading.Lock()
         self._cache = None
+        self._idx_by_key = None  # (categoryId, value) -> prompt
+        self._idx_by_id = None   # id -> prompt
         self._ensure_storage_dir()
 
     def _ensure_storage_dir(self):
@@ -73,10 +75,25 @@ class PromptStorage:
                     json.dump({"prompts": items}, f, ensure_ascii=False, indent=2)
 
             self._cache = None
+            self._idx_by_key = None
+            self._idx_by_id = None
         except Exception as e:
             self._cache = None
+            self._idx_by_key = None
+            self._idx_by_id = None
             print(f"Error writing prompts files: {e}")
             raise
+
+    def _build_indexes(self):
+        """构建内存索引（懒加载，写入时失效）"""
+        data = self._read_data()
+        self._idx_by_key = {}
+        self._idx_by_id = {}
+        for p in data.get("prompts", []):
+            key = (p.get("categoryId", "root"), p.get("value", ""))
+            self._idx_by_key[key] = p
+            if p.get("id"):
+                self._idx_by_id[p["id"]] = p
 
     def get_all_prompts(self) -> List[dict]:
         """获取所有Prompt"""
@@ -85,25 +102,23 @@ class PromptStorage:
             return data.get("prompts", [])
 
     def get_prompt_by_id(self, prompt_id: str) -> Optional[dict]:
-        """根据 ID 获取Prompt（兼容旧版本，建议使用 get_prompt）"""
-        prompts = self.get_all_prompts()
-        for prompt in prompts:
-            if prompt.get("id") == prompt_id:
-                return prompt
-        return None
+        """根据 ID 获取Prompt（O(1) 索引查找）"""
+        with self._lock:
+            if self._idx_by_id is None:
+                self._build_indexes()
+            return self._idx_by_id.get(prompt_id)
 
     def get_prompt(self, category_id: str, value: str) -> Optional[dict]:
         """
-        根据分类ID和值获取Prompt（组合键）
+        根据分类ID和值获取Prompt（组合键，O(1) 索引查找）
         :param category_id: 分类 ID
         :param value: Prompt值
         :return: Prompt对象或 None
         """
-        prompts = self.get_all_prompts()
-        for prompt in prompts:
-            if prompt.get("categoryId") == category_id and prompt.get("value") == value:
-                return prompt
-        return None
+        with self._lock:
+            if self._idx_by_key is None:
+                self._build_indexes()
+            return self._idx_by_key.get((category_id, value))
 
     def get_prompt_by_name(self, name: str) -> Optional[dict]:
         """
@@ -365,14 +380,21 @@ class PromptStorage:
         :param value: Prompt值
         :param delta: 增量（正数增加，负数减少）
         """
+        self.update_image_count_batch({(category_id, value): delta})
+
+    def update_image_count_batch(self, deltas: dict):
+        """
+        批量更新图片计数（一次读写完成所有更新）
+        :param deltas: {(categoryId, value): delta} 字典
+        """
         with self._lock:
             data = self._read_data()
             for prompt in data["prompts"]:
-                if prompt.get("categoryId") == category_id and prompt.get("value") == value:
+                key = (prompt.get("categoryId", "root"), prompt.get("value", ""))
+                if key in deltas:
                     current_count = prompt.get("imageCount", 0)
-                    prompt["imageCount"] = max(0, current_count + delta)
-                    self._write_data(data)
-                    return
+                    prompt["imageCount"] = max(0, current_count + deltas[key])
+            self._write_data(data)
 
     def update_image_count_by_id(self, prompt_id: str, delta: int = 1):
         """

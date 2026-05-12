@@ -260,7 +260,7 @@ async def delete_prompt_composite(request):
         category_id = request.match_info['category_id']
         value = request.match_info['value']
 
-        prompt_storage, mapping_storage, _, _ = get_storage()
+        prompt_storage, mapping_storage, _, combination_storage = get_storage()
 
         # 获取Prompt信息
         prompt = prompt_storage.get_prompt(category_id, value)
@@ -298,7 +298,6 @@ async def delete_prompt_composite(request):
         prompt_storage.delete_prompt(category_id, value)
 
         # 从所有组合中移除该Prompt引用
-        _, _, _, combination_storage = get_storage()
         combination_storage.remove_prompt_from_all(value)
 
         return web.json_response({

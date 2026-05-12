@@ -516,7 +516,6 @@ class SaveToGallery:
             saveable_from_string = self._match_prompts_from_prompt(prompt_string)
             if saveable_from_string:
                 all_saveable_prompts.extend(saveable_from_string)
-                print(f"[SaveToGallery] 从 prompt_string 匹配到画师: {', '.join(a['value'] for a in saveable_from_string)}")
 
         if not all_saveable_prompts:
             print("[SaveToGallery] 错误: 请提供 metadata_json 或 prompt_string，且需匹配到已知画师")
@@ -552,6 +551,9 @@ class SaveToGallery:
         output_dir = Path(folder_paths.get_output_directory())
         save_dir = output_dir / dir_path if dir_path else output_dir
         save_dir.mkdir(parents=True, exist_ok=True)
+
+        # 预先获取存储实例（循环内复用，避免重复初始化）
+        prompt_storage, mapping_storage, _, _ = get_storage()
 
         saved_count = 0
         for idx, image_tensor in enumerate(images):
@@ -594,7 +596,6 @@ class SaveToGallery:
                 }
 
                 # 创建映射关系
-                mapping_storage = get_storage()[1]
                 mapping_storage.add_mapping(
                     image_path=image_path,
                     prompt_values=saveable_names,
@@ -604,20 +605,23 @@ class SaveToGallery:
                     mapping_type="local",
                 )
 
-                # 更新画师图片计数（仅 saveToGallery=true 的画师）
-                prompt_storage = get_storage()[0]
-                for prompt_info in saveable_prompts:
-                    category_id = prompt_info.get("categoryId", "root")
-                    value = prompt_info.get("value", "")
-                    if category_id and value:
-                        prompt_storage.update_image_count(category_id, value, 1)
-
                 print(f"[SaveToGallery] 已保存: {filename} -> Prompt: {', '.join(saveable_names)}")
 
             except Exception as e:
                 print(f"[SaveToGallery] 保存图片失败: {e}")
                 import traceback
                 traceback.print_exc()
+
+        # 批量更新画师图片计数（一次读写完成，而非每个 prompt 每张图片各一次）
+        if saved_count > 0:
+            deltas = {}
+            for prompt_info in saveable_prompts:
+                category_id = prompt_info.get("categoryId", "root")
+                value = prompt_info.get("value", "")
+                if category_id and value:
+                    key = (category_id, value)
+                    deltas[key] = deltas.get(key, 0) + saved_count
+            prompt_storage.update_image_count_batch(deltas)
 
         print(f"[SaveToGallery] 总共保存了 {saved_count} 张图片")
         return ()

@@ -13,6 +13,7 @@ class ImageMappingStorage:
         self._glob_pattern = "*.images.json"
         self._lock = threading.Lock()
         self._cache = None
+        self._idx_by_path = None  # imagePath -> mapping
         self._ensure_storage_dir()
 
     def _ensure_storage_dir(self):
@@ -71,8 +72,10 @@ class ImageMappingStorage:
                     json.dump({"mappings": items}, f, ensure_ascii=False, indent=2)
 
             self._cache = None
+            self._idx_by_path = None
         except Exception as e:
             self._cache = None
+            self._idx_by_path = None
             print(f"Error writing mappings files: {e}")
             raise
 
@@ -113,7 +116,7 @@ class ImageMappingStorage:
                 mapping["promptString"] = prompt_string
 
             if generate_prompt is not None:
-                mapping["generatePrompt"] = generate_prompt
+                mapping["generatePrompt"] = json.dumps(generate_prompt, ensure_ascii=False) if isinstance(generate_prompt, (dict, list)) else generate_prompt
 
             if target_file:
                 mapping["_source_file"] = target_file
@@ -144,7 +147,8 @@ class ImageMappingStorage:
                 if item.get("prompt_string"):
                     mapping["promptString"] = item["prompt_string"]
                 if item.get("generate_prompt") is not None:
-                    mapping["generatePrompt"] = item["generate_prompt"]
+                    gp = item["generate_prompt"]
+                    mapping["generatePrompt"] = json.dumps(gp, ensure_ascii=False) if isinstance(gp, (dict, list)) else gp
                 if target_file:
                     mapping["_source_file"] = target_file
                 data["mappings"].append(mapping)
@@ -184,13 +188,21 @@ class ImageMappingStorage:
             if prompt_id in m.get("promptIds", [])
         ]
 
+    def _build_path_index(self):
+        """构建 imagePath 索引（懒加载）"""
+        data = self._read_data()
+        self._idx_by_path = {}
+        for m in data.get("mappings", []):
+            path = m.get("imagePath")
+            if path:
+                self._idx_by_path[path] = m
+
     def get_mappings_by_image(self, image_path: str) -> Optional[dict]:
-        """根据图片路径获取映射"""
-        mappings = self.get_all_mappings()
-        for mapping in mappings:
-            if mapping.get("imagePath") == image_path:
-                return mapping
-        return None
+        """根据图片路径获取映射（O(1) 索引查找）"""
+        with self._lock:
+            if self._idx_by_path is None:
+                self._build_path_index()
+            return self._idx_by_path.get(image_path)
 
     def remove_prompt_from_mappings(self, prompt_value: str) -> List[str]:
         """

@@ -107,16 +107,19 @@ export function usePartitionState({ selectedPromptsCache, categories, combinatio
     return { ...DEFAULT_PARTITION_DATA };
   });
 
-  // 获取每个分区的画师列表（含孤立项标记）
-  const getPromptsByPartition = useMemo(() => {
-    const result = {};
+  // 合并计算每个分区的画师、分类、组合列表（单次遍历 partitionData.partitions）
+  const partitionViews = useMemo(() => {
+    const promptsByPartition = {};
+    const categoriesByPartition = {};
+    const combinationsByPartition = {};
+
     partitionData.partitions.forEach((partition) => {
-      result[partition.id] = Object.keys(partitionData.promptPartitionMap)
+      // 画师
+      promptsByPartition[partition.id] = Object.keys(partitionData.promptPartitionMap)
         .filter((key) => partitionData.promptPartitionMap[key] === partition.id)
         .map((key) => {
           const cached = selectedPromptsCache[key];
           if (cached) return cached;
-          // 孤立项：生成合成对象，UI 可展示警告
           const colonIdx = key.indexOf(':');
           return {
             categoryId: key.substring(0, colonIdx),
@@ -126,37 +129,29 @@ export function usePartitionState({ selectedPromptsCache, categories, combinatio
             _orphanedKey: key,
           };
         });
-    });
-    return result;
-  }, [partitionData, selectedPromptsCache]);
 
-  // 获取每个分区的分类列表
-  const getCategoriesByPartition = useMemo(() => {
-    const result = {};
-    partitionData.partitions.forEach((partition) => {
-      result[partition.id] = Object.keys(partitionData.categoryPartitionMap)
+      // 分类
+      categoriesByPartition[partition.id] = Object.keys(partitionData.categoryPartitionMap)
         .filter((catId) => partitionData.categoryPartitionMap[catId] === partition.id)
         .map((catId) => categories.find((c) => c.id === catId))
         .filter(Boolean);
-    });
-    return result;
-  }, [partitionData, categories]);
 
-  // 获取每个分区的组合列表
-  const getCombinationsByPartition = useMemo(() => {
-    const result = {};
-    partitionData.partitions.forEach((partition) => {
-      result[partition.id] = Object.keys(partitionData.combinationPartitionMap)
+      // 组合
+      combinationsByPartition[partition.id] = Object.keys(partitionData.combinationPartitionMap)
         .filter((combKey) => partitionData.combinationPartitionMap[combKey] === partition.id)
         .map((combKey) => {
-          // combKey format: combination:{id}
           const combId = combKey.replace('combination:', '');
           return (combinations || []).find((c) => c.id === combId);
         })
         .filter(Boolean);
     });
-    return result;
-  }, [partitionData, combinations]);
+
+    return { promptsByPartition, categoriesByPartition, combinationsByPartition };
+  }, [partitionData, selectedPromptsCache, categories, combinations]);
+
+  const getPromptsByPartition = partitionViews.promptsByPartition;
+  const getCategoriesByPartition = partitionViews.categoriesByPartition;
+  const getCombinationsByPartition = partitionViews.combinationsByPartition;
 
   // 添加新分区
   const addPartition = useCallback((name) => {
