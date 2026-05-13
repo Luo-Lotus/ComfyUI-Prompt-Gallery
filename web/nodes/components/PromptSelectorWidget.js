@@ -257,6 +257,7 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
       categoriesByPartition: getCategoriesByPartition,
       combinationsByPartition: getCombinationsByPartition,
       promptWeights: partitionData.promptWeights,
+      allPrompts,
       selectedCategories: selectedCategoriesList,
       categories: categories,
       onPartitionAction: (action, data) => {

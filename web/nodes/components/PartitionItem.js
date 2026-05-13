@@ -3,10 +3,11 @@
  * 显示单个分区及其内容
  */
 import { h } from '../../lib/preact.mjs';
-import { useState, useEffect, useRef } from '../../lib/hooks.mjs';
+import { useState, useEffect, useRef, useMemo } from '../../lib/hooks.mjs';
 import { Icon } from '../../lib/icons.mjs';
 import { PartitionHeader } from './PartitionHeader.js';
 import { useBodyRender } from './hooks/useBodyRender.js';
+import { usePartitionPreview } from './hooks/usePartitionPreview.js';
 
 function getWeightColor(weight) {
   const w = Math.max(0, Math.min(2, weight));
@@ -63,6 +64,7 @@ export function PartitionItem({
   partitionCategories,
   partitionCombinations,
   promptWeights,
+  allPrompts,
   onPartitionAction,
   onPromptMove,
   onCategoryMove,
@@ -83,6 +85,15 @@ export function PartitionItem({
 
   // body 级渲染（不受节点 transform 影响）
   const { renderToBody, clear: clearSlider } = useBodyRender();
+
+  // 分区预览 hook
+  const { onPreviewEnter, onPreviewLeave, buildPreviewItems } = usePartitionPreview();
+  const previewItems = useMemo(
+    () => buildPreviewItems(partition, prompts, partitionCategories, partitionCombinations, allPrompts),
+    [partition, prompts, partitionCategories, partitionCombinations, allPrompts],
+  );
+  const handlePreviewEnter = (e) => onPreviewEnter(e, previewItems);
+  const handlePreviewLeave = () => onPreviewLeave();
 
   // 当标签被删除时清除悬浮状态
   const allKeys = new Set([
@@ -225,6 +236,8 @@ export function PartitionItem({
     h(PartitionHeader, {
       partition,
       onAction: onPartitionAction,
+      onPreviewEnter: handlePreviewEnter,
+      onPreviewLeave: handlePreviewLeave,
     }),
 
     // 内容区域（启用状态才显示）

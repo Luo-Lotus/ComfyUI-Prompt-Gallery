@@ -5,7 +5,7 @@
 import { h } from '../../lib/preact.mjs';
 import { Icon } from '../../lib/icons.mjs';
 
-export function PartitionHeader({ partition, onAction }) {
+export function PartitionHeader({ partition, onAction, onPreviewEnter, onPreviewLeave }) {
   // 构建规则指示器
   const renderRuleIndicators = () => {
     const indicators = [];
@@ -101,6 +101,19 @@ export function PartitionHeader({ partition, onAction }) {
 
       // 分区操作按钮
       h('div', { class: 'partition-actions' }, [
+        // 预览按钮
+        onPreviewEnter &&
+          h(
+            'button',
+            {
+              class: 'partition-btn preview',
+              onMouseEnter: onPreviewEnter,
+              onMouseLeave: onPreviewLeave,
+              title: '预览内容',
+            },
+            h(Icon, { name: 'image', size: 14 }),
+          ),
+
         // 启用/禁用切换
         h(
           'button',
