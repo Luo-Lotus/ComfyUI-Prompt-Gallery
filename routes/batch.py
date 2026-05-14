@@ -5,9 +5,9 @@ from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ..storage.backup import BackupManager
 from ._utils import is_remote_path
-
-
+from ._delete_utils import delete_category_cascade, delete_prompt_cascade, remove_image_prompt_link, delete_image_completely
 
 
 # ============ Batch Operations API ============
@@ -15,120 +15,101 @@ from ._utils import is_remote_path
 @server.PromptServer.instance.routes.delete("/prompt_gallery/batch/delete")
 async def batch_delete(request):
     """
-    批量删除分类和Prompt
-
-    删除逻辑：
-    1. 删除分类：只删除Prompt记录，不修改图片映射（避免影响其他分类的同名Prompt）
-    2. 删除独立Prompt：移除图片映射，删除孤儿图片文件
+    批量删除分类、Prompt 和图片
 
     请求体: {
       "categories": ["cat1", "cat2"],
-      "prompts": [{"categoryId": "xxx", "value": "yyy"}]
+      "prompts": [{"categoryId": "xxx", "value": "yyy"}],
+      "images": [{"path": "prompt_gallery/xxx.png"}]
     }
     """
     try:
         data = await request.json()
         category_ids = data.get("categories", [])
         prompts = data.get("prompts", [])
+        images = data.get("images", [])
 
-        prompt_storage, mapping_storage, category_storage, _ = get_storage()
-        import folder_paths
-        output_dir = Path(folder_paths.get_output_directory())
+        prompt_storage, mapping_storage, category_storage, combination_storage = get_storage()
 
-        deleted_categories = []
-        deleted_prompts = []
-        deleted_images = []
-        errors = []
+        # 备份
+        storage_dir = Path(prompt_storage.storage_dir)
+        BackupManager(storage_dir).create_backup()
 
-        # ============ 第一部分：删除分类 ============
-        # 只删除Prompt记录，不修改图片映射
+        result = {
+            "deleted_categories": [],
+            "deleted_prompts": [],
+            "deleted_files": [],
+            "disassociated_images": [],
+            "deleted_combinations": 0,
+            "errors": [],
+        }
+
+        # 删除分类（级联）
         for cat_id in category_ids:
             try:
                 category = category_storage.get_category_by_id(cat_id)
                 if not category:
-                    errors.append(f"分类 {cat_id} 不存在")
+                    result["errors"].append(f"分类 {cat_id} 不存在")
                     continue
-
-                # 递归获取所有子分类
-                def get_all_child_categories(parent_id):
-                    children = category_storage.get_children(parent_id)
-                    result = [parent_id]
-                    for child in children:
-                        result.extend(get_all_child_categories(child['id']))
-                    return result
-
-                all_cat_ids = get_all_child_categories(cat_id)
-
-                # 获取这些分类下的所有Prompt
-                all_prompts = []
-                for cid in all_cat_ids:
-                    all_prompts.extend([
-                        a for a in prompt_storage.get_all_prompts()
-                        if a.get("categoryId") == cid
-                    ])
-
-                # 只删除Prompt记录，不修改图片映射
-                for prompt in all_prompts:
-                    prompt_value = prompt.get("value")
-                    prompt_cat_id = prompt.get("categoryId")
-
-                    # 删除Prompt记录（不影响图片映射）
-                    prompt_storage.delete_prompt(prompt_cat_id, prompt_value)
-                    deleted_prompts.append(prompt.get("name", prompt_value))
-
-                # 删除分类记录（从叶子节点开始）
-                for cid in reversed(all_cat_ids):
-                    category_storage.delete_category(cid)
-                    deleted_categories.append(category.get("name"))
-
+                cat_result = delete_category_cascade(
+                    cat_id,
+                    prompt_storage, mapping_storage,
+                    category_storage, combination_storage,
+                )
+                result["deleted_categories"].extend(cat_result["deleted_categories"])
+                result["deleted_prompts"].extend(cat_result["deleted_prompts"])
+                result["deleted_files"].extend(cat_result["deleted_files"])
+                result["disassociated_images"].extend(cat_result["disassociated_images"])
+                result["deleted_combinations"] += cat_result["deleted_combinations"]
             except Exception as e:
-                errors.append(f"删除分类 {cat_id} 失败: {str(e)}")
+                result["errors"].append(f"删除分类 {cat_id} 失败: {str(e)}")
 
-        # ============ 第二部分：删除独立Prompt ============
-        # 移除图片映射，删除孤儿图片文件
+        # 删除 Prompt（级联）
         for prompt_data in prompts:
             try:
                 category_id = prompt_data.get("categoryId")
                 value = prompt_data.get("value")
-
-                # 获取Prompt
                 prompt = prompt_storage.get_prompt(category_id, value)
                 if not prompt:
-                    errors.append(f"Prompt {value} 不存在")
+                    result["errors"].append(f"Prompt {value} 不存在")
                     continue
-
-                # 移除图片映射，获取孤儿图片
-                orphan_images = mapping_storage.remove_prompt_from_mappings(value)
-
-                # 删除孤儿图片文件（跳过远程图片）
-                for image_path in orphan_images:
-                    if is_remote_path(image_path):
-                        deleted_images.append(image_path)
-                        continue
-                    full_path = Path(output_dir) / image_path
-                    try:
-                        if full_path.exists():
-                            full_path.unlink()
-                            deleted_images.append(image_path)
-                    except Exception as e:
-                        errors.append(f"删除文件 {image_path} 失败: {e}")
-
-                # 删除Prompt记录
-                prompt_storage.delete_prompt(category_id, value)
-                deleted_prompts.append(prompt.get("name", value))
-
+                prompt_result = delete_prompt_cascade(
+                    category_id, value,
+                    prompt_storage, mapping_storage, combination_storage,
+                )
+                result["deleted_prompts"].append(prompt.get("name", value))
+                result["deleted_files"].extend(prompt_result["deleted_files"])
+                result["disassociated_images"].extend(prompt_result["disassociated_images"])
             except Exception as e:
-                errors.append(f"删除Prompt {prompt_data.get('value')} 失败: {str(e)}")
+                result["errors"].append(f"删除Prompt {prompt_data.get('value')} 失败: {str(e)}")
 
-        had_errors = len(errors) > 0
-        had_deletions = len(deleted_categories) > 0 or len(deleted_prompts) > 0 or len(deleted_images) > 0
+        # 删除图片
+        for img_data in images:
+            try:
+                image_path = img_data.get("path")
+                if not image_path:
+                    continue
+                img_result = delete_image_completely(image_path, mapping_storage, prompt_storage)
+                if img_result["file_deleted"]:
+                    result["deleted_files"].append(image_path)
+            except Exception as e:
+                result["errors"].append(f"删除图片失败: {str(e)}")
+
+        had_errors = len(result["errors"]) > 0
+        had_deletions = (
+            len(result["deleted_categories"]) > 0
+            or len(result["deleted_prompts"]) > 0
+            or len(result["deleted_files"]) > 0
+        )
 
         return web.json_response({
             "success": had_deletions or not had_errors,
-            "deletedCategories": deleted_categories,
-            "deletedPrompts": deleted_prompts,
-            "deletedImages": deleted_images,
-            "errors": errors
+            "deletedCategories": result["deleted_categories"],
+            "deletedPrompts": result["deleted_prompts"],
+            "deletedFiles": result["deleted_files"],
+            "disassociatedImages": result["disassociated_images"],
+            "deletedCombinations": result["deleted_combinations"],
+            "errors": result["errors"],
         })
 
     except Exception as e:

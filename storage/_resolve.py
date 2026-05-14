@@ -7,9 +7,11 @@ from .prompt import PromptStorage
 from .image_mapping import ImageMappingStorage
 from .category import CategoryStorage
 from .combination import CombinationStorage
+from .custom_filter import CustomFilterStorage
 from .migration import migrate_prompt_data, migrate_to_prompt_schema, migrate_image_schema
 
 _storage_instances = None
+_custom_filter_instance = None
 _storage_init_lock = threading.Lock()
 
 
@@ -119,3 +121,17 @@ def get_storage() -> Tuple[PromptStorage, ImageMappingStorage, CategoryStorage, 
 
         _storage_instances = (prompt_storage, mapping_storage, category_storage, combination_storage)
         return _storage_instances
+
+
+def get_custom_filter_storage() -> CustomFilterStorage:
+    """获取自定义筛查项存储实例（懒加载单例）"""
+    global _custom_filter_instance
+    if _custom_filter_instance is not None:
+        return _custom_filter_instance
+
+    with _storage_init_lock:
+        if _custom_filter_instance is not None:
+            return _custom_filter_instance
+        storage_dir = _resolve_storage_dir()
+        _custom_filter_instance = CustomFilterStorage(storage_dir)
+        return _custom_filter_instance

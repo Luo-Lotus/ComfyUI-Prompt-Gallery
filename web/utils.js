@@ -124,17 +124,6 @@ export async function updateCategory(categoryId, data) {
   return await response.json();
 }
 
-export async function deleteCategory(categoryId) {
-  const response = await fetch(`/prompt_gallery/categories/${categoryId}`, {
-    method: 'DELETE',
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || '删除分类失败');
-  }
-  return await response.json();
-}
-
 export async function fetchAllPrompts() {
   const response = await fetch('/prompt_gallery/prompts');
   if (!response.ok) {
@@ -152,20 +141,6 @@ export async function fetchPrompt(categoryId, value) {
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || '获取Prompt失败');
-  }
-  return await response.json();
-}
-
-export async function deletePrompt(categoryId, value) {
-  const response = await fetch(
-    `/prompt_gallery/prompts/${encodeURIComponent(categoryId)}/${encodeURIComponent(value)}`,
-    {
-      method: 'DELETE',
-    },
-  );
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || '删除Prompt失败');
   }
   return await response.json();
 }
@@ -354,17 +329,6 @@ export async function updateCombination(id, data) {
   return await response.json();
 }
 
-export async function deleteCombination(id) {
-  const response = await fetch(`/prompt_gallery/combinations/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || '删除组合失败');
-  }
-  return await response.json();
-}
-
 export async function duplicateCombination(id) {
   const response = await fetch(`/prompt_gallery/combinations/${encodeURIComponent(id)}/duplicate`, {
     method: 'POST',
@@ -401,11 +365,12 @@ export async function fetchCombinationImages(id) {
 
 // ============ Grouped Images ============
 
-export async function fetchGroupedImages({ prompt, prompts, search } = {}) {
+export async function fetchGroupedImages({ prompt, prompts, search, filters } = {}) {
   const params = new URLSearchParams();
   if (prompt) params.set('prompt', prompt);
   if (prompts && prompts.length > 0) params.set('prompts', prompts.join(','));
   if (search) params.set('search', search);
+  if (filters && filters.length > 0) params.set('filters', JSON.stringify(filters));
   const qs = params.toString();
   const url = `/prompt_gallery/images_grouped${qs ? '?' + qs : ''}`;
   const response = await fetch(url);

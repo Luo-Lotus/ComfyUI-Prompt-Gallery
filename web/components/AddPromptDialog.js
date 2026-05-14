@@ -16,6 +16,7 @@ export function AddPromptDialog({ isOpen, mode, editModePrompt, currentCategoryI
   const [promptAlias, setPromptAlias] = useState('');
   const [batchText, setBatchText] = useState('');
   const [batchDelimiter, setBatchDelimiter] = useState('+');
+  const [saving, setSaving] = useState(false);
 
   // ============ 工具函数 ============
 
@@ -77,6 +78,7 @@ export function AddPromptDialog({ isOpen, mode, editModePrompt, currentCategoryI
       categoryId: editModePrompt ? editModePrompt.categoryId : currentCategoryId || 'root',
     };
 
+    setSaving(true);
     try {
       let data;
       if (editModePrompt) {
@@ -94,6 +96,8 @@ export function AddPromptDialog({ isOpen, mode, editModePrompt, currentCategoryI
       }
     } catch (error) {
       showToast('操作失败: ' + error.message, 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -102,6 +106,7 @@ export function AddPromptDialog({ isOpen, mode, editModePrompt, currentCategoryI
 
     const promptsData = parseBatchText(batchText, batchDelimiter);
 
+    setSaving(true);
     try {
       const data = await addPromptsBatch(promptsData, currentCategoryId || 'root');
 
@@ -117,6 +122,8 @@ export function AddPromptDialog({ isOpen, mode, editModePrompt, currentCategoryI
       }
     } catch (error) {
       showToast('添加失败: ' + error.message, 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -262,8 +269,9 @@ export function AddPromptDialog({ isOpen, mode, editModePrompt, currentCategoryI
         {
           variant: 'primary',
           onClick: handleSave,
+          loading: saving,
         },
-        editModePrompt ? '保存' : '确定',
+        saving ? (editModePrompt ? '保存中...' : '添加中...') : editModePrompt ? '保存' : '确定',
       ),
     ];
   };

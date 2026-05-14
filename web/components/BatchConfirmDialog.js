@@ -4,6 +4,7 @@
  */
 
 import { h } from '../lib/preact.mjs';
+import { useState } from '../lib/hooks.mjs';
 import { Dialog, DialogButton } from './Dialog.js';
 import { Icon } from '../lib/icons.mjs';
 
@@ -14,6 +15,16 @@ export function BatchConfirmDialog({
   items, // { categories, prompts, images }
   onConfirm,
 }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      await onConfirm();
+    } finally {
+      setLoading(false);
+    }
+  };
   // 计算统计信息
   const getSummary = () => {
     const imageCount = Array.isArray(items.images) ? items.images.length : items.images || 0;
@@ -103,17 +114,16 @@ export function BatchConfirmDialog({
   };
 
   const renderFooter = () => {
-    const level = getConfirmationLevel();
-
     return [
       h(DialogButton, { onClick: onClose }, '取消'),
       h(
         DialogButton,
         {
           variant: 'danger',
-          onClick: onConfirm,
+          onClick: handleConfirm,
+          loading: loading,
         },
-        `确认${getOperationLabel()}`,
+        loading ? `${getOperationLabel()}中...` : `确认${getOperationLabel()}`,
       ),
     ];
   };

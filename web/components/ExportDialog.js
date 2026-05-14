@@ -10,10 +10,18 @@ import { Icon } from '../lib/icons.mjs';
 export function ExportDialog({ isOpen, title, onClose, onConfirm }) {
   const [includeImages, setIncludeImages] = useState(true);
   const [maxImages, setMaxImages] = useState(99);
+  const [exporting, setExporting] = useState(false);
 
-  const handleConfirm = () => {
-    onConfirm(includeImages, includeImages ? maxImages : 0);
-    onClose();
+  const handleConfirm = async () => {
+    setExporting(true);
+    try {
+      await onConfirm(includeImages, includeImages ? maxImages : 0);
+      onClose();
+    } catch (error) {
+      // 错误由调用方处理
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -33,8 +41,9 @@ export function ExportDialog({ isOpen, title, onClose, onConfirm }) {
           {
             variant: 'primary',
             onClick: handleConfirm,
+            loading: exporting,
           },
-          '导出',
+          exporting ? '导出中...' : '导出',
         ),
       ],
     },

@@ -9,6 +9,8 @@ import { Lightbox } from './Lightbox.js';
 import { MoveDialog } from './MoveDialog.js';
 import { useContextMenu } from './ContextMenu.js';
 import { Icon } from '../lib/icons.mjs';
+import { showToast } from './Toast.js';
+import { deleteImage } from '../services/promptApi.js';
 
 export function PromptDetailModal({ isOpen, prompt, onClose, onImageDelete, categories, allPrompts }) {
   const [lightbox, setLightbox] = useState({
@@ -29,27 +31,14 @@ export function PromptDetailModal({ isOpen, prompt, onClose, onImageDelete, cate
   };
 
   const handleDeleteImage = async (imagePath, index) => {
-    if (!confirm(`确定要删除这张图片吗？`)) return;
-
     try {
-      // 调用删除图片的 API
-      const response = await fetch(`/prompt_gallery/image`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imagePath, promptId: prompt.id }),
-      });
-
-      if (response.ok) {
-        // 通知父组件刷新数据
-        if (onImageDelete) {
-          onImageDelete();
-        }
-      } else {
-        const error = await response.json();
-        alert(`删除失败: ${error.error || '未知错误'}`);
+      await deleteImage(imagePath, prompt.value);
+      showToast('图片已删除', 'success');
+      if (onImageDelete) {
+        onImageDelete();
       }
     } catch (error) {
-      alert(`删除失败: ${error.message}`);
+      showToast('删除失败: ' + error.message, 'error');
     }
   };
 

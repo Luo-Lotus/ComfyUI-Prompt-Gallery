@@ -10,6 +10,7 @@ export function CategoryDialog({ isOpen, mode, category, categories, currentCate
   const [name, setName] = useState('');
   const [parentId, setParentId] = useState(currentCategoryId || 'root');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // 初始化表单
   useEffect(() => {
@@ -31,6 +32,7 @@ export function CategoryDialog({ isOpen, mode, category, categories, currentCate
       return;
     }
 
+    setSaving(true);
     try {
       await onSave({
         name: name.trim(),
@@ -38,6 +40,8 @@ export function CategoryDialog({ isOpen, mode, category, categories, currentCate
       });
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -56,8 +60,9 @@ export function CategoryDialog({ isOpen, mode, category, categories, currentCate
           {
             variant: 'primary',
             onClick: handleSubmit,
+            loading: saving,
           },
-          '保存',
+          saving ? '保存中...' : '保存',
         ),
       ],
     },

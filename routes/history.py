@@ -2,12 +2,14 @@
 历史图片与分组图片 API
 """
 import json
-from datetime import datetime, timezone
+import re
+import math
+from datetime import datetime, timezone, timedelta
 from collections import OrderedDict
 from pathlib import Path
 from aiohttp import web
 import server
-from ..storage import get_storage
+from ..storage import get_storage, get_custom_filter_storage
 from ._utils import is_remote_path
 
 
@@ -30,11 +32,31 @@ async def get_images_grouped(request):
         prompt_filter = request.query.get("prompt", "").strip()
         prompts_param = request.query.get("prompts", "").strip()
         search_query = request.query.get("search", "").strip().lower()
+        filters_param = request.query.get("filters", "").strip()
 
         # 组合模式：多个 prompt 取交集
         combination_prompts = None
         if prompts_param:
             combination_prompts = [p.strip() for p in prompts_param.split(",") if p.strip()]
+
+        # 自定义筛查：解析 filters JSON 参数
+        active_filters = []
+        if filters_param:
+            try:
+                filters_list = json.loads(filters_param)
+                if isinstance(filters_list, list) and filters_list:
+                    filter_storage = get_custom_filter_storage()
+                    for fi in filters_list:
+                        flt = filter_storage.get_by_id(fi.get("id", ""))
+                        if flt:
+                            compiled_fn = _compile_custom_filter(flt["filterCode"])
+                            if compiled_fn:
+                                active_filters.append({
+                                    "fn": compiled_fn,
+                                    "value": fi.get("value", ""),
+                                })
+            except (json.JSONDecodeError, Exception):
+                pass
 
         _, mapping_storage, _, _ = get_storage()
         mappings = mapping_storage.get_all_mappings()
@@ -74,6 +96,20 @@ async def get_images_grouped(request):
                     ps = mapping.get("promptString", "").lower()
                     if search_query not in ps:
                         continue
+
+            # 自定义筛查：所有筛查项取交集
+            if active_filters:
+                skip = False
+                for af in active_filters:
+                    try:
+                        if not af["fn"](mapping, af["value"]):
+                            skip = True
+                            break
+                    except Exception:
+                        skip = True
+                        break
+                if skip:
+                    continue
 
             saved_at = mapping.get("fileInfo", {}).get("createdAt", 0)
             if not saved_at and not remote:
@@ -122,3 +158,30 @@ async def get_images_grouped(request):
         import traceback
         traceback.print_exc()
         return web.json_response({"success": False, "error": str(e)}, status=500)
+
+
+_SAFE_BUILTINS = {
+    "int": int, "str": str, "float": float, "len": len,
+    "bool": bool, "isinstance": isinstance, "print": print,
+    "True": True, "False": False, "None": None,
+    "list": list, "dict": dict, "set": set, "tuple": tuple,
+    "sorted": sorted, "enumerate": enumerate, "zip": zip,
+    "map": map, "filter": filter, "any": any, "all": all,
+    "min": min, "max": max, "sum": sum, "abs": abs,
+    "range": range, "reversed": reversed,
+    "hasattr": hasattr, "getattr": getattr, "type": type,
+    "round": round, "pow": pow, "divmod": divmod,
+    "ValueError": ValueError, "TypeError": TypeError,
+    "KeyError": KeyError, "IndexError": IndexError,
+    "Exception": Exception,
+    # 常用模块
+    "re": re, "json": json, "math": math,
+    "datetime": datetime, "timezone": timezone, "timedelta": timedelta,
+}
+
+
+def _compile_custom_filter(code: str):
+    """编译筛查函数，返回 filter_func 可调用对象"""
+    namespace = {}
+    exec(code, {"__builtins__": _SAFE_BUILTINS}, namespace)
+    return namespace.get("filter_func")

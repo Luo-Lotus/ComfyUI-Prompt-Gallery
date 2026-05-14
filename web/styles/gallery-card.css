@@ -1,45 +1,18 @@
 /* Prompt卡片 */
 .gallery-card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  padding: var(--card-padding);
-  box-shadow: 0 2px 12px rgba(255, 182, 159, 0.15);
+  background: transparent;
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 182, 159, 0.3);
   transition:
     transform 0.2s,
-    box-shadow 0.2s;
+    border-color 0.2s;
 }
 
 .gallery-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(255, 182, 159, 0.25);
-}
-
-.gallery-card-header {
-  display: flex;
-  align-items: center;
-  gap: var(--card-header-gap);
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.gallery-prompt-name {
-  font-size: var(--card-prompt-name-font);
-  font-weight: 700;
-  color: #ff6b9d;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.gallery-prompt-count {
-  color: #ffb6c1;
-  font-size: var(--card-prompt-count-font);
-  font-weight: 600;
-  background: #fff5f8;
-  padding: 3px 8px;
-  border-radius: 10px;
+  border-color: rgba(255, 107, 157, 0.5);
 }
 
 .gallery-actions {
@@ -178,7 +151,7 @@
   width: 100%;
   aspect-ratio: 1 / 1;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 0;
   cursor: pointer;
   background: #2a2a2a;
 }
@@ -194,15 +167,71 @@
   transform: scale(1.05);
 }
 
+/* ============ 覆盖信息层 ============ */
+.gallery-card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.gallery-card-info-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  max-width: 70%;
+}
+
+.gallery-card-name-tag,
+.gallery-card-value-tag,
+.gallery-card-count-tag {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #fff;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gallery-card-name-tag {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.gallery-card-value-tag {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+}
+
+.gallery-card-count-tag {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
 /* ============ GalleryCard 空状态类 ============ */
 .gallery-card-empty {
+  position: relative;
   height: var(--card-empty-height);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   background: #2a2a2a;
-  border-radius: 8px;
+  border-radius: 0;
+  overflow: hidden;
 }
 
 .gallery-card-empty-icon {

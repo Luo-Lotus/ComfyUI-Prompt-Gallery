@@ -79,10 +79,7 @@ export function CategoryCard({
       h('div', { class: 'category-icon' }, h(Icon, { name: 'folder', size: 48 })),
 
       // 分类信息
-      h('div', { class: 'category-info' }, [
-        h('div', { class: 'category-name' }, category.name),
-        h('div', { class: 'category-meta' }, promptCount > 0 ? `${promptCount} 位Prompt` : '空分类'),
-      ]),
+      h('div', { class: 'category-info' }, [h('div', { class: 'category-name' }, category.name)]),
     ],
   );
 }

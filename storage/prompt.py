@@ -357,22 +357,6 @@ class PromptStorage:
                 return True
             return False
 
-    def delete_prompt_by_id(self, prompt_id: str) -> bool:
-        """
-        删除Prompt（使用 ID，兼容旧版本）
-        :param prompt_id: Prompt ID
-        :return: 是否删除成功
-        """
-        with self._lock:
-            data = self._read_data()
-            original_count = len(data["prompts"])
-            data["prompts"] = [a for a in data["prompts"] if a.get("id") != prompt_id]
-
-            if len(data["prompts"]) < original_count:
-                self._write_data(data)
-                return True
-            return False
-
     def update_image_count(self, category_id: str, value: str, delta: int = 1):
         """
         更新Prompt的图片数量（使用组合键）

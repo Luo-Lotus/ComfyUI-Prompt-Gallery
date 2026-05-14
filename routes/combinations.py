@@ -6,6 +6,7 @@ from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ..storage.backup import BackupManager
 from ._utils import is_remote_path
 
 
@@ -171,7 +172,12 @@ async def delete_combination(request):
     try:
         combination_id = request.match_info.get("id")
 
-        _, _, _, combination_storage = get_storage()
+        prompt_storage, _, _, combination_storage = get_storage()
+
+        # 备份
+        storage_dir = Path(prompt_storage.storage_dir)
+        BackupManager(storage_dir).create_backup()
+
         success = combination_storage.delete_combination(combination_id)
 
         if not success:
@@ -318,7 +324,12 @@ async def batch_delete_combinations(request):
         data = await request.json()
         ids = data.get("ids", [])
 
-        _, _, _, combination_storage = get_storage()
+        prompt_storage, _, _, combination_storage = get_storage()
+
+        # 备份
+        storage_dir = Path(prompt_storage.storage_dir)
+        BackupManager(storage_dir).create_backup()
+
         deleted = combination_storage.batch_delete(ids)
 
         return web.json_response({

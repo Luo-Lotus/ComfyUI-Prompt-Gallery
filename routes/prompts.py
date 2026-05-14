@@ -5,7 +5,9 @@ from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ..storage.backup import BackupManager
 from ._utils import is_remote_path
+from ._delete_utils import delete_prompt_cascade
 
 
 # ============ Prompt CRUD API ============
@@ -70,53 +72,6 @@ async def add_prompts_batch(request):
             "failedCount": len(failed_names),
             "prompts": success_prompts,
             "failedNames": failed_names
-        })
-    except Exception as e:
-        return web.json_response({"error": str(e)}, status=500)
-
-
-@server.PromptServer.instance.routes.delete("/prompt_gallery/prompts/{prompt_id}")
-async def delete_prompt(request):
-    """删除Prompt（包括关联的图片文件）- 兼容旧版本"""
-    try:
-        prompt_id = request.match_info['prompt_id']
-
-        prompt_storage, mapping_storage, _, _ = get_storage()
-
-        # 获取Prompt信息
-        prompt = prompt_storage.get_prompt_by_id(prompt_id)
-        if not prompt:
-            return web.json_response({"error": "Prompt不存在"}, status=404)
-
-        # 获取该Prompt关联的图片
-        mappings = mapping_storage.get_mappings_by_prompt_id(prompt_id)
-
-        # 移除映射关系，获取孤儿图片（没有其他Prompt关联的图片）
-        orphan_images = mapping_storage.remove_prompt_from_mappings(prompt.get("value"))
-
-        # 删除孤儿图片文件（跳过远程图片）
-        import folder_paths
-        output_dir = Path(folder_paths.get_output_directory())
-        deleted_files = []
-        for image_path in orphan_images:
-            if is_remote_path(image_path):
-                deleted_files.append(image_path)
-                continue
-            full_path = output_dir / image_path
-            try:
-                if full_path.exists():
-                    full_path.unlink()
-                    deleted_files.append(image_path)
-            except Exception as e:
-                print(f"Error deleting file {image_path}: {e}")
-
-        # 删除Prompt记录
-        prompt_storage.delete_prompt_by_id(prompt_id)
-
-        return web.json_response({
-            "success": True,
-            "deletedFiles": deleted_files,
-            "message": f"已删除Prompt '{prompt.get('name')}'"
         })
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
@@ -248,63 +203,32 @@ async def update_prompt_composite(request):
 
 @server.PromptServer.instance.routes.delete(r"/prompt_gallery/prompts/{category_id}/{value:[\s\S]+}")
 async def delete_prompt_composite(request):
-    """
-    删除Prompt（使用组合键）
-
-    删除逻辑：
-    - 检查是否存在其他分类的同值Prompt
-    - 如果存在：只删除Prompt记录，不修改图片映射
-    - 如果不存在：移除图片映射，删除孤儿图片
-    """
+    """删除Prompt（级联清理图片和组合）"""
     try:
         category_id = request.match_info['category_id']
         value = request.match_info['value']
 
         prompt_storage, mapping_storage, _, combination_storage = get_storage()
 
-        # 获取Prompt信息
         prompt = prompt_storage.get_prompt(category_id, value)
         if not prompt:
             return web.json_response({"error": "Prompt不存在"}, status=404)
 
-        # 检查是否存在其他分类的同值Prompt
-        all_prompts = prompt_storage.get_all_prompts()
-        same_value_prompts = [a for a in all_prompts if a.get("value") == value and a.get("categoryId") != category_id]
-        has_other_categories = len(same_value_prompts) > 0
+        # 备份
+        storage_dir = Path(prompt_storage.storage_dir)
+        BackupManager(storage_dir).create_backup()
 
-        deleted_files = []
-
-        if not has_other_categories:
-            # 这是最后一个同值Prompt，可以安全清理图片
-            # 移除映射关系，获取孤儿图片（没有其他Prompt关联的图片）
-            orphan_images = mapping_storage.remove_prompt_from_mappings(value)
-
-            # 删除孤儿图片文件（跳过远程图片）
-            import folder_paths
-            output_dir = Path(folder_paths.get_output_directory())
-            for image_path in orphan_images:
-                if is_remote_path(image_path):
-                    deleted_files.append(image_path)
-                    continue
-                full_path = output_dir / image_path
-                try:
-                    if full_path.exists():
-                        full_path.unlink()
-                        deleted_files.append(image_path)
-                except Exception as e:
-                    print(f"Error deleting file {image_path}: {e}")
-
-        # 删除Prompt记录
-        prompt_storage.delete_prompt(category_id, value)
-
-        # 从所有组合中移除该Prompt引用
-        combination_storage.remove_prompt_from_all(value)
+        result = delete_prompt_cascade(
+            category_id, value,
+            prompt_storage, mapping_storage, combination_storage,
+        )
 
         return web.json_response({
             "success": True,
-            "deletedFiles": deleted_files,
             "message": f"已删除Prompt '{prompt.get('name')}'",
-            "hasOtherCategories": has_other_categories
+            "deletedFiles": result["deleted_files"],
+            "disassociatedImages": result["disassociated_images"],
+            "affectedCombinations": result["affected_combinations"],
         })
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)

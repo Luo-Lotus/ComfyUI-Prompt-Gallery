@@ -120,6 +120,24 @@
     background: #ee3333;
 }
 
+.gallery-modal-btn:disabled,
+.gallery-modal-btn.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.gallery-modal-btn:disabled:hover,
+.gallery-modal-btn.disabled:hover {
+    transform: none;
+}
+
+.gallery-modal-btn.loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
 /* 加载状态 */
 .gallery-loading {
     display: flex;

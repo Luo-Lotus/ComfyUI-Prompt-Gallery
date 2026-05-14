@@ -1,9 +1,12 @@
 """
 Category CRUD + 移动端点
 """
+from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ..storage.backup import BackupManager
+from ._delete_utils import delete_category_cascade
 
 
 # ============ Category CRUD API ============
@@ -86,17 +89,34 @@ async def update_category(request):
 
 @server.PromptServer.instance.routes.delete("/prompt_gallery/categories/{category_id}")
 async def delete_category(request):
-    """删除分类"""
+    """级联删除分类（含子分类、Prompt、组合、图片）"""
     try:
         category_id = request.match_info['category_id']
 
-        _, _, category_storage, _ = get_storage()
-        success = category_storage.delete_category(category_id)
+        prompt_storage, mapping_storage, category_storage, combination_storage = get_storage()
 
-        if success:
-            return web.json_response({"success": True})
-        else:
+        category = category_storage.get_category_by_id(category_id)
+        if not category:
             return web.json_response({"error": "分类不存在"}, status=404)
+
+        # 备份
+        storage_dir = Path(prompt_storage.storage_dir)
+        BackupManager(storage_dir).create_backup()
+
+        result = delete_category_cascade(
+            category_id,
+            prompt_storage, mapping_storage,
+            category_storage, combination_storage,
+        )
+
+        return web.json_response({
+            "success": True,
+            "message": f"已删除分类 '{category.get('name')}'",
+            "deletedCategories": len(result["deleted_categories"]),
+            "deletedPrompts": len(result["deleted_prompts"]),
+            "deletedFiles": len(result["deleted_files"]),
+            "deletedCombinations": result["deleted_combinations"],
+        })
     except ValueError as e:
         return web.json_response({"error": str(e)}, status=400)
     except Exception as e:

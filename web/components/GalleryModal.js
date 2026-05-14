@@ -13,6 +13,8 @@ import { MoveDialog } from './MoveDialog.js';
 import { CopyDialog } from './CopyDialog.js';
 import { ImportImagesDialog } from './ImportImagesDialog.js';
 import { ImportZipDialog } from './ImportZipDialog.js';
+import { ImportOutputDialog } from './ImportOutputDialog.js';
+import { CustomFilterEditDialog } from './CustomFilterEditDialog.js';
 import { ExportDialog } from './ExportDialog.js';
 import { CombinationDialog } from './CombinationDialog.js';
 import { BatchActionBar } from './BatchActionBar.js';
@@ -174,15 +176,37 @@ function DialogLayer() {
 
     h(DeleteConfirmDialog, {
       isOpen: ctx.showDeleteConfirm,
-      prompt: ctx.promptToDelete,
-      onConfirm: () => {
-        ctx.setShowDeleteConfirm(false);
-        ctx.setPromptToDelete(null);
-        ctx.loadData();
-      },
+      type: 'prompt',
+      target: ctx.promptToDelete,
+      onConfirm: ctx.confirmDeletePrompt,
       onCancel: () => {
         ctx.setShowDeleteConfirm(false);
         ctx.setPromptToDelete(null);
+      },
+    }),
+
+    h(DeleteConfirmDialog, {
+      isOpen: ctx.showCategoryDeleteConfirm,
+      type: 'category',
+      target: ctx.categoryToDelete,
+      onConfirm: async () => {
+        await ctx.confirmDeleteCategory();
+        ctx.loadData();
+      },
+      onCancel: () => {
+        ctx.setShowCategoryDeleteConfirm(false);
+        ctx.setCategoryToDelete(null);
+      },
+    }),
+
+    h(DeleteConfirmDialog, {
+      isOpen: ctx.showCombinationDeleteConfirm,
+      type: 'combination',
+      target: ctx.combinationToDelete,
+      onConfirm: ctx.confirmDeleteCombination,
+      onCancel: () => {
+        ctx.setShowCombinationDeleteConfirm(false);
+        ctx.setCombinationToDelete(null);
       },
     }),
 
@@ -251,6 +275,15 @@ function DialogLayer() {
       },
     }),
 
+    h(ImportOutputDialog, {
+      isOpen: ctx.showImportOutputDialog,
+      onClose: () => ctx.setShowImportOutputDialog(false),
+      onSuccess: async () => {
+        await ctx.loadData();
+        ctx.setShowImportOutputDialog(false);
+      },
+    }),
+
     h(ExportDialog, {
       isOpen: ctx.showExportDialog,
       title:
@@ -283,6 +316,16 @@ function DialogLayer() {
         ctx.setEditingCombination(null);
         await ctx.loadData();
       },
+    }),
+
+    h(CustomFilterEditDialog, {
+      isOpen: ctx.showCustomFilterEditDialog,
+      editItem: ctx.editingCustomFilter,
+      onClose: () => {
+        ctx.setShowCustomFilterEditDialog(false);
+        ctx.setEditingCustomFilter(null);
+      },
+      onSave: ctx.handleCustomFilterSaved,
     }),
   ];
 }

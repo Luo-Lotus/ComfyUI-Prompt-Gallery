@@ -9,8 +9,9 @@ import {
   buildBreadcrumbPath,
   addCategory,
   updateCategory,
-  deleteCategory,
 } from '../../utils.js';
+import { deleteCategory } from '../../services/promptApi.js';
+import { showToast } from '../Toast.js';
 
 export function useCategoryManager({ viewMode, currentPrompt, viewModeCombination, onNavigateToGallery }) {
   const [categories, setCategories] = useState([]);
@@ -20,6 +21,8 @@ export function useCategoryManager({ viewMode, currentPrompt, viewModeCombinatio
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [categoryDialogMode, setCategoryDialogMode] = useState('add');
   const [editingCategory, setEditingCategory] = useState(null);
+  const [showCategoryDeleteConfirm, setShowCategoryDeleteConfirm] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
 
   // 加载分类数据和所有Prompt
   useEffect(() => {
@@ -118,14 +121,23 @@ export function useCategoryManager({ viewMode, currentPrompt, viewModeCombinatio
     setShowCategoryDialog(true);
   };
 
-  const handleDeleteCategory = async (category) => {
-    if (!confirm(`确定要删除分类"${category.name}"吗？`)) return;
+  const openCategoryDeleteConfirm = (category) => {
+    setCategoryToDelete(category);
+    setShowCategoryDeleteConfirm(true);
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
     try {
-      await deleteCategory(category.id);
+      await deleteCategory(categoryToDelete.id);
+      showToast('已删除分类', 'success');
+      setShowCategoryDeleteConfirm(false);
+      setCategoryToDelete(null);
       const result = await fetchCategories();
       setCategories(result.categories || []);
     } catch (err) {
-      alert(`删除失败: ${err.message}`);
+      showToast('删除分类失败: ' + err.message, 'error');
+      throw err;
     }
   };
 
@@ -153,15 +165,20 @@ export function useCategoryManager({ viewMode, currentPrompt, viewModeCombinatio
     categoryDialogMode,
     editingCategory,
     currentCategoryChildren,
+    showCategoryDeleteConfirm,
+    categoryToDelete,
     setCurrentCategory,
     setCategories,
     setAllPrompts,
+    setShowCategoryDeleteConfirm,
+    setCategoryToDelete,
     refreshCategories,
     handleCategorySelect,
     handleBreadcrumbNavigate,
     handleAddCategory,
     handleEditCategory,
-    handleDeleteCategory,
+    openCategoryDeleteConfirm,
+    confirmDeleteCategory,
     handleCategoryDialogSave,
     setShowCategoryDialog,
   };

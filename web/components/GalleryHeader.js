@@ -69,6 +69,16 @@ export function GalleryHeader() {
     );
   }
 
+  // 历史视图：导入输出图片
+  if (isHistory) {
+    buttons.push(
+      h('button', {
+        class: 'gallery-modal-btn',
+        onClick: () => ctx.setShowImportOutputDialog(true),
+      }, [h(Icon, { name: 'download', size: 14 }), ' 导入输出图片']),
+    );
+  }
+
   // 通用按钮：刷新
   buttons.push(
     h('button', { class: 'gallery-modal-btn', onClick: ctx.loadData }, [

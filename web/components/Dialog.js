@@ -83,14 +83,15 @@ export function Dialog({
 /**
  * 对话框操作按钮组件
  */
-export function DialogButton({ children, onClick, variant = 'default', className = '' }) {
+export function DialogButton({ children, onClick, variant = 'default', className = '', disabled = false, loading = false }) {
   const variantClass = variant === 'primary' ? 'primary' : variant === 'danger' ? 'danger' : '';
 
   return h(
     'button',
     {
-      class: `gallery-modal-btn ${variantClass} ${className}`.trim(),
-      onClick,
+      class: `gallery-modal-btn ${variantClass} ${className} ${loading ? 'loading' : ''} ${disabled && !loading ? 'disabled' : ''}`.trim(),
+      onClick: loading ? undefined : onClick,
+      disabled: disabled || loading,
     },
     children,
   );

@@ -184,18 +184,12 @@ class CategoryStorage:
         return result
 
     def delete_category(self, category_id: str) -> bool:
-        """删除分类（需先删除子分类）"""
+        """删除分类"""
         with self._lock:
             data = self._read_data()
 
-            # 不允许删除根分类 - 直接在已读取的数据中查找
             if category_id == "root":
                 raise ValueError("不能删除根分类")
-
-            # 检查是否有子分类
-            has_children = any(c.get("parentId") == category_id for c in data["categories"])
-            if has_children:
-                raise ValueError("请先删除子分类")
 
             original_count = len(data["categories"])
             data["categories"] = [c for c in data["categories"] if c.get("id") != category_id]

@@ -55,17 +55,7 @@ export async function addPromptsBatch(promptsData, categoryId) {
 }
 
 /**
- * 删除Prompt（使用 ID，兼容旧版本）
- */
-export async function deletePrompt(promptId) {
-  const response = await fetch(`/prompt_gallery/prompts/${promptId}`, {
-    method: 'DELETE',
-  });
-  return await response.json();
-}
-
-/**
- * 删除Prompt（使用组合键）
+ * 删除Prompt（级联清理图片和组合）
  */
 export async function deletePromptByKey(categoryId, value) {
   const response = await fetch(
@@ -74,6 +64,74 @@ export async function deletePromptByKey(categoryId, value) {
       method: 'DELETE',
     },
   );
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || '删除Prompt失败');
+  }
+  return await response.json();
+}
+
+/**
+ * 删除图片
+ * @param {string} imagePath - 图片路径
+ * @param {string} [promptValue] - 可选：传了表示从 prompt 详情删（只断开关联），不传表示完全删除
+ */
+export async function deleteImage(imagePath, promptValue) {
+  const body = { imagePath };
+  if (promptValue) body.promptValue = promptValue;
+  const response = await fetch('/prompt_gallery/image', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || '删除图片失败');
+  }
+  return await response.json();
+}
+
+/**
+ * 删除分类（级联删除子分类、Prompt、组合）
+ */
+export async function deleteCategory(categoryId) {
+  const response = await fetch(`/prompt_gallery/categories/${encodeURIComponent(categoryId)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || '删除分类失败');
+  }
+  return await response.json();
+}
+
+/**
+ * 删除组合
+ */
+export async function deleteCombination(id) {
+  const response = await fetch(`/prompt_gallery/combinations/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || '删除组合失败');
+  }
+  return await response.json();
+}
+
+/**
+ * 批量删除（分类、Prompt、图片）
+ */
+export async function batchDelete({ categories = [], prompts = [], images = [] }) {
+  const response = await fetch('/prompt_gallery/batch/delete', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ categories, prompts, images }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || '批量删除失败');
+  }
   return await response.json();
 }
 

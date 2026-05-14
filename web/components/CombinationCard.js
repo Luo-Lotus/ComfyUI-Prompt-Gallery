@@ -75,17 +75,28 @@ export function CombinationCard({
 
   // ============ 渲染 ============
 
-  const renderHeader = () => {
-    return h('div', { class: 'gallery-card-header' }, [
+  const renderOverlay = () => {
+    const outputText = combination.outputContent || combination.prompts?.join(',');
+
+    return h('div', { class: 'gallery-card-overlay' }, [
+      h('div', { class: 'gallery-card-info-left' }, [
+        h(
+          'span',
+          { class: 'gallery-card-name-tag', title: combination.name },
+          combination.name,
+        ),
+        outputText &&
+          h(
+            'span',
+            { class: 'gallery-card-value-tag', title: outputText },
+            outputText,
+          ),
+      ]),
       h(
         'span',
-        {
-          class: 'gallery-prompt-name',
-          title: combination.name,
-        },
-        `${combination.name}`,
+        { class: 'gallery-card-count-tag' },
+        `${memberCount}人`,
       ),
-      h('span', { class: 'gallery-prompt-count' }, `${memberCount}人`),
     ]);
   };
 
@@ -101,11 +112,14 @@ export function CombinationCard({
             }
           },
         },
-        h('img', {
-          src: buildImageUrl(coverImage.path),
-          alt: combination.name,
-          loading: 'lazy',
-        }),
+        [
+          h('img', {
+            src: buildImageUrl(coverImage.path),
+            alt: combination.name,
+            loading: 'lazy',
+          }),
+          renderOverlay(),
+        ],
       );
     }
 
@@ -122,6 +136,7 @@ export function CombinationCard({
       [
         h('div', { class: 'gallery-card-empty-icon' }, h(Icon, { name: 'link', size: 32 })),
         h('div', { class: 'gallery-card-empty-text' }, `${memberCount} 个Prompt`),
+        renderOverlay(),
       ],
     );
   };
@@ -136,6 +151,6 @@ export function CombinationCard({
       onSelect,
       onContextMenu: handleContextMenu,
     },
-    [renderHeader(), renderCover()],
+    [renderCover()],
   );
 }

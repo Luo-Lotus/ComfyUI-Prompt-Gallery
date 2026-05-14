@@ -2,14 +2,28 @@
  * 画廊筛选栏组件
  * 面包屑导航 + 搜索/排序/筛选/卡片大小调节
  */
-import { h } from '../lib/preact.mjs';
+import { h, Fragment } from '../lib/preact.mjs';
+import { useState, useRef, useCallback } from '../lib/hooks.mjs';
 import { Breadcrumb } from './Breadcrumb.js';
 import { Icon } from '../lib/icons.mjs';
 import { Storage } from '../utils.js';
 import { useGallery } from './GalleryContext.js';
+import { CustomFilterPanel } from './CustomFilterPanel.js';
 
 export function GalleryFilterBar() {
   const ctx = useGallery();
+  const [filterHover, setFilterHover] = useState(false);
+  const filterWrapRef = useRef(null);
+  const hoverTimerRef = useRef(null);
+
+  const handleFilterEnter = useCallback(() => {
+    clearTimeout(hoverTimerRef.current);
+    setFilterHover(true);
+  }, []);
+
+  const handleFilterLeave = useCallback(() => {
+    hoverTimerRef.current = setTimeout(() => setFilterHover(false), 200);
+  }, []);
   const isGallery = ctx.viewMode === 'gallery';
   const isPrompt = ctx.viewMode === 'prompt';
   const isCombination = ctx.viewMode === 'combination';
@@ -35,7 +49,8 @@ export function GalleryFilterBar() {
     }
   };
 
-  return h('div', { class: 'gallery-merged-header' }, [
+  return h(Fragment, {}, [
+    h('div', { class: 'gallery-merged-header' }, [
     // 左侧：返回按钮 + 面包屑/标题
     h('div', { class: 'gallery-breadcrumb-section' }, [
       canGoBack &&
@@ -132,6 +147,36 @@ export function GalleryFilterBar() {
           value: ctx.imageSearchQuery,
           onInput: (e) => ctx.setImageSearchQuery(e.target.value),
         }),
+        // 历史视图：筛查按钮 + 悬浮面板
+        isHistory && h('div', {
+          class: 'custom-filter-trigger',
+          ref: filterWrapRef,
+          onMouseEnter: handleFilterEnter,
+          onMouseLeave: handleFilterLeave,
+        }, [
+          h('button', {
+            class: `gallery-filter-btn ${Object.values(ctx.customFilterValues).some(v => v) ? 'active' : ''}`,
+            title: '自定义筛查',
+          }, [
+            h(Icon, { name: 'filter', size: 14 }),
+            ' 筛选',
+          ]),
+          filterHover && h(CustomFilterPanel, {
+            filters: ctx.customFilters,
+            filterValues: ctx.customFilterValues,
+            onFilterChange: ctx.handleCustomFilterChange,
+            onEdit: ctx.handleEditCustomFilter,
+            onDelete: ctx.handleDeleteCustomFilter,
+            onExtract: ctx.handleExtractCustomFilter,
+            onAdd: () => {
+              ctx.setEditingCustomFilter(null);
+              ctx.setShowCustomFilterEditDialog(true);
+            },
+            onClearAll: ctx.handleClearCustomFilters,
+            onMouseEnter: handleFilterEnter,
+            onMouseLeave: handleFilterLeave,
+          }),
+        ]),
         h('span', { class: 'gallery-count-badge' }, `${ctx.imageTotalCount} 张`),
         h('div', { class: 'gallery-size-slider' }, [
           h('span', { class: 'gallery-size-label' }, '◡'),
@@ -151,5 +196,6 @@ export function GalleryFilterBar() {
           h('span', { class: 'gallery-size-label' }, '◠'),
         ]),
       ]),
+    ]),
   ]);
 }

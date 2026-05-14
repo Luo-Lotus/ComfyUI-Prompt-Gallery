@@ -6,7 +6,9 @@ from pathlib import Path
 from aiohttp import web
 import server
 from ..storage import get_storage
+from ..storage.backup import BackupManager
 from ._utils import is_remote_path
+from ._delete_utils import remove_image_prompt_link, delete_image_completely
 
 
 # ============ Image Mapping API ============
@@ -235,68 +237,50 @@ async def restore_from_metadata(request):
 @server.PromptServer.instance.routes.delete("/prompt_gallery/image")
 async def delete_image(request):
     """
-    删除单张图片（从Prompt详情中）
+    删除单张图片
 
     请求体: {
-      "imagePath": "prompt_gallery/xxx.png"
-      // promptId不再需要，自动从映射中获取
+      "imagePath": "prompt_gallery/xxx.png",
+      "promptValue": "1girl"  // 可选：传了表示从 prompt 详情删图片（只断开关联），不传表示完全删除
     }
-
-    逻辑：
-    - 如果图片被多个Prompt引用，只删除图片文件
-    - 如果图片只被一个Prompt引用，删除文件和映射
     """
     try:
         data = await request.json()
         image_path = data.get("imagePath")
+        prompt_value = data.get("promptValue")
 
         if not image_path:
             return web.json_response({"error": "缺少imagePath参数"}, status=400)
 
         prompt_storage, mapping_storage, _, _ = get_storage()
 
-        # 获取图片映射
-        mapping = mapping_storage.get_mappings_by_image(image_path)
-        if not mapping:
-            return web.json_response({"error": "图片映射不存在"}, status=404)
+        # 备份
+        storage_dir = Path(prompt_storage.storage_dir)
+        BackupManager(storage_dir).create_backup()
 
-        # 获取关联的Prompt列表
-        prompt_values = mapping.get("prompts", [])
-
-        # 删除图片文件（远程图片无本地文件，跳过）
-        file_deleted = False
-        if not is_remote_path(image_path, mapping.get("type", "")):
-            import folder_paths
-            output_dir = Path(folder_paths.get_output_directory())
-            full_path = Path(output_dir) / image_path
-            try:
-                if full_path.exists():
-                    full_path.unlink()
-                    file_deleted = True
-            except Exception as e:
-                return web.json_response({"error": f"删除文件失败: {str(e)}"}, status=500)
-
-        # 删除映射关系
-        mapping_storage.delete_mapping_by_image(image_path)
-
-        # 更新所有关联Prompt的图片计数
-        for prompt_value in prompt_values:
-            # 查找所有匹配的Prompt并更新计数
+        if prompt_value:
+            # 从 prompt 详情删图片：只断开该 prompt 的关联
+            result = remove_image_prompt_link(image_path, prompt_value, mapping_storage)
+            # 更新 prompt 的 imageCount
             all_prompts = prompt_storage.get_all_prompts()
-            for prompt in all_prompts:
-                if prompt.get("value") == prompt_value:
-                    prompt_storage.update_image_count(
-                        prompt.get("categoryId"),
-                        prompt_value,
-                        -1
-                    )
-
-        return web.json_response({
-            "success": True,
-            "message": "图片已删除",
-            "fileDeleted": file_deleted,
-            "affectedPrompts": prompt_values
-        })
+            for p in all_prompts:
+                if p.get("value") == prompt_value:
+                    prompt_storage.update_image_count(p.get("categoryId"), prompt_value, -1)
+            return web.json_response({
+                "success": True,
+                "message": "图片已删除" if result["file_deleted"] else "已断开关联",
+                "fileDeleted": result["file_deleted"],
+                "mappingDeleted": result["mapping_deleted"],
+            })
+        else:
+            # 从历史视图删图片：完全删除
+            result = delete_image_completely(image_path, mapping_storage, prompt_storage)
+            return web.json_response({
+                "success": True,
+                "message": "图片已删除",
+                "fileDeleted": result["file_deleted"],
+                "affectedPrompts": result["affected_prompts"],
+            })
 
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)

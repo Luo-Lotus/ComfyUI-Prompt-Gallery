@@ -91,39 +91,39 @@ export function GalleryCard({
   // ============ 渲染函数 ============
 
   /**
-   * 渲染卡片头部（包含信息 + 收藏按钮）
+   * 渲染覆盖信息层（名称+value左上角，数量右上角）
    */
-  const renderHeader = () => {
-    return h('div', { class: 'gallery-card-header' }, [
-      // 左侧：Prompt名称和数量
+  const renderOverlay = () => {
+    const name = prompt.name || prompt.value;
+    const value = prompt.value;
+    const showValue = value && value !== name;
+
+    return h('div', { class: 'gallery-card-overlay' }, [
+      // 左上角：名称 + value
+      h('div', { class: 'gallery-card-info-left' }, [
+        h(
+          'span',
+          { class: 'gallery-card-name-tag', title: name },
+          name,
+        ),
+        showValue &&
+          h(
+            'span',
+            { class: 'gallery-card-value-tag', title: value },
+            value,
+          ),
+      ]),
+      // 右上角：数量
       h(
         'span',
-        {
-          class: 'gallery-prompt-name',
-          title: prompt.name || prompt.value,
-        },
-        prompt.name || prompt.value,
+        { class: 'gallery-card-count-tag' },
+        `${prompt.imageCount}张`,
       ),
-      h('span', { class: 'gallery-prompt-count' }, `${prompt.imageCount}张`),
-
-      // 右侧：收藏按钮
-      // h(
-      //     'button',
-      //     {
-      //         class: `gallery-fav-btn ${isFav ? 'fav-active' : ''}`,
-      //         onClick: (e) => {
-      //             e.stopPropagation();
-      //             onFavoriteToggle(prompt.name);
-      //         },
-      //         title: isFav ? '取消收藏' : '添加收藏',
-      //     },
-      //     isFav ? '⭐' : '☆',
-      // ),
     ]);
   };
 
   /**
-   * 渲染封面图片
+   * 渲染封面图片（含覆盖信息层）
    */
   const renderCoverImage = () => {
     if (!coverImage) return renderEmptyState();
@@ -138,21 +138,25 @@ export function GalleryCard({
           }
         },
       },
-      h('img', {
-        src: buildImageUrl(coverImage.path),
-        alt: prompt.name || prompt.value,
-        loading: 'lazy',
-      }),
+      [
+        h('img', {
+          src: buildImageUrl(coverImage.path),
+          alt: prompt.name || prompt.value,
+          loading: 'lazy',
+        }),
+        renderOverlay(),
+      ],
     );
   };
 
   /**
-   * 渲染空状态（无图片）
+   * 渲染空状态（无图片，仍显示覆盖信息）
    */
   const renderEmptyState = () => {
     return h('div', { class: 'gallery-card-empty' }, [
       h('div', { class: 'gallery-card-empty-icon' }, h(Icon, { name: 'palette', size: 32 })),
       h('div', { class: 'gallery-card-empty-text' }, '暂无图片'),
+      renderOverlay(),
     ]);
   };
 
@@ -175,9 +179,6 @@ export function GalleryCard({
       onSelect,
       onContextMenu: handleContextMenu,
     },
-    [
-      renderHeader(), // 头部（包含名称、数量和收藏按钮）
-      renderImages(), // 图片区域
-    ],
+    [renderImages()],
   );
 }

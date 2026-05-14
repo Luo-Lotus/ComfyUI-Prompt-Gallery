@@ -1,0 +1,202 @@
+/* 自定义筛查触发器 */
+.custom-filter-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 自定义筛查面板（浮窗） */
+.custom-filter-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 400px;
+  background: #fff;
+  border: 1px solid #ffb6c1;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.custom-filter-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #fff5f8;
+  border-bottom: 1px solid #ffe0e8;
+  border-radius: 8px 8px 0 0;
+}
+
+.custom-filter-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.custom-filter-panel-body {
+  padding: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.custom-filter-panel > :last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.custom-filter-empty {
+  padding: 16px;
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+}
+
+/* 筛查项行 */
+.custom-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.custom-filter-row:last-child {
+  border-bottom: none;
+}
+
+.custom-filter-row-label {
+  flex-shrink: 0;
+  width: 100px;
+  overflow: hidden;
+}
+
+.custom-filter-row-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.custom-filter-row-input-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.custom-filter-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #ffb6c1;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  background: #fff;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.custom-filter-input:focus {
+  border-color: #ff6b9d;
+  box-shadow: 0 0 0 2px rgba(255, 107, 157, 0.15);
+}
+
+.custom-filter-row-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.custom-filter-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 4px;
+  color: #888;
+  padding: 0;
+}
+
+.custom-filter-action-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.custom-filter-action-btn.danger:hover {
+  background: #fff0f0;
+  color: #e74c3c;
+}
+
+/* 下拉补全 */
+.custom-filter-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #ffb6c1;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.custom-filter-dropdown-item {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.custom-filter-dropdown-item:hover {
+  background: #fff5f8;
+  color: #ff6b9d;
+}
+
+/* 底部状态栏 */
+.custom-filter-panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-top: 1px solid #ffe0e8;
+  background: #fafafa;
+  border-radius: 0 0 8px 8px;
+}
+
+.custom-filter-status {
+  font-size: 11px;
+  color: #888;
+}
+
+.custom-filter-clear-btn {
+  border: none;
+  background: none;
+  color: #ff6b9d;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.custom-filter-clear-btn:hover {
+  background: #fff0f5;
+}
+
+/* 小按钮变体 */
+.gallery-modal-btn.small {
+  padding: 3px 8px;
+  font-size: 11px;
+  gap: 3px;
+}

@@ -21,6 +21,7 @@ export function CopyDialog({
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [newName, setNewName] = useState('');
   const [showNameInput, setShowNameInput] = useState(false);
+  const [copying, setCopying] = useState(false);
 
   // 过滤掉自己（不能复制到自己）
   const excludeIds = useMemo(() => {
@@ -58,11 +59,14 @@ export function CopyDialog({
       return;
     }
 
+    setCopying(true);
     try {
       await onCopy(item, selectedTarget, newName);
       onClose();
     } catch (error) {
       showToast(`复制失败: ${error.message}`, 'error');
+    } finally {
+      setCopying(false);
     }
   };
 
@@ -126,8 +130,9 @@ export function CopyDialog({
             variant: 'primary',
             onClick: handleCopy,
             disabled: !selectedTarget,
+            loading: copying,
           },
-          '复制',
+          copying ? '复制中...' : '复制',
         ),
       ],
     },

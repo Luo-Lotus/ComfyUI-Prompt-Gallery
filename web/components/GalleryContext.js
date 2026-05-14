@@ -8,13 +8,13 @@ import {
   Storage,
   createCombination as createCombinationApi,
   updateCombination as updateCombinationApi,
-  deleteCombination as deleteCombinationApi,
   moveCombination as moveCombinationApi,
   fetchCombinationImages,
   fetchGalleryData,
   exportPrompts,
   exportCategory,
 } from '../utils.js';
+import { deleteCombination as deleteCombinationApi, deletePromptByKey } from '../services/promptApi.js';
 import { useCategoryManager } from './hooks/useCategoryManager.js';
 import { useGalleryData } from './hooks/useGalleryData.js';
 import { useFilteredPrompts } from './hooks/useFilteredPrompts.js';
@@ -56,12 +56,21 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   const [editModePrompt, setEditModePrompt] = useState(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showImportZipDialog, setShowImportZipDialog] = useState(false);
+  const [showImportOutputDialog, setShowImportOutputDialog] = useState(false);
+
+  // ============ 自定义筛查状态 ============
+  const [customFilters, setCustomFilters] = useState([]);
+  const [customFilterValues, setCustomFilterValues] = useState({});
+  const [showCustomFilterEditDialog, setShowCustomFilterEditDialog] = useState(false);
+  const [editingCustomFilter, setEditingCustomFilter] = useState(null);
 
   // ============ 组合相关状态 ============
   const [showCombinationDialog, setShowCombinationDialog] = useState(false);
   const [combinationDialogMode, setCombinationDialogMode] = useState('add');
   const [editingCombination, setEditingCombination] = useState(null);
   const [viewModeCombination, setViewModeCombination] = useState(null);
+  const [showCombinationDeleteConfirm, setShowCombinationDeleteConfirm] = useState(false);
+  const [combinationToDelete, setCombinationToDelete] = useState(null);
 
   // ============ 导出对话框状态 ============
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -283,6 +292,20 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     setShowDeleteConfirm(true);
   }, []);
 
+  const confirmDeletePrompt = useCallback(async () => {
+    if (!promptToDelete) return;
+    try {
+      await deletePromptByKey(promptToDelete.categoryId, promptToDelete.value);
+      showToast('已删除 Prompt', 'success');
+      setShowDeleteConfirm(false);
+      setPromptToDelete(null);
+      await loadData();
+      await categoryMgr.refreshCategories();
+    } catch (err) {
+      showToast('删除失败: ' + err.message, 'error');
+    }
+  }, [promptToDelete, loadData, categoryMgr]);
+
   // 组合事件
   const handleCombinationClick = useCallback(async (combination) => {
     try {
@@ -312,19 +335,23 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     [itemOps],
   );
 
-  const handleCombinationDelete = useCallback(
-    async (combination) => {
-      if (!confirm(`确定要删除组合"${combination.name}"吗？`)) return;
-      try {
-        await deleteCombinationApi(combination.id);
-        showToast('已删除组合', 'success');
-        await loadData();
-      } catch (err) {
-        showToast('删除组合失败: ' + err.message, 'error');
-      }
-    },
-    [loadData],
-  );
+  const openCombinationDeleteConfirm = useCallback((combination) => {
+    setCombinationToDelete(combination);
+    setShowCombinationDeleteConfirm(true);
+  }, []);
+
+  const confirmDeleteCombination = useCallback(async () => {
+    if (!combinationToDelete) return;
+    try {
+      await deleteCombinationApi(combinationToDelete.id);
+      showToast('已删除组合', 'success');
+      setShowCombinationDeleteConfirm(false);
+      setCombinationToDelete(null);
+      await loadData();
+    } catch (err) {
+      showToast('删除组合失败: ' + err.message, 'error');
+    }
+  }, [combinationToDelete, loadData]);
 
   const handleCombinationDialogSave = useCallback(
     async (data) => {
@@ -412,6 +439,100 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   const handleImportPrompts = useCallback(() => {
     setShowImportZipDialog(true);
   }, []);
+
+  // ============ 自定义筛查 ============
+
+  // 加载筛查项配置
+  const loadCustomFilters = useCallback(async () => {
+    try {
+      const res = await fetch('/prompt_gallery/custom_filters');
+      const result = await res.json();
+      if (result.success) {
+        setCustomFilters(result.filters);
+      }
+    } catch (e) {
+      console.error('Failed to load custom filters:', e);
+    }
+  }, []);
+
+  // 首次打开历史视图时加载筛查项
+  useEffect(() => {
+    if (viewMode === 'history' && customFilters.length === 0) {
+      loadCustomFilters();
+    }
+  }, [viewMode]);
+
+  // 筛选值变化
+  const handleCustomFilterChange = useCallback((filterId, value) => {
+    setCustomFilterValues(prev => ({ ...prev, [filterId]: value }));
+  }, []);
+
+  // 清空所有筛选
+  const handleClearCustomFilters = useCallback(() => {
+    setCustomFilterValues({});
+  }, []);
+
+  // 删除筛查项
+  const handleDeleteCustomFilter = useCallback(async (filterId) => {
+    if (!confirm('确定要删除这个筛查项吗？')) return;
+    try {
+      await fetch(`/prompt_gallery/custom_filters/${filterId}`, { method: 'DELETE' });
+      setCustomFilters(prev => prev.filter(f => f.id !== filterId));
+      setCustomFilterValues(prev => {
+        const next = { ...prev };
+        delete next[filterId];
+        return next;
+      });
+      showToast('已删除筛查项', 'success');
+    } catch (e) {
+      showToast('删除失败: ' + e.message, 'error');
+    }
+  }, []);
+
+  // 提取选项
+  const handleExtractCustomFilter = useCallback(async (filterId) => {
+    try {
+      showToast('正在提取选项...', 'info');
+      const res = await fetch(`/prompt_gallery/custom_filters/${filterId}/extract`, { method: 'POST' });
+      const result = await res.json();
+      if (result.success) {
+        setCustomFilters(prev => prev.map(f =>
+          f.id === filterId ? { ...f, options: result.options } : f
+        ));
+        showToast(`提取完成: ${result.options.length} 个选项`, 'success');
+      } else {
+        showToast('提取失败: ' + (result.error || ''), 'error');
+      }
+    } catch (e) {
+      showToast('提取失败: ' + e.message, 'error');
+    }
+  }, []);
+
+  // 打开编辑弹窗
+  const handleEditCustomFilter = useCallback((filterItem) => {
+    setEditingCustomFilter(filterItem);
+    setShowCustomFilterEditDialog(true);
+  }, []);
+
+  // 编辑保存后
+  const handleCustomFilterSaved = useCallback((savedFilter) => {
+    setCustomFilters(prev => {
+      const idx = prev.findIndex(f => f.id === savedFilter.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = savedFilter;
+        return next;
+      }
+      return [...prev, savedFilter];
+    });
+  }, []);
+
+  // 构建传给后端的 filters 参数
+  const activeCustomFilters = useMemo(() => {
+    return Object.entries(customFilterValues)
+      .filter(([, v]) => v && v.trim())
+      .map(([id, value]) => ({ id, value: value.trim() }));
+  }, [customFilterValues]);
 
   // Prompt详情回调
   const handlePromptDeleteImageSuccess = useCallback(async () => {
@@ -507,13 +628,12 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     });
   }, [selection, itemOps]);
 
-  // 分类删除（封装 loadData 回调）
+  // 分类删除（打开确认对话框）
   const handleCategoryDelete = useCallback(
-    async (cat) => {
-      await categoryMgr.handleDeleteCategory(cat);
-      loadData();
+    (cat) => {
+      categoryMgr.openCategoryDeleteConfirm(cat);
     },
-    [categoryMgr, loadData],
+    [categoryMgr],
   );
 
   // 组合移动
@@ -623,6 +743,11 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       categoryDialogMode: categoryMgr.categoryDialogMode,
       editingCategory: categoryMgr.editingCategory,
       setShowCategoryDialog: categoryMgr.setShowCategoryDialog,
+      showCategoryDeleteConfirm: categoryMgr.showCategoryDeleteConfirm,
+      categoryToDelete: categoryMgr.categoryToDelete,
+      setShowCategoryDeleteConfirm: categoryMgr.setShowCategoryDeleteConfirm,
+      setCategoryToDelete: categoryMgr.setCategoryToDelete,
+      confirmDeleteCategory: categoryMgr.confirmDeleteCategory,
 
       // Filtering
       filteredPrompts,
@@ -674,6 +799,22 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       handleBatchConfirm: selection.handleBatchConfirm,
       setShowBatchConfirm: selection.setShowBatchConfirm,
 
+      // Custom filters
+      customFilters,
+      customFilterValues,
+      showCustomFilterEditDialog,
+      setShowCustomFilterEditDialog,
+      editingCustomFilter,
+      setEditingCustomFilter,
+      activeCustomFilters,
+      handleCustomFilterChange,
+      handleClearCustomFilters,
+      handleDeleteCustomFilter,
+      handleExtractCustomFilter,
+      handleEditCustomFilter,
+      handleCustomFilterSaved,
+      loadCustomFilters,
+
       // Item operations
       showMoveDialog: itemOps.showMoveDialog,
       moveItem: itemOps.moveItem,
@@ -700,10 +841,13 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       promptToDelete,
       setPromptToDelete,
       openDeleteConfirm,
+      confirmDeletePrompt,
       showImportDialog,
       setShowImportDialog,
       showImportZipDialog,
       setShowImportZipDialog,
+      showImportOutputDialog,
+      setShowImportOutputDialog,
       showExportDialog,
       setShowExportDialog,
       exportPayload,
@@ -727,7 +871,12 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       handleCombinationClick,
       handleCombinationEdit,
       handleCombinationDuplicate,
-      handleCombinationDelete,
+      handleCombinationDelete: openCombinationDeleteConfirm,
+      showCombinationDeleteConfirm,
+      combinationToDelete,
+      setShowCombinationDeleteConfirm,
+      setCombinationToDelete,
+      confirmDeleteCombination,
       handleCombinationMove,
       handleCombinationDialogSave,
       handleExportPrompt,
@@ -760,6 +909,8 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       categoryMgr.showCategoryDialog,
       categoryMgr.categoryDialogMode,
       categoryMgr.editingCategory,
+      categoryMgr.showCategoryDeleteConfirm,
+      categoryMgr.categoryToDelete,
       filteredPrompts,
       searchQuery,
       sortBy,
@@ -790,11 +941,19 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       promptToDelete,
       showImportDialog,
       showImportZipDialog,
+      showImportOutputDialog,
+      customFilters,
+      customFilterValues,
+      showCustomFilterEditDialog,
+      editingCustomFilter,
+      activeCustomFilters,
       showExportDialog,
       exportPayload,
       showCombinationDialog,
       combinationDialogMode,
       editingCombination,
+      showCombinationDeleteConfirm,
+      combinationToDelete,
       lightbox,
       isOpen,
       onClose,

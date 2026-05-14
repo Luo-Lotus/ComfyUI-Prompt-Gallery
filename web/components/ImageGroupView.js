@@ -62,6 +62,7 @@ export function ImageGroupView({
   promptFilters,
   lightboxName = '图片',
   searchQuery = '',
+  customFilters = null,
   onDataLoaded,
   getContextMenuItems,
   showContextMenu,
@@ -93,6 +94,7 @@ export function ImageGroupView({
           prompt: promptFilter || undefined,
           prompts: promptFilters || undefined,
           search: search || undefined,
+          filters: customFilters || undefined,
         });
         if (result.success) {
           setGroupData(result);
@@ -106,7 +108,7 @@ export function ImageGroupView({
         setLoading(false);
       }
     },
-    [promptFilter, promptFilters, onDataLoaded],
+    [promptFilter, promptFilters, customFilters, onDataLoaded],
   );
 
   // 首次挂载、filter 变化或 searchQuery 变化时加载（search 增加 300ms debounce）

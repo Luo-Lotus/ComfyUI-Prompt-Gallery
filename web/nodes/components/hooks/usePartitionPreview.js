@@ -33,7 +33,9 @@ function PartitionPreviewPopup({ items, style, onMouseEnter, onMouseLeave }) {
                 loading: 'lazy',
               })
             : h('div', { class: 'partition-preview-placeholder' }, '无封面'),
-          h('div', { class: 'partition-preview-name', title: item.name }, item.name),
+          h('div', { class: 'partition-preview-overlay' }, [
+            h('span', { class: 'partition-preview-name', title: item.name }, item.name),
+          ]),
         ]),
       ),
     ),

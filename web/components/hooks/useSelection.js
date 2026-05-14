@@ -4,6 +4,7 @@
  */
 import { useState, useMemo } from '../../lib/hooks.mjs';
 import { showToast } from '../Toast.js';
+import { batchDelete } from '../../services/promptApi.js';
 
 export function useSelection({
   categories,
@@ -197,60 +198,31 @@ export function useSelection({
     if (!operation) return;
 
     try {
-      let response;
-
       if (operation === 'delete') {
-        if (details.images.length > 0) {
-          for (const img of details.images) {
-            await fetch('/prompt_gallery/image', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ imagePath: img.path }),
-            });
-          }
-          showToast(`成功删除 ${details.images.length} 张图片`, 'success');
-          setShowBatchConfirm(false);
-          setSelectionMode(false);
-          setSelectedItems(new Set());
-          await loadData();
-          if (currentPrompt) {
-            const updatedData = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
-            const result = await updatedData.json();
-            const updatedPrompt = result.prompts?.find(
-              (a) => a.categoryId === currentPrompt.categoryId && a.value === currentPrompt.value,
-            );
-            if (updatedPrompt) {
-              setCurrentPrompt(updatedPrompt);
-            }
-          }
-          return;
-        }
-        response = await fetch('/prompt_gallery/batch/delete', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            categories: details.categories.map((c) => c.id),
-            prompts: details.prompts.map((a) => ({
-              categoryId: a.categoryId,
-              value: a.value,
-            })),
-          }),
+        await batchDelete({
+          categories: details.categories.map((c) => c.id),
+          prompts: details.prompts.map((a) => ({
+            categoryId: a.categoryId,
+            value: a.value,
+          })),
+          images: details.images.map((img) => ({ path: img.path })),
         });
-      }
-
-      if (!response) return;
-
-      const data = await response.json();
-
-      if (data.success) {
-        showToast(`批量删除成功`, 'success');
+        showToast('批量删除成功', 'success');
         setShowBatchConfirm(false);
         setSelectionMode(false);
         setSelectedItems(new Set());
         await loadData();
         await refreshCategories();
-      } else {
-        showToast(`批量删除失败: ${data.error}`, 'error');
+        if (currentPrompt) {
+          const updatedData = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
+          const result = await updatedData.json();
+          const updatedPrompt = result.prompts?.find(
+            (a) => a.categoryId === currentPrompt.categoryId && a.value === currentPrompt.value,
+          );
+          if (updatedPrompt) {
+            setCurrentPrompt(updatedPrompt);
+          }
+        }
       }
     } catch (error) {
       console.error('批量操作失败:', error);
