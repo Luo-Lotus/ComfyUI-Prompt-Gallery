@@ -155,7 +155,7 @@ export function GalleryFilterBar() {
           onMouseLeave: handleFilterLeave,
         }, [
           h('button', {
-            class: `gallery-filter-btn ${Object.values(ctx.customFilterValues).some(v => v) ? 'active' : ''}`,
+            class: `gallery-filter-btn ${ctx.activeCustomFilters.length > 0 ? 'active' : ''}`,
             title: '自定义筛查',
           }, [
             h(Icon, { name: 'filter', size: 14 }),
@@ -172,6 +172,7 @@ export function GalleryFilterBar() {
               ctx.setEditingCustomFilter(null);
               ctx.setShowCustomFilterEditDialog(true);
             },
+            onApply: ctx.handleApplyCustomFilters,
             onClearAll: ctx.handleClearCustomFilters,
             onMouseEnter: handleFilterEnter,
             onMouseLeave: handleFilterLeave,

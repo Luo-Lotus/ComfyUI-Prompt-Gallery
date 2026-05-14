@@ -61,6 +61,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   // ============ 自定义筛查状态 ============
   const [customFilters, setCustomFilters] = useState([]);
   const [customFilterValues, setCustomFilterValues] = useState({});
+  const [appliedFilterValues, setAppliedFilterValues] = useState({});
   const [showCustomFilterEditDialog, setShowCustomFilterEditDialog] = useState(false);
   const [editingCustomFilter, setEditingCustomFilter] = useState(null);
 
@@ -462,14 +463,20 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     }
   }, [viewMode]);
 
-  // 筛选值变化
+  // 筛选值变化（仅更新输入框，不触发查询）
   const handleCustomFilterChange = useCallback((filterId, value) => {
     setCustomFilterValues(prev => ({ ...prev, [filterId]: value }));
   }, []);
 
+  // 应用筛选（点击查询按钮）
+  const handleApplyCustomFilters = useCallback(() => {
+    setAppliedFilterValues({ ...customFilterValues });
+  }, [customFilterValues]);
+
   // 清空所有筛选
   const handleClearCustomFilters = useCallback(() => {
     setCustomFilterValues({});
+    setAppliedFilterValues({});
   }, []);
 
   // 删除筛查项
@@ -479,6 +486,11 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       await fetch(`/prompt_gallery/custom_filters/${filterId}`, { method: 'DELETE' });
       setCustomFilters(prev => prev.filter(f => f.id !== filterId));
       setCustomFilterValues(prev => {
+        const next = { ...prev };
+        delete next[filterId];
+        return next;
+      });
+      setAppliedFilterValues(prev => {
         const next = { ...prev };
         delete next[filterId];
         return next;
@@ -527,12 +539,12 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     });
   }, []);
 
-  // 构建传给后端的 filters 参数
+  // 构建传给后端的 filters 参数（仅依赖已应用的值）
   const activeCustomFilters = useMemo(() => {
-    return Object.entries(customFilterValues)
+    return Object.entries(appliedFilterValues)
       .filter(([, v]) => v && v.trim())
       .map(([id, value]) => ({ id, value: value.trim() }));
-  }, [customFilterValues]);
+  }, [appliedFilterValues]);
 
   // Prompt详情回调
   const handlePromptDeleteImageSuccess = useCallback(async () => {
@@ -808,6 +820,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       setEditingCustomFilter,
       activeCustomFilters,
       handleCustomFilterChange,
+      handleApplyCustomFilters,
       handleClearCustomFilters,
       handleDeleteCustomFilter,
       handleExtractCustomFilter,

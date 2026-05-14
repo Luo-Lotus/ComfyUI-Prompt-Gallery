@@ -194,6 +194,24 @@
   background: #fff0f5;
 }
 
+.custom-filter-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  background: #ff6b9d;
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.custom-filter-apply-btn:hover {
+  background: #e85a8a;
+}
+
 /* 小按钮变体 */
 .gallery-modal-btn.small {
   padding: 3px 8px;

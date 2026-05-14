@@ -14,6 +14,7 @@ export function CustomFilterPanel({
   onDelete,
   onExtract,
   onAdd,
+  onApply,
   onClearAll,
   onMouseEnter,
   onMouseLeave,
@@ -49,27 +50,40 @@ export function CustomFilterPanel({
               onEdit: () => onEdit(flt),
               onDelete: () => onDelete(flt.id),
               onExtract: () => onExtract(flt.id),
+              onApply,
             })
           )
     ),
 
-    // 清空按钮（仅在有筛选值时显示）
-    Object.values(filterValues).some(v => v) &&
+    // 底部操作栏（有筛查项时显示）
+    filters.length > 0 &&
       h('div', { class: 'custom-filter-panel-footer' }, [
+        Object.values(filterValues).some(v => v) &&
+          h('button', {
+            class: 'custom-filter-clear-btn',
+            onClick: onClearAll,
+          }, '清空'),
         h('button', {
-          class: 'custom-filter-clear-btn',
-          onClick: onClearAll,
-        }, '清空所有筛选'),
+          class: 'custom-filter-apply-btn',
+          onClick: onApply,
+        }, [
+          h(Icon, { name: 'search', size: 12 }),
+          ' 查询',
+        ]),
       ]),
   ]);
 }
 
-function FilterItemRow({ filter, value, onChange, onEdit, onDelete, onExtract }) {
+function FilterItemRow({ filter, value, onChange, onEdit, onDelete, onExtract, onApply }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [inputValue, setInputValue] = useState(value);
+  const focusedRef = useRef(false);
 
+  // 仅在非聚焦状态下同步外部值（如清空筛选时重置）
   useEffect(() => {
-    setInputValue(value);
+    if (!focusedRef.current) {
+      setInputValue(value);
+    }
   }, [value]);
 
   const handleInput = useCallback((e) => {
@@ -88,14 +102,23 @@ function FilterItemRow({ filter, value, onChange, onEdit, onDelete, onExtract })
   }, [onChange]);
 
   const handleBlur = useCallback(() => {
+    focusedRef.current = false;
     setTimeout(() => setShowDropdown(false), 200);
   }, []);
 
   const handleFocus = useCallback(() => {
+    focusedRef.current = true;
     if (filter.options && filter.options.length > 0) {
       setShowDropdown(true);
     }
   }, [filter.options]);
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onApply();
+    }
+  }, [onApply]);
 
   const filteredOptions = (filter.options || []).filter(opt =>
     !inputValue || opt.toLowerCase().includes(inputValue.toLowerCase())
@@ -114,6 +137,7 @@ function FilterItemRow({ filter, value, onChange, onEdit, onDelete, onExtract })
         onInput: handleInput,
         onFocus: handleFocus,
         onBlur: handleBlur,
+        onKeyDown: handleKeyDown,
         placeholder: '输入筛选值...',
       }),
       showDropdown && filteredOptions.length > 0 &&
