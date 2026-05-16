@@ -24,9 +24,11 @@ from . import routes
 # 全局循环状态存储
 _cycle_states = {}
 
-# prompt_string 画师匹配正则缓存
-_prompt_regex_cache = None
-_prompt_regex_names = None  # frozenset 指纹，用于检测画师列表是否变化
+# prompt_string 画师匹配缓存
+_prompt_match_cache = None           # 按长度降序的名称列表
+_prompt_match_names = None           # frozenset 指纹
+_blocked_category_cache = None       # 被禁止保存到画廊的分类 ID 集合
+_blocked_category_fingerprint = None # 分类数据指纹
 
 
 class PromptGallery:
@@ -315,9 +317,10 @@ class PromptSelector:
                 if existing:
                     print(f"[PromptSelector] Partition '{partition_name}': combination already exists (id={existing.get('id')}), skipping")
                 else:
+                    auto_save_cat_id = partition_config.get('autoSaveCombinationCategoryId', 'root') or 'root'
                     new_comb = combination_storage.add_combination(
                         name=comb_name,
-                        category_id="root",
+                        category_id=auto_save_cat_id,
                         prompts=prompt_names,
                         output_content=output_content,
                     )
@@ -401,24 +404,38 @@ class SaveToGallery:
     @staticmethod
     def _match_prompts_from_prompt(prompt_string):
         """从 prompt_string 中匹配已知画师名，返回 [{categoryId, name, saveToGallery}, ...]"""
-        global _prompt_regex_cache, _prompt_regex_names
+        global _prompt_match_cache, _prompt_match_names, _blocked_category_cache, _blocked_category_fingerprint
 
         if not prompt_string or not prompt_string.strip():
             return []
 
-        prompt_storage = get_storage()[0]
+        prompt_storage, _, category_storage, _ = get_storage()
         all_prompts = prompt_storage.get_all_prompts()
         if not all_prompts:
             return []
 
+        # 构建被禁止保存到画廊的分类 ID 集合（带缓存）
+        all_categories = category_storage.get_all_categories()
+        cat_fingerprint = frozenset(
+            (c.get("id"), c.get("metadata", {}).get("blockGallerySave", False))
+            for c in all_categories
+        )
+        if cat_fingerprint != _blocked_category_fingerprint:
+            blocked_ids = set()
+            for cat in all_categories:
+                metadata = cat.get("metadata", {})
+                if metadata.get("blockGallerySave"):
+                    blocked_ids.update(category_storage.get_descendant_ids(cat["id"]))
+            _blocked_category_cache = blocked_ids
+            _blocked_category_fingerprint = cat_fingerprint
+        blocked_ids = _blocked_category_cache
+
         # 构建 name → [prompt, ...] 查找表（同名画师可属于不同分类）
         name_to_prompts = {}
-        lower_to_canonical = {}  # 小写 → 原始大小写 key，用于 IGNORECASE 匹配后还原
         for prompt in all_prompts:
             value = prompt.get("value", "").strip()
             if value:
                 name_to_prompts.setdefault(value, []).append(prompt)
-                lower_to_canonical[value.lower()] = value
             # 别名也加入匹配
             alias = prompt.get("alias", "").strip()
             if alias:
@@ -426,39 +443,37 @@ class SaveToGallery:
                     a = a.strip()
                     if a:
                         name_to_prompts.setdefault(a, []).append(prompt)
-                        lower_to_canonical[a.lower()] = a
 
         # 检查缓存是否需要重建
         current_names = frozenset(name_to_prompts.keys())
-        if current_names != _prompt_regex_names:
+        if current_names != _prompt_match_names:
             # 按名称长度降序排列，确保贪心匹配（长名优先）
-            sorted_names = sorted(name_to_prompts.keys(), key=len, reverse=True)
-            escaped = [re.escape(n) for n in sorted_names]
-            _prompt_regex_cache = re.compile('|'.join(escaped), re.IGNORECASE)
-            _prompt_regex_names = current_names
+            _prompt_match_cache = sorted(name_to_prompts.keys(), key=len, reverse=True)
+            _prompt_match_names = current_names
 
-        # 单次扫描匹配所有画师名
-        matches = _prompt_regex_cache.findall(prompt_string)
-
-        # 去重保序，查找每个匹配名对应的所有画师
+        # 循环匹配（CPython in 操作使用 C 级优化字符串搜索）
+        prompt_lower = prompt_string.lower()
         result = []
         seen = set()
         seen_names = set()
-        for name in matches:
-            matched_key = lower_to_canonical.get(name.lower())
-            if matched_key and matched_key not in seen_names:
-                seen_names.add(matched_key)
-                for prompt in name_to_prompts[matched_key]:
-                    value = prompt.get("value")
-                    cat_id = prompt.get("categoryId", "root")
-                    entry_key = f"{cat_id}:{value}"
-                    if entry_key not in seen:
-                        seen.add(entry_key)
-                        result.append({
-                            "categoryId": cat_id,
-                            "value": value,
-                            "saveToGallery": True,
-                        })
+
+        for name in _prompt_match_cache:
+            if name.lower() in prompt_lower:
+                if name not in seen_names:
+                    seen_names.add(name)
+                    for prompt in name_to_prompts[name]:
+                        value = prompt.get("value")
+                        cat_id = prompt.get("categoryId", "root")
+                        if cat_id in blocked_ids:
+                            continue
+                        entry_key = f"{cat_id}:{value}"
+                        if entry_key not in seen:
+                            seen.add(entry_key)
+                            result.append({
+                                "categoryId": cat_id,
+                                "value": value,
+                                "saveToGallery": True,
+                            })
 
         return result
 
@@ -518,8 +533,7 @@ class SaveToGallery:
                 all_saveable_prompts.extend(saveable_from_string)
 
         if not all_saveable_prompts:
-            print("[SaveToGallery] 错误: 请提供 metadata_json 或 prompt_string，且需匹配到已知画师")
-            return ()
+            print("[SaveToGallery] 未匹配到已知画师，图片仍将保存（无关联Prompt）")
 
         # 去重（按 categoryId:value）用于图片计数更新
         seen = set()

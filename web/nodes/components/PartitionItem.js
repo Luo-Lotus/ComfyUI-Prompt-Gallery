@@ -276,6 +276,16 @@ export function PartitionItem({
               [
                 h('span', { class: 'prompt-selector-tag-icon' }, h(Icon, { name: 'folder', size: 12 })),
                 category.name,
+                partition.config?.autoSaveCombinationCategoryId === category.id &&
+                  h('span', {
+                    class: 'prompt-selector-tag-badge auto-save-badge',
+                    title: '组合自动保存到此分类',
+                  }, h(Icon, { name: 'bookmark', size: 10 })),
+                category.metadata?.blockGallerySave &&
+                  h('span', {
+                    class: 'prompt-selector-tag-badge gallery-block-badge',
+                    title: '已禁止保存到画廊',
+                  }, h(Icon, { name: 'ban', size: 10 })),
                 h(
                   'button',
                   {

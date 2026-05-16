@@ -7,46 +7,19 @@
 /* 选择模式基础 */
 .selection-mode {
   cursor: pointer;
-  transition: all 0.2s;
   position: relative;
 }
 
-.selection-mode:hover {
-  transform: translateY(-2px);
-}
-
-/* 多选模式下显示复选框占位 */
-.selection-mode::after {
+/* 选中状态：粉色内发光覆盖层 */
+.selection-mode.selected::before {
   content: '';
   position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 22px;
-  height: 22px;
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.3);
-  transition: all 0.2s;
-  z-index: 10;
-}
-
-/* 选中状态：outline + 勾选标记 */
-.selection-mode.selected {
-  outline: 3px solid #ff6b9d;
-  outline-offset: -3px;
-}
-
-.selection-mode.selected::after {
-  background: #ff6b9d;
-  border-color: #ff6b9d;
-  content: '✓';
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
-  z-index: 10;
+  inset: 0;
+  border-radius: inherit;
+  border: 3px solid #ff6b9d;
+  box-shadow: inset 0 0 20px rgba(255, 107, 157, 0.6), inset 0 0 50px rgba(255, 107, 157, 0.25);
+  pointer-events: none;
+  z-index: 20;
 }
 
 /* ============ 批量操作工具栏 ============ */

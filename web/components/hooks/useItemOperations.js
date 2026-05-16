@@ -60,6 +60,10 @@ export function useItemOperations({
             type: 'prompt',
             item: a,
           })),
+          ...details.combinations.map((c) => ({
+            type: 'combination',
+            item: c,
+          })),
           ...details.images.map((i) => ({ type: 'image', item: i })),
         ];
         if (allItems.length === 0) return;
@@ -82,6 +86,17 @@ export function useItemOperations({
                   }),
                 },
               );
+            } else if (type === 'combination') {
+              res = await fetch('/prompt_gallery/combinations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: `${it.name} (副本)`,
+                  categoryId: target.id,
+                  promptKeys: it.prompts || [],
+                  outputContent: it.outputContent || '',
+                }),
+              });
             } else if (type === 'image') {
               res = await fetch('/prompt_gallery/image/copy', {
                 method: 'POST',
@@ -199,6 +214,25 @@ export function useItemOperations({
             }
           } catch {
             failCount += batchPayload.categories.length + batchPayload.prompts.length;
+          }
+        }
+
+        // 组合逐个移动（没有批量API）
+        for (const comb of details.combinations) {
+          try {
+            const res = await fetch(`/prompt_gallery/combinations/${comb.id}/move`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ targetCategoryId: target.id }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } catch {
+            failCount++;
           }
         }
 

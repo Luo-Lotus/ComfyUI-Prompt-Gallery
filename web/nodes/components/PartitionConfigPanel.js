@@ -3,10 +3,22 @@
  * 用于配置分区的输出格式、随机模式等
  */
 import { h } from '../../lib/preact.mjs';
-import { useState } from '../../lib/hooks.mjs';
+import { useState, useMemo, useRef, useEffect, useCallback } from '../../lib/hooks.mjs';
 import { Icon } from '../../lib/icons.mjs';
 
-export function PartitionConfigPanel({ partition, globalConfig, onChange, onClose }) {
+// 构建分类完整路径名
+function buildCategoryPathName(categoryId, categories) {
+  if (!categoryId || categoryId === 'root') return '根目录';
+  const path = [];
+  let current = categories.find((c) => c.id === categoryId);
+  while (current) {
+    path.unshift(current.name);
+    current = current.parentId ? categories.find((c) => c.id === current.parentId) : null;
+  }
+  return path.join(' / ');
+}
+
+export function PartitionConfigPanel({ partition, globalConfig, categories = [], onChange, onClose }) {
   const [name, setName] = useState(partition.name);
   const [format, setFormat] = useState(partition.config.format);
   const [randomMode, setRandomMode] = useState(partition.config.randomMode);
@@ -14,6 +26,42 @@ export function PartitionConfigPanel({ partition, globalConfig, onChange, onClos
   const [cycleMode, setCycleMode] = useState(partition.config.cycleMode);
   const [saveToGallery, setSaveToGallery] = useState(partition.config.saveToGallery !== false);
   const [autoCreateCombination, setAutoCreateCombination] = useState(partition.config.autoCreateCombination === true);
+  const [autoSaveCategoryId, setAutoSaveCategoryId] = useState(partition.config.autoSaveCombinationCategoryId || '');
+
+  // 分类选择器状态
+  const [catFilter, setCatFilter] = useState('');
+  const [showCatDropdown, setShowCatDropdown] = useState(false);
+  const catDropdownRef = useRef(null);
+
+  // 预处理分类列表（带路径名）
+  const categoryOptions = useMemo(() => {
+    return categories
+      .filter((c) => c.id !== 'root')
+      .map((c) => ({
+        id: c.id,
+        pathName: buildCategoryPathName(c.id, categories),
+      }))
+      .sort((a, b) => a.pathName.localeCompare(b.pathName));
+  }, [categories]);
+
+  // 过滤分类
+  const filteredCategories = useMemo(() => {
+    if (!catFilter.trim()) return categoryOptions;
+    const q = catFilter.toLowerCase();
+    return categoryOptions.filter((c) => c.pathName.toLowerCase().includes(q));
+  }, [categoryOptions, catFilter]);
+
+  // 点击外部关闭下拉
+  useEffect(() => {
+    if (!showCatDropdown) return;
+    const handleClick = (e) => {
+      if (catDropdownRef.current && !catDropdownRef.current.contains(e.target)) {
+        setShowCatDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showCatDropdown]);
 
   // 预览格式效果
   const previewFormat = format.replace('{content}', 'prompt_name').replace(/\{random\([^)]+\)\}/g, '1.3');
@@ -31,6 +79,7 @@ export function PartitionConfigPanel({ partition, globalConfig, onChange, onClos
         cycleMode,
         saveToGallery,
         autoCreateCombination: finalAutoCreateCombination,
+        autoSaveCombinationCategoryId: finalAutoCreateCombination ? autoSaveCategoryId : '',
       },
     });
     onClose();
@@ -207,6 +256,78 @@ export function PartitionConfigPanel({ partition, globalConfig, onChange, onClos
               h('span', null, '禁用'),
             ]),
           ]),
+
+          // 保存到分类选择器（仅在自动创建组合开启时显示）
+          autoCreateCombination &&
+            h('div', { class: 'node-config-section', style: { marginTop: '8px' } }, [
+              h('label', { class: 'node-config-label' }, '保存到分类'),
+              h('div', {
+                class: 'cat-selector-wrapper',
+                ref: catDropdownRef,
+              }, [
+                // 输入框 + 当前选中显示
+                h('div', { class: 'cat-selector-input-row' }, [
+                  h('input', {
+                    type: 'text',
+                    class: 'node-config-input cat-selector-input',
+                    placeholder: '留空则保存到根目录，输入筛选分类...',
+                    value: showCatDropdown ? catFilter : (autoSaveCategoryId ? buildCategoryPathName(autoSaveCategoryId, categories) : ''),
+                    onFocus: () => {
+                      setCatFilter('');
+                      setShowCatDropdown(true);
+                    },
+                    onInput: (e) => {
+                      setCatFilter(e.target.value);
+                      setShowCatDropdown(true);
+                    },
+                  }),
+                  autoSaveCategoryId &&
+                    h('button', {
+                      class: 'cat-selector-clear',
+                      onClick: () => {
+                        setAutoSaveCategoryId('');
+                        setCatFilter('');
+                        setShowCatDropdown(false);
+                      },
+                      title: '清除（使用根目录）',
+                    }, h(Icon, { name: 'x', size: 12 })),
+                ]),
+                // 下拉列表
+                showCatDropdown &&
+                  h('div', { class: 'cat-selector-dropdown' }, [
+                    // 根目录选项
+                    h('div', {
+                      class: `cat-selector-item ${autoSaveCategoryId === '' ? 'active' : ''}`,
+                      onClick: () => {
+                        setAutoSaveCategoryId('');
+                        setShowCatDropdown(false);
+                      },
+                    }, [
+                      h(Icon, { name: 'folder', size: 12 }),
+                      ' 根目录',
+                    ]),
+                    // 分类列表
+                    ...filteredCategories.map((c) =>
+                      h('div', {
+                        key: c.id,
+                        class: `cat-selector-item ${autoSaveCategoryId === c.id ? 'active' : ''}`,
+                        onClick: () => {
+                          setAutoSaveCategoryId(c.id);
+                          setShowCatDropdown(false);
+                        },
+                      }, [
+                        h(Icon, { name: 'folder', size: 12 }),
+                        ' ' + c.pathName,
+                      ]),
+                    ),
+                    filteredCategories.length === 0 &&
+                      h('div', { class: 'cat-selector-empty' }, '无匹配分类'),
+                  ]),
+              ]),
+              h('div', { class: 'config-hint' },
+                h('span', null, '在浏览区右键分类可复制ID，自动创建的组合将保存到此分类'),
+              ),
+            ]),
         ]),
     ]),
 

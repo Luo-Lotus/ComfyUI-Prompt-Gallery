@@ -20,6 +20,7 @@ async def batch_delete(request):
     请求体: {
       "categories": ["cat1", "cat2"],
       "prompts": [{"categoryId": "xxx", "value": "yyy"}],
+      "combinations": ["comb_id1", "comb_id2"],
       "images": [{"path": "prompt_gallery/xxx.png"}]
     }
     """
@@ -27,6 +28,7 @@ async def batch_delete(request):
         data = await request.json()
         category_ids = data.get("categories", [])
         prompts = data.get("prompts", [])
+        combination_ids = data.get("combinations", [])
         images = data.get("images", [])
 
         prompt_storage, mapping_storage, category_storage, combination_storage = get_storage()
@@ -82,6 +84,18 @@ async def batch_delete(request):
                 result["disassociated_images"].extend(prompt_result["disassociated_images"])
             except Exception as e:
                 result["errors"].append(f"删除Prompt {prompt_data.get('value')} 失败: {str(e)}")
+
+        # 删除组合
+        for comb_id in combination_ids:
+            try:
+                comb = combination_storage.get_combination(comb_id)
+                if not comb:
+                    result["errors"].append(f"组合 {comb_id} 不存在")
+                    continue
+                combination_storage.delete_combination(comb_id)
+                result["deleted_combinations"] += 1
+            except Exception as e:
+                result["errors"].append(f"删除组合 {comb_id} 失败: {str(e)}")
 
         # 删除图片
         for img_data in images:

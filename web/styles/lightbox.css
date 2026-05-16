@@ -296,3 +296,156 @@
 .gallery-lightbox-info-panel ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.22);
 }
+
+/* ===== 编辑模式 - Canvas ===== */
+.gallery-lightbox-canvas {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+/* ===== 编辑按钮（图片上方） ===== */
+.gallery-lightbox-edit-btn {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 42px;
+    padding: 0 20px;
+    border: none;
+    background: rgba(255, 107, 157, 0.9);
+    color: #fff;
+    border-radius: 21px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 10;
+    box-shadow: 0 2px 12px rgba(255, 107, 157, 0.4);
+}
+
+.gallery-lightbox-edit-btn:hover {
+    background: #ff6b9d;
+    transform: translateX(-50%) scale(1.05);
+    box-shadow: 0 4px 20px rgba(255, 107, 157, 0.6);
+}
+
+.gallery-lightbox-edit-btn svg {
+    display: block;
+    flex-shrink: 0;
+}
+
+/* ===== 编辑工具栏 ===== */
+.gallery-lightbox-edit-toolbar {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 6px 10px;
+    z-index: 10;
+}
+
+.gallery-lightbox-edit-toolbar button {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gallery-lightbox-edit-toolbar button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.gallery-lightbox-edit-toolbar button.active {
+    background: #ff6b9d;
+    color: #fff;
+}
+
+.gallery-lightbox-edit-toolbar button svg {
+    display: block;
+}
+
+/* ===== 画笔设置面板 ===== */
+.gallery-lightbox-brush-panel {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 8px 14px;
+    z-index: 10;
+}
+
+.gallery-lightbox-brush-panel input[type="color"] {
+    width: 30px;
+    height: 30px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    cursor: pointer;
+    background: none;
+    padding: 0;
+}
+
+.gallery-lightbox-brush-panel input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 2px;
+}
+
+.gallery-lightbox-brush-panel input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+}
+
+.gallery-lightbox-brush-panel input[type="range"] {
+    width: 100px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+.gallery-lightbox-brush-panel input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ff6b9d;
+    cursor: pointer;
+}
+
+.brush-size-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    min-width: 30px;
+    text-align: center;
+}
+
+.brush-size-preview {
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+}

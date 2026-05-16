@@ -9,6 +9,7 @@ import { batchDelete } from '../../services/promptApi.js';
 export function useSelection({
   categories,
   filteredPrompts,
+  currentCombinations,
   currentPrompt,
   currentCategory,
   loadData,
@@ -84,6 +85,9 @@ export function useSelection({
     flatCategories.forEach((cat) => {
       newSet.add(`category:${cat.id}`);
     });
+    currentCombinations.forEach((comb) => {
+      newSet.add(`combination:${comb.id}`);
+    });
     filteredPrompts.forEach((prompt) => {
       newSet.add(`prompt:${prompt.categoryId}:${prompt.value}`);
     });
@@ -98,10 +102,11 @@ export function useSelection({
     const items = Array.from(selectedItems);
     const types = new Set(items.map((key) => key.split(':')[0]));
 
-    const typeCount = ['prompt', 'category', 'image'].filter((t) => types.has(t)).length;
+    const typeCount = ['prompt', 'category', 'combination', 'image'].filter((t) => types.has(t)).length;
     if (typeCount > 1) return 'mixed';
     if (types.has('image')) return 'image';
     if (types.has('prompt')) return 'prompt';
+    if (types.has('combination')) return 'combination';
     if (types.has('category')) return 'category';
     return 'empty';
   };
@@ -111,6 +116,7 @@ export function useSelection({
     const result = {
       categories: [],
       prompts: [],
+      combinations: [],
       images: [],
     };
 
@@ -127,6 +133,9 @@ export function useSelection({
         if (prompt) {
           result.prompts.push(prompt);
         }
+      } else if (type === 'combination') {
+        const comb = currentCombinations.find((c) => c.id === id);
+        if (comb) result.combinations.push(comb);
       } else if (type === 'image') {
         if (currentPrompt && currentPrompt.images) {
           const img = currentPrompt.images.find((i) => i.path === id);
@@ -148,36 +157,44 @@ export function useSelection({
 
   const handleBatchMove = ({ setMoveItem, setMoveItemType, setShowMoveDialog }) => {
     const details = getSelectedDetails();
-    if (details.categories.length === 0 && details.prompts.length === 0 && details.images.length === 0) return;
+    const totalSelected = details.categories.length + details.prompts.length + details.combinations.length + details.images.length;
+    if (totalSelected === 0) return;
 
     setBatchOperation('move');
-    if (details.images.length > 0) {
-      setMoveItemType('image');
-      setMoveItem(details.images[0]);
-    } else if (details.categories.length > 0) {
+    if (details.categories.length > 0) {
       setMoveItemType('category');
       setMoveItem(details.categories[0]);
-    } else {
+    } else if (details.prompts.length > 0) {
       setMoveItemType('prompt');
       setMoveItem(details.prompts[0]);
+    } else if (details.combinations.length > 0) {
+      setMoveItemType('combination');
+      setMoveItem(details.combinations[0]);
+    } else {
+      setMoveItemType('image');
+      setMoveItem(details.images[0]);
     }
     setShowMoveDialog(true);
   };
 
   const handleBatchCopy = ({ setCopyItem, setCopyItemType, setShowCopyDialog }) => {
     const details = getSelectedDetails();
-    if (details.prompts.length === 0 && details.images.length === 0) {
-      showToast('请选择Prompt后复制', 'warning');
+    const totalCopyable = details.prompts.length + details.combinations.length + details.images.length;
+    if (totalCopyable === 0) {
+      showToast('请选择Prompt或组合后复制', 'warning');
       return;
     }
 
     setBatchOperation('copy');
-    if (details.images.length > 0) {
-      setCopyItemType('image');
-      setCopyItem(details.images[0]);
-    } else {
+    if (details.prompts.length > 0) {
       setCopyItemType('prompt');
       setCopyItem(details.prompts[0]);
+    } else if (details.combinations.length > 0) {
+      setCopyItemType('combination');
+      setCopyItem(details.combinations[0]);
+    } else {
+      setCopyItemType('image');
+      setCopyItem(details.images[0]);
     }
     setShowCopyDialog(true);
   };
@@ -205,6 +222,7 @@ export function useSelection({
             categoryId: a.categoryId,
             value: a.value,
           })),
+          combinations: details.combinations.map((c) => c.id),
           images: details.images.map((img) => ({ path: img.path })),
         });
         showToast('批量删除成功', 'success');

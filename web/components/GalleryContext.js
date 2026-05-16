@@ -133,10 +133,15 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     setShowExportDialog(true);
   }, []);
 
+  const currentCombinations = useMemo(() => {
+    return data?.combinations || [];
+  }, [data]);
+
   // 多选管理
   const selection = useSelection({
     categories: categoryMgr.categories,
     filteredPrompts,
+    currentCombinations,
     currentPrompt,
     currentCategory,
     loadData,
@@ -160,10 +165,6 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   });
 
   // ============ 计算值 ============
-
-  const currentCombinations = useMemo(() => {
-    return data?.combinations || [];
-  }, [data]);
 
   const filteredPromptImages = useMemo(() => {
     let images = [...(currentPrompt?.images || [])];

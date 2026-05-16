@@ -76,6 +76,9 @@ function getDeleteConfig(type, target, context) {
         if (target?.prompts?.length > 0) {
           lines.push(`- ${target.prompts.length} 个 Prompt 及关联图片`);
         }
+        if (target?.combinations?.length > 0) {
+          lines.push(`- ${target.combinations.length} 个组合`);
+        }
         if (target?.images?.length > 0) {
           lines.push(`- ${target.images.length} 张图片`);
         }

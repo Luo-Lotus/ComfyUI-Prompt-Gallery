@@ -73,6 +73,8 @@ async def update_category(request):
             kwargs["name"] = data["name"]
         if "order" in data:
             kwargs["order"] = data["order"]
+        if "metadata" in data:
+            kwargs["metadata"] = data["metadata"]
 
         success = category_storage.update_category(category_id, **kwargs)
 

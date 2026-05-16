@@ -120,13 +120,13 @@ export async function deleteCombination(id) {
 }
 
 /**
- * 批量删除（分类、Prompt、图片）
+ * 批量删除（分类、Prompt、组合、图片）
  */
-export async function batchDelete({ categories = [], prompts = [], images = [] }) {
+export async function batchDelete({ categories = [], prompts = [], combinations = [], images = [] }) {
   const response = await fetch('/prompt_gallery/batch/delete', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ categories, prompts, images }),
+    body: JSON.stringify({ categories, prompts, combinations, images }),
   });
   if (!response.ok) {
     const error = await response.json();
@@ -273,5 +273,21 @@ export async function importPrompts(file, categoryId, separateStorage = false) {
     method: 'POST',
     body: formData,
   });
+  return await response.json();
+}
+
+/**
+ * 更新分类 metadata
+ */
+export async function updateCategoryMetadata(categoryId, metadata) {
+  const response = await fetch(`/prompt_gallery/categories/${encodeURIComponent(categoryId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ metadata }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || '更新分类 metadata 失败');
+  }
   return await response.json();
 }

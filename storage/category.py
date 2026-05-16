@@ -137,7 +137,8 @@ class CategoryStorage:
             "name": name,
             "parentId": parent_id,
             "order": max_order + 1,
-            "createdAt": int(time.time() * 1000)
+            "createdAt": int(time.time() * 1000),
+            "metadata": {}
         }
         if target_file:
             new_category["_source_file"] = target_file
@@ -165,6 +166,10 @@ class CategoryStorage:
                     for key, value in kwargs.items():
                         if key in ["name", "order", "parentId"]:
                             cat[key] = value
+                        elif key == "metadata":
+                            if not isinstance(cat.get("metadata"), dict):
+                                cat["metadata"] = {}
+                            cat["metadata"].update(value)
                     self._write_data(data)
                     return True
             return False
