@@ -35,9 +35,9 @@ Prompt Gallery is a ComfyUI custom node plugin that provides:
 - **SaveToGallery**: Saves generated images to the gallery system
     - Supports two input sources (priority: `metadata_json` > `prompt_string`):
         - `metadata_json`: from `PromptSelector`, contains explicit prompt selections
-        - `prompt_string`: auto-matches known prompt names via regex substring matching
-    - Validates at least one input source is provided
-    - `_match_prompts_from_prompt()`: Regex alternation-based matching with module-level cache
+        - `prompt_string`: auto-matches known prompt names via loop-based substring matching
+    - Images are always saved even when no prompts match (prompts list will be empty)
+    - `_match_prompts_from_prompt()`: Loop-based matching (`name.lower() in prompt_string.lower()`), cached at module level with frozenset fingerprint. Skips prompts in categories with `metadata.blockGallerySave = true` (including descendant categories)
     - Uses `collect_prompt()` to register prompt associations for saved images
 - **`_apply_format()`**: Applies format template (e.g., `@{content}`) to prompt names
 
@@ -62,7 +62,7 @@ All storage classes are thread-safe with locking mechanism. Access via `get_stor
 | ------------------ | ------------------------------------------------------------------------------------------------ |
 | `gallery.py`       | `GET /data` — returns prompts + combinations with `coverImagePath` (no full `images` array)      |
 | `prompts.py`       | Prompt CRUD, batch operations, `GET /prompt_images` (lazy-load prompt images)                    |
-| `categories.py`    | Category CRUD, move                                                                              |
+| `categories.py`    | Category CRUD, move (supports `metadata` field update)                                           |
 | `combinations.py`  | Combination CRUD, duplicate, move, images (intersection of member prompts), batch delete         |
 | `images.py`        | Image info, save to gallery, delete/move/copy image, restore from metadata                       |
 | `batch.py`         | Batch delete, move, copy operations                                                              |
@@ -103,7 +103,8 @@ web/
 ├── lib/                           # Third-party libraries
 │   ├── preact.mjs                 # Preact core
 │   ├── hooks.mjs                  # Preact hooks
-│   └── icons.mjs                  # SVG icon system (Icon component + iconToSvg helper)
+│   ├── icons.mjs                  # SVG icon system (Icon component + iconToSvg helper)
+│   └── gilbert.mjs                # Gilbert curve algorithm (pixel shuffling for image obfuscation)
 ├── components/                    # Preact components
 │   ├── GalleryModal.js            # Main gallery container (lazy-loads prompt images, "set as cover" menu)
 │   ├── GalleryContext.js           # Shared gallery state (context provider)
@@ -114,7 +115,7 @@ web/
 │   ├── CombinationCard.js         # Combination card (uses coverImagePath)
 │   ├── CombinationDialog.js       # Create/edit combination dialog
 │   ├── CombinationDetailView.js   # Combination detail view
-│   ├── Lightbox.js                # Full-screen image viewer (shows prompt tags)
+│   ├── Lightbox.js                # Full-screen image viewer with edit mode (obfuscation, brush, mosaic)
 │   ├── BaseCard.js                # Card base component (selection, context menu)
 │   ├── ContextMenu.js             # Right-click context menu
 │   ├── LazyList.js                # Virtual scroll list
@@ -146,15 +147,16 @@ web/
 │       ├── useFilteredPrompts.js  # Filtering & sorting
 │       ├── useCategoryManager.js  # Category management
 │       ├── useSelection.js        # Selection state
-│       └── useItemOperations.js   # Item CRUD operations
+│       ├── useItemOperations.js   # Item CRUD operations
+│       └── useLightboxEditor.js   # Lightbox edit mode state (canvas, undo, brush, mosaic, obfuscation)
 ├── nodes/                         # Node-specific components
 │   ├── PromptSelector.js          # Node extension entry (beforeRegisterNodeDef)
 │   └── components/
 │       ├── PromptSelectorWidget.js    # Preact widget (hover preview for prompts & combinations)
 │       ├── PartitionList.js           # Partition list with drag-drop
 │       ├── PartitionItem.js           # Individual partition item
-│       ├── PartitionHeader.js         # Partition header (shows 🔗 badge for auto-create)
-│       ├── PartitionConfigPanel.js    # Per-partition config (format, random, cycle, saveToGallery, autoCreateCombination)
+│       ├── PartitionHeader.js         # Partition header (shows link icon badge for auto-create)
+│       ├── PartitionConfigPanel.js    # Per-partition config (format, random, cycle, saveToGallery, autoCreateCombination, autoSaveCombinationCategoryId with searchable category selector)
 │       └── hooks/
 │           ├── usePromptSelector.js   # Core selection logic (loads prompts + combinations from /data)
 │           ├── useImagePreview.js     # Cover image hover preview (direct DOM, no fetch)
@@ -166,7 +168,7 @@ web/
     ├── gallery.css                # Gallery modal styles
     ├── gallery-card.css           # Card styles
     ├── gallery-grid.css           # Grid layout styles
-    ├── lightbox.css               # Lightbox styles (flex column, prompt tags)
+    ├── lightbox.css               # Lightbox styles (viewer, info panel, edit toolbar, brush/mosaic panel)
     ├── prompt-selector.css        # Selector styles
     ├── combination.css            # Combination styles
     ├── toast.css                  # Notification styles
@@ -196,6 +198,21 @@ web/
 - `usePromptSelector`: Core selection state, loads data from `/data` endpoint (prompts + combinations in one call)
 - `useImagePreview`: Direct DOM preview popup using `coverImagePath` (no API fetch)
 - `usePartitionState`: Partition CRUD, prompt/category/combination mapping, persistence
+- `useLightboxEditor`: Lightbox edit mode — canvas rendering, undo stack, brush/mosaic/obfuscation tools
+
+**Lightbox Editor**:
+
+The Lightbox (`Lightbox.js`) has an edit mode for image manipulation. Click the "编辑" button above the image to enter edit mode.
+
+- **混淆 (Obfuscate)**: Scrambles pixels using Gilbert curve space-filling curve + golden ratio offset (`gilbert.mjs`). The same image dimensions always produce the same shuffling, so it's reversible
+- **还原 (Restore)**: Restores the original image, clearing all edits (obfuscation + brush + mosaic)
+- **画笔 (Brush)**: Freehand drawing with configurable color and size. Supports touch
+- **马赛克 (Mosaic)**: Paints mosaic blocks — averages pixel colors in the brush area. Size slider controls block size (1–80px). No color picker (uses image's own colors)
+- **撤销 (Undo)**: Reverts last operation (up to 20 steps). Ctrl+Z shortcut
+- All edits are preview-only — closing the Lightbox discards changes, original files are not modified
+- Right-click on canvas opens browser context menu (for copying), does not trigger drawing
+- Edit mode uses `<canvas>` instead of `<img>`, image loaded via `buildImageUrl()` with `crossOrigin='anonymous'`
+- Navigating to a different image automatically exits edit mode
 
 **Cover Image System**:
 
@@ -212,12 +229,14 @@ web/
     - `name` = comma-joined prompt names
     - `outputContent` = formatted content (e.g., `@prompt_one,@prompt_two` if format is `@{content}`)
     - `prompts` = actually used prompts (after random/cycle filtering)
+    - `categoryId` = `autoSaveCombinationCategoryId` from partition config (defaults to `"root"`)
 - Auto-create requires `saveToGallery` enabled on the partition
 
 **Partition System**:
 
-- Each partition has independent config: `format`, `randomMode`, `randomCount`, `cycleMode`, `saveToGallery`, `autoCreateCombination`
+- Each partition has independent config: `format`, `randomMode`, `randomCount`, `cycleMode`, `saveToGallery`, `autoCreateCombination`, `autoSaveCombinationCategoryId`
 - `autoCreateCombination` is disabled when `saveToGallery` is off
+- `autoSaveCombinationCategoryId`: target category for auto-created combinations (empty = root category). Configured via searchable category selector in partition config panel
 - Partition header shows link icon badge when auto-create is enabled
 
 ## Development Workflow
@@ -387,7 +406,8 @@ The plugin maintains JSON files in the plugin storage directory. Each storage cl
 
 **`categories.json`** (glob: `*.categories.json`): Category tree (CategoryStorage)
 
-- Fields: `id`, `name`, `parentId`, `order`, `createdAt`
+- Fields: `id`, `name`, `parentId`, `order`, `createdAt`, `metadata`
+- `metadata` fields: `blockGallerySave` (boolean) — when true, prompts in this category and its descendants are excluded from `prompt_string` auto-matching in SaveToGallery
 
 **`combinations.json`** (glob: `*.combinations.json`): Combination data (CombinationStorage)
 
@@ -456,6 +476,7 @@ element.innerHTML = iconToSvg('trash-2', 16);
 | `settings`                       | Configuration / settings                   |
 | `power`                          | Enable / disable toggle                    |
 | `ban`                            | Disabled / prohibited state                |
+| `bookmark`                       | Auto-save category indicator               |
 | `repeat`                         | Cycle mode indicator                       |
 | `shuffle`                        | Random mode indicator                      |
 | `download`                       | Import / download actions                  |
@@ -474,6 +495,11 @@ element.innerHTML = iconToSvg('trash-2', 16);
 | `arrow-up` / `arrow-down`        | Sort order                                 |
 | `chevron-left` / `chevron-right` | Navigation arrows                          |
 | `minus`                          | Collapse / reduce                          |
+| `undo`                           | Undo actions                               |
+| `brush`                          | Brush / draw tool                          |
+| `grid`                           | Mosaic tool                                |
+| `bookmark`                       | Bookmark / save                            |
+| `unlink`                         | Unlink / disconnect                        |
 
 ### Adding New Icons
 
@@ -574,7 +600,7 @@ svg.spin {
 - **Image lazy loading**: `loading="lazy"` attribute on images
 - **Event listener cleanup**: Proper cleanup in `useEffect` return functions
 - **Virtual scroll**: `LazyList` component for large lists
-- **Prompt string prompt matching**: SaveToGallery matches prompt names via compiled regex alternation pattern (longest-first, case-insensitive), cached at module level with frozenset fingerprint invalidation
+- **Prompt string prompt matching**: SaveToGallery matches prompt names via loop-based substring matching (`name.lower() in prompt_string.lower()`, CPython C-level optimized), sorted by name length descending (longest-first), cached at module level with frozenset fingerprint invalidation. Skips blocked categories (`metadata.blockGallerySave`) with cached descendant ID set
 - **Batch import methods**: `add_prompts_import()` and `add_mappings_import()` do single read → batch append → single write (O(1) instead of O(N) storage writes)
 - **Multi-file glob storage**: Read merges all shard files, write splits by `_source_file` tag
 - **Remote image support**: All endpoints use `is_remote_path()` to handle remote images (URL-based) consistently, skipping local file I/O

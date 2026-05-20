@@ -100,7 +100,8 @@ partitionData = {
                 randomCount: 3,             // 随机数量
                 cycleMode: false,           // 循环模式
                 saveToGallery: true,        // 是否保存到画廊
-                autoCreateCombination: false // 是否自动创建组合
+                autoCreateCombination: false, // 是否自动创建组合
+                autoSaveCombinationCategoryId: "" // 自动创建组合的目标分类（空=root）
             }
         },
         // ... 最多 10 个分区
@@ -381,7 +382,7 @@ working_items = [
 4. 用逗号拼接所有格式化片段作为 `outputContent`
 5. 用逗号拼接Prompt名称作为组合名 `name`
 6. 查重：检查 `outputContent` 相同的组合是否已存在
-7. 不存在则创建新组合（存储到 `combinations.json`）
+7. 不存在则创建新组合（存储到分区配置 `autoSaveCombinationCategoryId` 指定的分类，未设置则保存到根目录）
 
 **示例**：
 
@@ -389,6 +390,7 @@ working_items = [
 - `outputContent` = `"@mike,@sarah"`
 - `name` = `"mike,sarah"`
 - `prompts` = `["mike", "sarah"]`
+- `categoryId` = 分区配置 `autoSaveCombinationCategoryId` 的值（未设置则为 `"root"`）
 
 ### 3.7 富化 Metadata 输出
 
@@ -425,7 +427,7 @@ working_items = [
 | `prompt`（隐藏）        | PROMPT        | —    | ComfyUI 工作流的 prompt 信息                         |
 | `extra_pnginfo`（隐藏） | EXTRA_PNGINFO | —    | ComfyUI 附加 PNG 信息                                |
 
-> \*`metadata_json` 和 `prompt_string` 至少需要提供一个。两者都提供时，优先使用 `metadata_json`。
+> 两者都提供时，优先使用 `metadata_json`。即使都未提供或未匹配到任何Prompt，图片也会保存（关联Prompt列表为空）。
 
 ### 4.2 处理流程
 
@@ -442,11 +444,11 @@ Path A: metadata_json 有效                                │
     ↓                                                    │
 Path B: metadata_json 无效，但有 prompt_string             │
     → 调用 _match_prompts_from_prompt(prompt_string)       │
-    → 使用正则交替模式匹配已知Prompt名                         │
+    → 使用循环子串匹配已知Prompt名（跳过禁止画廊的分类）       │
     → 所有匹配到的Prompt默认 saveToGallery=true               │
     ↓                                                    │
-Path C: 两者都没有有效内容                                  │
-    → 输出错误日志，返回 ()                                │
+Path C: 两者都没有有效内容或未匹配到Prompt                    │
+    → 输出警告日志，继续保存图片（关联Prompt为空）              │
     ↓                                                    │
 └────────────────────────────────────────────────────────┘
     ↓ （Path A 或 Path B 得到 saveable_prompts / saveable_names）
@@ -484,18 +486,19 @@ Tensor → numpy → PIL Image             │
 **算法步骤**：
 
 1. 从 `PromptStorage` 加载所有Prompt
-2. 构建 `name → [prompt, ...]` 查找表（同名Prompt可属于不同分类）
-3. 将所有Prompt名编译为一个正则交替模式（`re.compile('name1|name2|...'，re.IGNORECASE)`），按名称长度降序排列确保贪心匹配
-4. 单次 `findall()` 扫描 prompt_string，获取所有匹配
-5. 去重保序，查找每个匹配名对应的所有Prompt
-6. 返回 `[{categoryId, name, saveToGallery: True}, ...]`
+2. 从 `CategoryStorage` 构建被禁止保存到画廊的分类 ID 集合（`metadata.blockGallerySave=true` 的分类及其所有后代）
+3. 构建 `name → [prompt, ...]` 查找表（同名Prompt可属于不同分类，含别名）
+4. 按名称长度降序排列（贪心匹配，长名优先），缓存到模块级变量
+5. 循环遍历每个名称，使用 `name.lower() in prompt_string.lower()` 子串匹配
+6. 跳过 `categoryId` 在禁止集合中的Prompt
+7. 去重保序，返回 `[{categoryId, name, saveToGallery: True}, ...]`
 
 **性能优化**：
 
-- 正则交替模式：将 N 个Prompt名编译为 1 个正则，单次扫描，匹配时间与Prompt数量无关
-- 模块级缓存：`_prompt_regex_cache` + `frozenset` 指纹，Prompt列表未变化时复用已编译正则
-- 10,000 个Prompt名：正则编译 ~10-50ms（一次性），匹配 <1ms
-- 大小写不敏感匹配，结果使用存储中的规范大小写
+- 循环子串匹配：CPython 的 `in` 操作使用 C 级优化字符串搜索（Boyer-Moore 变体），比正则 alternation 快得多
+- 模块级缓存：`_prompt_match_cache`（名称列表）+ `_prompt_match_names`（frozenset 指纹），Prompt列表未变化时复用
+- 禁止分类缓存：`_blocked_category_cache` + `_blocked_category_fingerprint`，分类数据未变化时复用
+- 大小写不敏感匹配（`name.lower()` 比较）
 
 **示例**：
 
@@ -572,7 +575,8 @@ saveable_names = [a["name"] for a in saveable_prompts]
                 "randomMode": true,
                 "randomCount": 2,
                 "saveToGallery": true,
-                "autoCreateCombination": true
+                "autoCreateCombination": true,
+                "autoSaveCombinationCategoryId": ""
             },
             "promptKeys": ["root:mike", "cat1:sarah"],
             "categoryIds": ["cat2"],
@@ -653,7 +657,7 @@ partitionData = {
     "version": 1,
     "partitions": [{
         "id": "...", "name": "...", "isDefault": bool, "enabled": bool,
-        "config": { format, randomMode, randomCount, cycleMode, saveToGallery, autoCreateCombination },
+        "config": { format, randomMode, randomCount, cycleMode, saveToGallery, autoCreateCombination, autoSaveCombinationCategoryId },
         "promptKeys": ["categoryId:name", ...],
         "categoryIds": ["catId", ...],
         "combinationKeys": ["combination:uuid", ...]
@@ -680,6 +684,6 @@ partitionData = {
 - **prompts.json** (glob: `*.prompts.json`): `{ value, name, alias, categoryId, coverImageId, createdAt, imageCount, metadata }`
 - **combinations.json** (glob: `*.combinations.json`): `{ id, name, categoryId, prompts[], outputContent, coverImageId, createdAt }`
 - **images.json** (glob: `*.images.json`): `{ type, imagePath, prompts[], fileInfo, promptString, generatePrompt }`
-- **categories.json** (glob: `*.categories.json`): `{ id, name, parentId, order, createdAt }`
+- **categories.json** (glob: `*.categories.json`): `{ id, name, parentId, order, createdAt, metadata }`
 
 远程图片：`type` 为 `"remote"` 时，`imagePath` 是 URL。所有端点通过 `is_remote_path()` 跳过本地文件 I/O。
