@@ -95,18 +95,29 @@ async def batch_resolve(request):
 
         result = {}
 
-        # 解析 prompts
+        # 解析 prompts（支持 "categoryId:value" 和纯 "value" 两种格式）
         if prompt_keys:
             all_prompts = prompt_storage.get_all_prompts()
             prompt_index = {}
+            value_index = {}  # value -> [prompt, ...]（同名 prompt 可能属于不同分类）
             for p in all_prompts:
                 key = f"{p.get('categoryId', 'root')}:{p.get('value')}"
                 prompt_index[key] = p
+                v = p.get('value', '')
+                if v not in value_index:
+                    value_index[v] = []
+                value_index[v].append(p)
             prompts_result = {}
             for key in prompt_keys:
                 p = prompt_index.get(key)
+                # fallback: 纯 value 查找（取第一个匹配）
+                if not p and ':' not in key:
+                    matches = value_index.get(key, [])
+                    if matches:
+                        p = matches[0]
                 if p:
-                    prompts_result[key] = {
+                    result_key = f"{p.get('categoryId', 'root')}:{p.get('value')}"
+                    prompts_result[result_key] = {
                         "value": p.get("value"),
                         "name": p.get("name"),
                         "categoryId": p.get("categoryId", "root"),

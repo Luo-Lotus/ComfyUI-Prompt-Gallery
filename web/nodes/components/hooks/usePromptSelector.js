@@ -41,12 +41,25 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
   const [currentCategory, setCurrentCategory] = useState('root');
   const [refreshing, setRefreshing] = useState(false);
   const [combinations, setCombinations] = useState([]);
+  // 已选组合的完整数据（来自 batchResolve，不受当前分类筛选影响）
+  const [selectedCombinationsData, setSelectedCombinationsData] = useState({});
 
   // 搜索结果状态
   const [searchResults, setSearchResults] = useState(null);
 
   // 封面缓存（key -> coverImagePath）
   const coversCacheRef = useRef({});
+
+  // 合并浏览列表和已选组合数据，供 usePartitionState 解析分区内的组合项
+  const allCombinations = useMemo(() => {
+    if (Object.keys(selectedCombinationsData).length === 0) return combinations;
+    const map = new Map();
+    for (const c of combinations) map.set(c.id, c);
+    for (const [id, c] of Object.entries(selectedCombinationsData)) {
+      if (!map.has(id)) map.set(id, c);
+    }
+    return Array.from(map.values());
+  }, [combinations, selectedCombinationsData]);
 
   // 分区系统状态（由 usePartitionState hook 管理）
   const {
@@ -68,7 +81,7 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
   } = usePartitionState({
     selectedPromptsCache,
     categories,
-    combinations,
+    combinations: allCombinations,
     metadataInput,
   });
 
@@ -230,11 +243,16 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
         if (result.combinations) {
           const resolvedCombs = Object.values(result.combinations);
           if (resolvedCombs.length > 0) {
-            setCombinations((prev) => {
-              const map = new Map();
-              for (const c of prev) map.set(c.id, c);
-              for (const c of resolvedCombs) map.set(c.id, c);
-              return Array.from(map.values());
+            setSelectedCombinationsData((prev) => {
+              const next = { ...prev };
+              let changed = false;
+              for (const c of resolvedCombs) {
+                if (!next[c.id]) {
+                  next[c.id] = c;
+                  changed = true;
+                }
+              }
+              return changed ? next : prev;
             });
           }
         }
@@ -242,7 +260,7 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
         console.error('[PromptSelector] Failed to hydrate cache:', err);
       }
     },
-    [selectedKeys, selectedPromptsCache, selectedCategories, selectedCombinationKeys, categories, combinations, mergeCategories],
+    [selectedKeys, selectedPromptsCache, selectedCategories, selectedCombinationKeys, categories, mergeCategories],
   );
 
   // 当选中项变化时，补全缓存中缺失的信息
@@ -451,6 +469,7 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
     selectedKeys,
     selectedCategories,
     selectedPromptsCache,
+    setSelectedPromptsCache,
     loading,
     searchQuery,
 

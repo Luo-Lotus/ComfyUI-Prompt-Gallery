@@ -15,7 +15,7 @@ import { showToast } from '../../components/Toast.js';
 import { useBodyRender } from './hooks/useBodyRender.js';
 import { AddPromptDialog } from '../../components/AddPromptDialog.js';
 import { CategoryDialog } from '../../components/CategoryDialog.js';
-import { addCategory, batchResolvePrompts, searchAll } from '../../utils.js';
+import { addCategory, batchResolve, searchAll } from '../../utils.js';
 import { updateCategoryMetadata } from '../../services/promptApi.js';
 
 // 辅助函数：构建面包屑路径
@@ -46,6 +46,7 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
     selectedCategories,
     selectedCombinationKeys,
     selectedPromptsCache,
+    setSelectedPromptsCache,
     loading,
     searchQuery,
     sortBy,
@@ -572,19 +573,34 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
               icon: 'unlink',
               label: '拆分选择',
               action: async () => {
-                // 尝试通过 batch_resolve 获取各 prompt 的 categoryId
-                const keys = (combination.prompts || []).map((v) => `${combination.categoryId || 'root'}:${v}`);
-                let resolvedMap = {};
+                // 通过 batchResolve 获取各 prompt 的完整数据（含真实 categoryId）
+                // 响应 key 格式为 "categoryId:value"
+                let resolvedByValue = {};
                 try {
-                  const result = await batchResolvePrompts(keys);
-                  resolvedMap = result.prompts || {};
+                  const result = await batchResolve({ prompts: combination.prompts || [] });
+                  for (const [key, prompt] of Object.entries(result.prompts || {})) {
+                    resolvedByValue[prompt.value] = prompt;
+                  }
                 } catch {
                   // fallback: 使用 combination.categoryId
                 }
 
+                // 预填充 selectedPromptsCache，确保后续显示不丢失
+                const cacheUpdates = {};
                 (combination.prompts || []).forEach((promptValue) => {
-                  const key = `${combination.categoryId || 'root'}:${promptValue}`;
-                  const resolved = resolvedMap[key];
+                  const resolved = resolvedByValue[promptValue];
+                  const categoryId = resolved ? resolved.categoryId : (combination.categoryId || 'root');
+                  const key = makePromptKey(categoryId, promptValue);
+                  if (resolved) {
+                    cacheUpdates[key] = resolved;
+                  }
+                });
+                if (Object.keys(cacheUpdates).length > 0) {
+                  setSelectedPromptsCache((prev) => ({ ...cacheUpdates, ...prev }));
+                }
+
+                (combination.prompts || []).forEach((promptValue) => {
+                  const resolved = resolvedByValue[promptValue];
                   const categoryId = resolved ? resolved.categoryId : (combination.categoryId || 'root');
                   const resolvedKey = makePromptKey(categoryId, promptValue);
                   if (!isItemSelected('prompt', resolvedKey)) {
