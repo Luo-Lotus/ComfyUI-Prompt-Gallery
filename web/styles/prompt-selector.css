@@ -1479,6 +1479,23 @@
   pointer-events: none;
 }
 
+/* 分区内标签间插入指示线 */
+.partition-item-drop-indicator {
+  width: 2px;
+  height: 20px;
+  background: #4a9eff;
+  border-radius: 1px;
+  display: inline-block;
+  vertical-align: middle;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+/* 拖拽中的标签 */
+.prompt-selector-tag.dragging {
+  opacity: 0.4;
+}
+
 /* 分区头部信息区域 */
 .partition-info {
   display: flex;

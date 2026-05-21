@@ -183,35 +183,61 @@ class PromptSelector:
 
             # 收集画师名：直接选择 + 分类递归解析
             prompt_entries = []  # [(cat_id, name), ...]
-
-            # 从 promptKeys 提取画师名（格式 "categoryId:promptName"）
-            for key in partition.get('promptKeys', []):
-                parts = key.split(':', 1)
-                name = parts[-1].strip() if parts else ''
-                cat_id = parts[0] if len(parts) > 1 else ''
-                if name:
-                    prompt_entries.append((cat_id, name))
-
-            # 从 categoryIds 递归解析画师
-            for cat_id in partition.get('categoryIds', []):
-                resolved = self._resolve_category_to_prompts(cat_id, all_prompts, all_categories)
-                for n in resolved:
-                    prompt_entries.append((cat_id, n))
-
-            # 从 combinationKeys 提取组合（格式 "combination:{uuid}"）
             combination_entries = []  # [(output_content, prompt_keys), ...]
-            for comb_key in partition.get('combinationKeys', []):
-                if comb_key.startswith('combination:'):
-                    comb_id = comb_key[len('combination:'):]
-                    try:
-                        combination = combination_storage.get_combination_by_id(comb_id)
-                        if combination:
-                            combination_entries.append((
-                                combination.get('outputContent', ''),
-                                combination.get('prompts', []),
-                            ))
-                    except Exception as e:
-                        print(f"[PromptSelector] Failed to lookup combination {comb_id}: {e}")
+
+            # 优先从 orderItems 读取（统一格式），否则 fallback 到旧格式
+            order_items = partition.get('orderItems')
+            if order_items is not None:
+                for item in order_items:
+                    item_type = item.get('type', '')
+                    key = item.get('key', '')
+                    if item_type == 'prompt':
+                        parts = key.split(':', 1)
+                        name = parts[-1].strip() if parts else ''
+                        cat_id = parts[0] if len(parts) > 1 else ''
+                        if name:
+                            prompt_entries.append((cat_id, name))
+                    elif item_type == 'category':
+                        resolved = self._resolve_category_to_prompts(key, all_prompts, all_categories)
+                        for n in resolved:
+                            prompt_entries.append((key, n))
+                    elif item_type == 'combination' and key.startswith('combination:'):
+                        comb_id = key[len('combination:'):]
+                        try:
+                            combination = combination_storage.get_combination_by_id(comb_id)
+                            if combination:
+                                combination_entries.append((
+                                    combination.get('outputContent', ''),
+                                    combination.get('prompts', []),
+                                ))
+                        except Exception as e:
+                            print(f"[PromptSelector] Failed to lookup combination {comb_id}: {e}")
+            else:
+                # 向后兼容旧格式
+                for key in partition.get('promptKeys', []):
+                    parts = key.split(':', 1)
+                    name = parts[-1].strip() if parts else ''
+                    cat_id = parts[0] if len(parts) > 1 else ''
+                    if name:
+                        prompt_entries.append((cat_id, name))
+
+                for cat_id in partition.get('categoryIds', []):
+                    resolved = self._resolve_category_to_prompts(cat_id, all_prompts, all_categories)
+                    for n in resolved:
+                        prompt_entries.append((cat_id, n))
+
+                for comb_key in partition.get('combinationKeys', []):
+                    if comb_key.startswith('combination:'):
+                        comb_id = comb_key[len('combination:'):]
+                        try:
+                            combination = combination_storage.get_combination_by_id(comb_id)
+                            if combination:
+                                combination_entries.append((
+                                    combination.get('outputContent', ''),
+                                    combination.get('prompts', []),
+                                ))
+                        except Exception as e:
+                            print(f"[PromptSelector] Failed to lookup combination {comb_id}: {e}")
 
             # 去重保序
             seen = set()
@@ -570,6 +596,7 @@ class SaveToGallery:
         prompt_storage, mapping_storage, _, _ = get_storage()
 
         saved_count = 0
+        results = []
         for idx, image_tensor in enumerate(images):
             i = 255. * image_tensor.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
@@ -595,6 +622,12 @@ class SaveToGallery:
             try:
                 img.save(save_path, format="PNG", pnginfo=pnginfo)
                 saved_count += 1
+
+                results.append({
+                    "filename": filename,
+                    "subfolder": dir_path,
+                    "type": "output",
+                })
 
                 # 构建相对路径
                 image_path = f"{dir_path}/{filename}" if dir_path else filename
@@ -638,7 +671,7 @@ class SaveToGallery:
             prompt_storage.update_image_count_batch(deltas)
 
         print(f"[SaveToGallery] 总共保存了 {saved_count} 张图片")
-        return ()
+        return { "ui": { "images": results } }
 
 
 class QuickSavePrompt:

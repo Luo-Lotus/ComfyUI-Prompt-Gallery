@@ -11,7 +11,6 @@ import { useContextMenu } from './ContextMenu.js';
 
 export function CombinationCard({
   combination,
-  prompts = [],
   onClick,
   onEdit,
   onDuplicate,

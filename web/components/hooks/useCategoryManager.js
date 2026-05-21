@@ -5,7 +5,6 @@
 import { useState, useEffect, useMemo } from '../../lib/hooks.mjs';
 import {
   fetchCategories,
-  fetchAllPrompts,
   buildBreadcrumbPath,
   addCategory,
   updateCategory,
@@ -15,7 +14,6 @@ import { showToast } from '../Toast.js';
 
 export function useCategoryManager({ viewMode, currentPrompt, viewModeCombination, onNavigateToGallery }) {
   const [categories, setCategories] = useState([]);
-  const [allPrompts, setAllPrompts] = useState([]);
   const [currentCategory, setCurrentCategory] = useState('root');
   const [categoryPath, setCategoryPath] = useState([]);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
@@ -24,16 +22,14 @@ export function useCategoryManager({ viewMode, currentPrompt, viewModeCombinatio
   const [showCategoryDeleteConfirm, setShowCategoryDeleteConfirm] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
 
-  // 加载分类数据和所有Prompt
+  // 加载分类数据
   useEffect(() => {
     const init = async () => {
       try {
         const result = await fetchCategories();
         setCategories(result.categories || []);
-        const promptsData = await fetchAllPrompts();
-        setAllPrompts(promptsData.prompts || []);
       } catch (err) {
-        console.error('加载数据失败:', err);
+        console.error('加载分类数据失败:', err);
       }
     };
     init();
@@ -92,8 +88,6 @@ export function useCategoryManager({ viewMode, currentPrompt, viewModeCombinatio
   const refreshCategories = async () => {
     const result = await fetchCategories();
     setCategories(result.categories || []);
-    const promptsData = await fetchAllPrompts();
-    setAllPrompts(promptsData.prompts || []);
   };
 
   const handleCategorySelect = (category) => {
@@ -158,7 +152,6 @@ export function useCategoryManager({ viewMode, currentPrompt, viewModeCombinatio
 
   return {
     categories,
-    allPrompts,
     currentCategory,
     categoryPath,
     showCategoryDialog,
@@ -169,7 +162,6 @@ export function useCategoryManager({ viewMode, currentPrompt, viewModeCombinatio
     categoryToDelete,
     setCurrentCategory,
     setCategories,
-    setAllPrompts,
     setShowCategoryDeleteConfirm,
     setCategoryToDelete,
     refreshCategories,

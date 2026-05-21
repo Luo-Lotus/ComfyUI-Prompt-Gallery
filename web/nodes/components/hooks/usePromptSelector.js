@@ -2,9 +2,10 @@
  * 画师选择逻辑 Hook
  * 处理画师数据加载、选择状态管理、排序过滤等逻辑
  */
-import { useState, useEffect, useMemo, useCallback } from '../../../lib/hooks.mjs';
+import { useState, useEffect, useMemo, useCallback, useRef } from '../../../lib/hooks.mjs';
 import { useNodeSync } from './useNodeSync.js';
 import { usePartitionState } from './usePartitionState.js';
+import { searchAll, batchResolve, fetchCovers } from '../../../utils.js';
 
 // 辅助函数：构建面包屑路径
 function buildBreadcrumbPath(categoryId, categories) {
@@ -30,52 +31,77 @@ function buildBreadcrumbPath(categoryId, categories) {
 
 export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
   // 基础状态管理
-  const [prompts, setPrompts] = useState([]); // 当前分类的画师
-  const [allPrompts, setAllPrompts] = useState([]); // 所有画师（用于分类选择）
+  const [prompts, setPrompts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [selectedPromptsCache, setSelectedPromptsCache] = useState({}); // 缓存所有已选择的画师信息
+  const [selectedPromptsCache, setSelectedPromptsCache] = useState({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [currentCategory, setCurrentCategory] = useState('root');
   const [refreshing, setRefreshing] = useState(false);
-  const [combinations, setCombinations] = useState([]); // 当前分类的组合
-  const [allCombinations, setAllCombinations] = useState([]); // 所有组合（需要在 usePartitionState 之前定义）
+  const [combinations, setCombinations] = useState([]);
+
+  // 搜索结果状态
+  const [searchResults, setSearchResults] = useState(null);
+
+  // 封面缓存（key -> coverImagePath）
+  const coversCacheRef = useRef({});
 
   // 分区系统状态（由 usePartitionState hook 管理）
   const {
     partitionData,
-    getPromptsByPartition,
-    getCategoriesByPartition,
-    getCombinationsByPartition,
+    itemsByPartition,
+    addItemToPartition,
+    removeItemFromPartition,
+    removeItemGlobally,
+    reorderPartitionItems,
     addPartition,
     deletePartition,
     updatePartition,
-    movePromptToPartition,
     setPromptWeight,
-    moveCategoryToPartition,
-    moveCombinationToPartition,
     togglePartition,
     setAsDefaultPartition,
     reorderPartitions,
+    isItemSelected,
+    getItemPartition,
   } = usePartitionState({
     selectedPromptsCache,
     categories,
-    combinations: allCombinations,
+    combinations,
     metadataInput,
   });
 
-  // 选择状态从分区映射中推导（分区映射是唯一真相来源）
-  const [selectedKeys, setSelectedKeys] = useState(() => new Set(Object.keys(partitionData.promptPartitionMap || {})));
-  const [selectedCategories, setSelectedCategories] = useState(
-    () => new Set(Object.keys(partitionData.categoryPartitionMap || {})),
-  );
+  // 选择状态从 orderItems 推导
+  const selectedKeys = useMemo(() => {
+    const keys = new Set();
+    for (const p of partitionData.partitions) {
+      for (const item of p.orderItems) {
+        if (item.type === 'prompt') keys.add(item.key);
+      }
+    }
+    return keys;
+  }, [partitionData]);
 
-  // 组合系统状态
+  const selectedCategories = useMemo(() => {
+    const keys = new Set();
+    for (const p of partitionData.partitions) {
+      for (const item of p.orderItems) {
+        if (item.type === 'category') keys.add(item.key);
+      }
+    }
+    return keys;
+  }, [partitionData]);
+
   const selectedCombinationKeys = useMemo(() => {
-    return new Set(Object.keys(partitionData.combinationPartitionMap || {}));
-  }, [partitionData.combinationPartitionMap]);
+    const keys = new Set();
+    for (const p of partitionData.partitions) {
+      for (const item of p.orderItems) {
+        if (item.type === 'combination') keys.add(item.key);
+      }
+    }
+    return keys;
+  }, [partitionData]);
 
   // 计算面包屑路径
   const breadcrumbPath = useMemo(() => {
@@ -92,9 +118,7 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
   // 计算已选择的分类列表
   const selectedCategoriesList = useMemo(() => {
     return Array.from(selectedCategories)
-      .map((catId) => {
-        return categories.find((c) => c.id === catId);
-      })
+      .map((catId) => categories.find((c) => c.id === catId))
       .filter(Boolean);
   }, [selectedCategories, categories]);
 
@@ -107,57 +131,136 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
     return { categoryId, value };
   };
 
-  // 一次性加载分类树、所有画师和所有组合
+  // 批量获取封面
+  const fetchCoversByIds = useCallback(async (promptKeys, combinationIds) => {
+    const uncachedPromptKeys = promptKeys.filter((k) => !(k in coversCacheRef.current));
+    const uncachedCombinationIds = combinationIds.filter((id) => !(`combination:${id}` in coversCacheRef.current));
+
+    if (uncachedPromptKeys.length === 0 && uncachedCombinationIds.length === 0) return;
+
+    try {
+      const result = await fetchCovers(uncachedPromptKeys, uncachedCombinationIds);
+      Object.assign(coversCacheRef.current, result.covers || {});
+    } catch (err) {
+      console.error('[PromptSelector] Failed to fetch covers:', err);
+    }
+  }, []);
+
+  // 从 /data 响应中提取分类列表（合并去重）
+  const mergeCategories = useCallback((newCategories) => {
+    setCategories((prev) => {
+      const map = new Map();
+      for (const c of prev) map.set(c.id, c);
+      for (const c of newCategories) map.set(c.id, c);
+      return Array.from(map.values());
+    });
+  }, []);
+
+  // 加载分类数据
+  const loadCategories = useCallback(async () => {
+    try {
+      const response = await fetch('/prompt_gallery/data?category=root');
+      const data = await response.json();
+      const rootCat = { id: 'root', name: '根分类', parentId: null };
+      mergeCategories([rootCat, ...(data.childCategories || [])]);
+      return data;
+    } catch (err) {
+      console.error('[PromptSelector] Failed to load categories:', err);
+      return null;
+    }
+  }, [mergeCategories]);
+
+  // 初始加载
   useEffect(() => {
     const loadInitData = async () => {
       try {
-        const response = await fetch('/prompt_gallery/init');
-        const data = await response.json();
-        setCategories(data.categories || []);
-        setAllPrompts(data.prompts || []);
-        setAllCombinations(data.combinations || []);
+        const data = await loadCategories();
+        if (data) {
+          setPrompts(data.prompts || []);
+          setCombinations(data.combinations || []);
+        }
       } catch (error) {
         console.error('[PromptSelector] Failed to load init data:', error);
+      } finally {
+        setLoading(false);
       }
     };
     loadInitData();
   }, []);
 
-  // 当 allPrompts 加载完成后，补全缓存中缺失的画师信息
-  useEffect(() => {
-    if (!allPrompts || allPrompts.length === 0 || selectedKeys.size === 0) return;
+  // 补全缓存中缺失的画师、分类、组合信息
+  const hydrateAll = useCallback(
+    async () => {
+      const missingPrompts = Array.from(selectedKeys).filter((key) => !selectedPromptsCache[key]);
+      const missingCategories = Array.from(selectedCategories).filter((catId) => !categories.find((c) => c.id === catId));
+      const missingCombinations = Array.from(selectedCombinationKeys)
+        .map((key) => key.replace('combination:', ''))
+        .filter((id) => !(combinations || []).find((c) => c.id === id));
 
-    setSelectedPromptsCache((prev) => {
-      const newCache = { ...prev };
-      let changed = false;
-      selectedKeys.forEach((key) => {
-        if (newCache[key]) return;
-        const { categoryId, value } = parsePromptKey(key);
-        const prompt = allPrompts.find((a) => a.categoryId === categoryId && a.value === value);
-        if (prompt) {
-          newCache[key] = prompt;
-          changed = true;
+      if (missingPrompts.length === 0 && missingCategories.length === 0 && missingCombinations.length === 0) return;
+
+      try {
+        const result = await batchResolve({
+          prompts: missingPrompts,
+          categories: missingCategories,
+          combinations: missingCombinations,
+        });
+
+        if (result.prompts) {
+          setSelectedPromptsCache((prev) => {
+            const next = { ...prev };
+            let changed = false;
+            for (const [key, prompt] of Object.entries(result.prompts)) {
+              if (!next[key]) {
+                next[key] = prompt;
+                changed = true;
+              }
+            }
+            return changed ? next : prev;
+          });
         }
-      });
-      return changed ? newCache : prev;
-    });
-  }, [allPrompts, selectedKeys]);
+
+        if (result.categories) {
+          const resolvedCats = Object.values(result.categories);
+          if (resolvedCats.length > 0) {
+            mergeCategories(resolvedCats);
+          }
+        }
+
+        if (result.combinations) {
+          const resolvedCombs = Object.values(result.combinations);
+          if (resolvedCombs.length > 0) {
+            setCombinations((prev) => {
+              const map = new Map();
+              for (const c of prev) map.set(c.id, c);
+              for (const c of resolvedCombs) map.set(c.id, c);
+              return Array.from(map.values());
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[PromptSelector] Failed to hydrate cache:', err);
+      }
+    },
+    [selectedKeys, selectedPromptsCache, selectedCategories, selectedCombinationKeys, categories, combinations, mergeCategories],
+  );
+
+  // 当选中项变化时，补全缓存中缺失的信息
+  useEffect(() => {
+    hydrateAll();
+  }, [selectedKeys, selectedCategories, selectedCombinationKeys]);
 
   // 加载画师列表（根据分类筛选）
   useEffect(() => {
     const loadPrompts = async () => {
       setLoading(true);
       try {
-        if (currentCategory === 'root' && allPrompts.length > 0) {
-          // root 分类：直接从已加载的 /init 数据中过滤，避免重复请求
-          setPrompts(allPrompts.filter((p) => p.categoryId === 'root' || !p.categoryId));
-          setCombinations(allCombinations.filter((c) => c.categoryId === 'root' || !c.categoryId));
-        } else if (currentCategory !== 'root') {
-          // 非 root 分类：请求 /data 接口
-          const response = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
-          const data = await response.json();
-          setPrompts(data.prompts || []);
-          setCombinations(data.combinations || []);
+        const response = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
+        const data = await response.json();
+        setPrompts(data.prompts || []);
+        setCombinations(data.combinations || []);
+        if (data.childCategories) {
+          mergeCategories(data.childCategories);
         }
       } catch (error) {
         console.error('[PromptSelector] Failed to load prompts:', error);
@@ -166,15 +269,46 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
       }
     };
     loadPrompts();
-  }, [currentCategory, allPrompts, allCombinations]);
+  }, [currentCategory]);
 
-  // 过滤和排序（搜索时全局搜索，否则按当前分类）
+  // 搜索
+  useEffect(() => {
+    if (!searchQuery) {
+      setSearchResults(null);
+      return;
+    }
+
+    const doSearch = async () => {
+      try {
+        const result = await searchAll(searchQuery);
+        setSearchResults({
+          prompts: result.prompts || [],
+          combinations: result.combinations || [],
+        });
+        const coverKeys = (result.prompts || [])
+          .filter((p) => p.coverImagePath)
+          .map((p) => `${p.categoryId}:${p.value}`);
+        for (const key of coverKeys) {
+          const p = result.prompts.find((pr) => `${pr.categoryId}:${pr.value}` === key);
+          if (p) coversCacheRef.current[key] = p.coverImagePath;
+        }
+      } catch (err) {
+        console.error('[PromptSelector] Search failed:', err);
+        setSearchResults({ prompts: [], combinations: [] });
+      }
+    };
+
+    const timer = setTimeout(doSearch, 200);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // 过滤和排序
   const filteredPrompts = useMemo(() => {
-    const source = searchQuery ? allPrompts : prompts;
+    const source = searchResults ? searchResults.prompts : prompts;
     if (!source || source.length === 0) return [];
     let result = [...source];
 
-    if (searchQuery) {
+    if (!searchResults && searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (a) =>
@@ -197,93 +331,63 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
     });
 
     return result;
-  }, [prompts, allPrompts, searchQuery, sortBy, sortOrder]);
+  }, [prompts, searchResults, searchQuery, sortBy, sortOrder]);
 
-  // 全局分类搜索
   const filteredCategories = useMemo(() => {
     if (!searchQuery) return categories.filter((c) => c.parentId === currentCategory);
     const query = searchQuery.toLowerCase();
     return categories.filter((c) => c.name.toLowerCase().includes(query));
   }, [categories, searchQuery, currentCategory]);
 
-  // 全局组合搜索（按 name、outputContent 搜索）
   const filteredCombinations = useMemo(() => {
+    if (searchResults) return searchResults.combinations;
     if (!searchQuery) return combinations;
     const query = searchQuery.toLowerCase();
-    const source = allCombinations.length > 0 ? allCombinations : combinations;
-    return source.filter(
+    return combinations.filter(
       (c) =>
         (c.name && c.name.toLowerCase().includes(query)) ||
         (c.outputContent && c.outputContent.toLowerCase().includes(query)),
     );
-  }, [combinations, allCombinations, searchQuery]);
+  }, [combinations, searchResults, searchQuery]);
 
-  // 切换画师选择状态（扁平化更新，消除嵌套 setter）
+  // 切换画师选择状态
   const toggleSelection = useCallback(
     (categoryId, value) => {
       const key = makePromptKey(categoryId, value);
       const isAdding = !selectedKeys.has(key);
 
-      setSelectedKeys((prev) => {
-        const next = new Set(prev);
-        if (isAdding) {
-          next.add(key);
-        } else {
-          next.delete(key);
-        }
-        return next;
-      });
-
-      setSelectedPromptsCache((prev) => {
-        const next = { ...prev };
-        if (isAdding) {
-          const prompt = prompts.find((a) => a.categoryId === categoryId && a.value === value);
-          if (prompt) next[key] = prompt;
-        } else {
-          delete next[key];
-        }
-        return next;
-      });
-
-      // 分区映射更新委托给 usePartitionState（自动持久化）
       if (isAdding) {
+        // 缓存 prompt 信息
+        const prompt = prompts.find((a) => a.categoryId === categoryId && a.value === value);
+        if (prompt) {
+          setSelectedPromptsCache((prev) => ({ ...prev, [key]: prompt }));
+        }
         const defaultPartition = partitionData.partitions.find((p) => p.isDefault);
         if (defaultPartition) {
-          movePromptToPartition(key, defaultPartition.id);
+          addItemToPartition('prompt', key, defaultPartition.id);
         }
       } else {
-        movePromptToPartition(key, null);
+        removeItemGlobally('prompt', key);
       }
     },
-    [selectedKeys, prompts, partitionData, makePromptKey, movePromptToPartition],
+    [selectedKeys, prompts, partitionData, addItemToPartition, removeItemGlobally],
   );
 
-  // 切换分类选择状态（扁平化更新）
+  // 切换分类选择状态
   const toggleCategorySelection = useCallback(
     (categoryId) => {
       const isAdding = !selectedCategories.has(categoryId);
 
-      setSelectedCategories((prev) => {
-        const next = new Set(prev);
-        if (isAdding) {
-          next.add(categoryId);
-        } else {
-          next.delete(categoryId);
-        }
-        return next;
-      });
-
-      // 分区映射更新委托给 usePartitionState（自动持久化）
       if (isAdding) {
         const defaultPartition = partitionData.partitions.find((p) => p.isDefault);
         if (defaultPartition) {
-          moveCategoryToPartition(categoryId, defaultPartition.id);
+          addItemToPartition('category', categoryId, defaultPartition.id);
         }
       } else {
-        moveCategoryToPartition(categoryId, null);
+        removeItemGlobally('category', categoryId);
       }
     },
-    [selectedCategories, partitionData, moveCategoryToPartition],
+    [selectedCategories, partitionData, addItemToPartition, removeItemGlobally],
   );
 
   // 切换组合选择状态
@@ -292,20 +396,19 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
       const combinationKey = `combination:${combinationId}`;
       const isAdding = !selectedCombinationKeys.has(combinationKey);
 
-      // 分区映射更新委托给 usePartitionState（自动持久化）
       if (isAdding) {
         const defaultPartition = partitionData.partitions.find((p) => p.isDefault);
         if (defaultPartition) {
-          moveCombinationToPartition(combinationKey, defaultPartition.id);
+          addItemToPartition('combination', combinationKey, defaultPartition.id);
         }
       } else {
-        moveCombinationToPartition(combinationKey, null);
+        removeItemGlobally('combination', combinationKey);
       }
     },
-    [selectedCombinationKeys, partitionData, moveCombinationToPartition],
+    [selectedCombinationKeys, partitionData, addItemToPartition, removeItemGlobally],
   );
 
-  // 节点同步：通过 useNodeSync hook 处理
+  // 节点同步
   const { updateNodeValue } = useNodeSync({
     nodeInstance,
     selectedInput,
@@ -318,41 +421,28 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
   // 分类切换处理
   const handleCategoryChange = (categoryId) => {
     setCurrentCategory(categoryId);
-    // 切换分类时清空搜索
     setSearchQuery('');
+    setSearchResults(null);
   };
 
   // 刷新数据
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const initResponse = await fetch('/prompt_gallery/init');
-      const initData = await initResponse.json();
-      const newPrompts = initData.prompts || [];
-      const newCombinations = initData.combinations || [];
-
-      setCategories(initData.categories || []);
-      setAllPrompts(newPrompts);
-      setAllCombinations(newCombinations);
-
-      // root 分类直接从 /init 数据过滤，非 root 分类请求 /data
-      if (currentCategory === 'root') {
-        setPrompts(newPrompts.filter((p) => p.categoryId === 'root' || !p.categoryId));
-        setCombinations(newCombinations.filter((c) => c.categoryId === 'root' || !c.categoryId));
-      } else {
-        const response = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
-        const data = await response.json();
-        setPrompts(data.prompts || []);
-        setCombinations(data.combinations || []);
+      const response = await fetch(`/prompt_gallery/data?category=${currentCategory}`);
+      const data = await response.json();
+      setPrompts(data.prompts || []);
+      setCombinations(data.combinations || []);
+      if (data.childCategories) {
+        mergeCategories(data.childCategories);
       }
+      await hydrateAll();
     } catch (error) {
       console.error('[PromptSelector] Failed to refresh:', error);
     } finally {
       setRefreshing(false);
     }
   };
-
-  // 分区操作函数由 usePartitionState hook 提供（见上方解构赋值）
 
   return {
     // 状态
@@ -375,8 +465,12 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
     refreshing,
     breadcrumbPath,
 
-    // 全量数据（用于跨分类查找）
-    allPrompts,
+    // 搜索结果
+    searchResults,
+
+    // 封面缓存和获取函数
+    coversCache: coversCacheRef.current,
+    fetchCoversByIds,
 
     // 组合系统
     combinations,
@@ -385,19 +479,20 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
 
     // 分区系统状态和操作
     partitionData,
-    getPromptsByPartition,
-    getCategoriesByPartition,
-    getCombinationsByPartition,
+    itemsByPartition,
     addPartition,
     deletePartition,
     updatePartition,
-    movePromptToPartition,
+    addItemToPartition,
+    removeItemFromPartition,
+    removeItemGlobally,
+    reorderPartitionItems,
     setPromptWeight,
-    moveCategoryToPartition,
-    moveCombinationToPartition,
     togglePartition,
     setAsDefaultPartition,
     reorderPartitions,
+    isItemSelected,
+    getItemPartition,
 
     // 操作
     setSearchQuery,
@@ -409,6 +504,6 @@ export function usePromptSelector(nodeInstance, selectedInput, metadataInput) {
     handleRefresh,
     makePromptKey,
     parsePromptKey,
-    updateNodeValue, // 导出 updateNodeValue 函数
+    updateNodeValue,
   };
 }

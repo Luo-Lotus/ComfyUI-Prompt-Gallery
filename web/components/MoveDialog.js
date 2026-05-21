@@ -3,9 +3,10 @@
  * 用于移动分类/Prompt/图片到其他位置
  */
 import { h } from '../lib/preact.mjs';
-import { useState, useMemo } from '../lib/hooks.mjs';
+import { useState, useMemo, useCallback } from '../lib/hooks.mjs';
 import { Dialog, DialogButton } from './Dialog.js';
 import { FlatSelector } from './FlatSelector.js';
+import { searchPrompts } from '../utils.js';
 import { showToast } from './Toast.js';
 import { Icon } from '../lib/icons.mjs';
 
@@ -14,12 +15,13 @@ export function MoveDialog({
   itemType, // 'category' | 'prompt' | 'image'
   item,
   categories,
-  prompts,
   onClose,
   onMove,
 }) {
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [moving, setMoving] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // 计算需要排除的ID列表
   const excludeIds = useMemo(() => {
@@ -76,7 +78,26 @@ export function MoveDialog({
     return 'category';
   };
 
+  const handleSearch = useCallback(async (query) => {
+    if (!query || query.length < 1) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const result = await searchPrompts(query, 100);
+      setSearchResults(result.prompts || []);
+    } catch (err) {
+      console.error('搜索失败:', err);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
+
   if (!isOpen || !item) return null;
+
+  const isPromptSearch = getSelectorType() === 'prompt';
 
   return h(
     Dialog,
@@ -114,11 +135,14 @@ export function MoveDialog({
       h(FlatSelector, {
         type: getSelectorType(),
         categories,
-        prompts,
+        prompts: isPromptSearch ? searchResults : undefined,
         currentId: selectedTarget?.id,
         onSelect: setSelectedTarget,
         excludeIds,
         placeholder: '选择目标位置...',
+        searchMode: isPromptSearch,
+        onSearch: isPromptSearch ? handleSearch : undefined,
+        searchLoading,
       }),
     ]),
   );

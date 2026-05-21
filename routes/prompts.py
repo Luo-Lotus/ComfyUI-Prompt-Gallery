@@ -14,11 +14,223 @@ from ._delete_utils import delete_prompt_cascade
 
 @server.PromptServer.instance.routes.get("/prompt_gallery/prompts")
 async def get_prompts(request):
-    """获取所有Prompt列表"""
+    """搜索Prompt列表（必须传 search 参数）"""
     try:
+        search = request.query.get("search", "").strip()
+        if not search:
+            return web.json_response({"error": "需要 search 参数"}, status=400)
+
+        limit = min(int(request.query.get("limit", "100")), 200)
+        query = search.lower()
+
         prompt_storage, _, _, _ = get_storage()
-        prompts = prompt_storage.get_all_prompts()
-        return web.json_response({"prompts": prompts, "totalCount": len(prompts)})
+        all_prompts = prompt_storage.get_all_prompts()
+
+        results = []
+        for p in all_prompts:
+            if (query in (p.get("value") or "").lower()
+                    or query in (p.get("name") or "").lower()
+                    or query in (p.get("alias") or "").lower()):
+                results.append({
+                    "value": p.get("value"),
+                    "name": p.get("name"),
+                    "categoryId": p.get("categoryId", "root"),
+                    "imageCount": p.get("imageCount", 0),
+                    "createdAt": p.get("createdAt", 0),
+                })
+                if len(results) >= limit:
+                    break
+
+        return web.json_response({"prompts": results, "totalCount": len(results)})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+@server.PromptServer.instance.routes.post("/prompt_gallery/prompts/batch_resolve")
+async def batch_resolve_prompts(request):
+    """批量解析Prompt（根据组合键列表返回 prompt 对象）"""
+    try:
+        data = await request.json()
+        keys = data.get("keys", [])
+        if not keys:
+            return web.json_response({"prompts": {}})
+
+        prompt_storage, _, _, _ = get_storage()
+        all_prompts = prompt_storage.get_all_prompts()
+
+        # 构建 categoryId:value -> prompt 的索引
+        prompt_index = {}
+        for p in all_prompts:
+            key = f"{p.get('categoryId', 'root')}:{p.get('value')}"
+            prompt_index[key] = p
+
+        result = {}
+        for key in keys:
+            p = prompt_index.get(key)
+            if p:
+                result[key] = {
+                    "value": p.get("value"),
+                    "name": p.get("name"),
+                    "categoryId": p.get("categoryId", "root"),
+                    "alias": p.get("alias", ""),
+                    "imageCount": p.get("imageCount", 0),
+                    "createdAt": p.get("createdAt", 0),
+                }
+
+        return web.json_response({"prompts": result})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+@server.PromptServer.instance.routes.post("/prompt_gallery/batch_resolve")
+async def batch_resolve(request):
+    """批量解析混合类型（prompts + categories + combinations）"""
+    try:
+        data = await request.json()
+        prompt_keys = data.get("prompts", [])
+        category_ids = data.get("categories", [])
+        combination_ids = data.get("combinations", [])
+
+        prompt_storage, _, category_storage, combination_storage = get_storage()
+
+        result = {}
+
+        # 解析 prompts
+        if prompt_keys:
+            all_prompts = prompt_storage.get_all_prompts()
+            prompt_index = {}
+            for p in all_prompts:
+                key = f"{p.get('categoryId', 'root')}:{p.get('value')}"
+                prompt_index[key] = p
+            prompts_result = {}
+            for key in prompt_keys:
+                p = prompt_index.get(key)
+                if p:
+                    prompts_result[key] = {
+                        "value": p.get("value"),
+                        "name": p.get("name"),
+                        "categoryId": p.get("categoryId", "root"),
+                        "alias": p.get("alias", ""),
+                        "imageCount": p.get("imageCount", 0),
+                        "createdAt": p.get("createdAt", 0),
+                    }
+            result["prompts"] = prompts_result
+
+        # 解析 categories
+        if category_ids:
+            categories_result = {}
+            for cat_id in category_ids:
+                cat = category_storage.get_category_by_id(cat_id)
+                if cat:
+                    categories_result[cat_id] = {
+                        "id": cat.get("id"),
+                        "name": cat.get("name"),
+                        "parentId": cat.get("parentId"),
+                        "metadata": cat.get("metadata"),
+                    }
+            result["categories"] = categories_result
+
+        # 解析 combinations
+        if combination_ids:
+            combinations_result = {}
+            all_combs = combination_storage.get_all_combinations()
+            comb_index = {c.get("id"): c for c in all_combs}
+            for comb_id in combination_ids:
+                c = comb_index.get(comb_id)
+                if c:
+                    combinations_result[comb_id] = {
+                        "id": c.get("id"),
+                        "name": c.get("name"),
+                        "categoryId": c.get("categoryId", "root"),
+                        "prompts": c.get("prompts", []),
+                        "outputContent": c.get("outputContent", ""),
+                    }
+            result["combinations"] = combinations_result
+
+        return web.json_response(result)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+@server.PromptServer.instance.routes.get("/prompt_gallery/search")
+async def search_prompts(request):
+    """跨分类搜索 Prompt 和 Combination"""
+    try:
+        import folder_paths
+        from pathlib import Path as P
+
+        q = request.query.get("q", "").strip()
+        if not q:
+            return web.json_response({"prompts": [], "combinations": [], "totalCount": 0})
+
+        limit = min(int(request.query.get("limit", "50")), 100)
+        query = q.lower()
+        output_dir = folder_paths.get_output_directory()
+
+        prompt_storage, mapping_storage, _, combination_storage = get_storage()
+
+        # 搜索 Prompts
+        all_prompts = prompt_storage.get_all_prompts()
+        prompt_mapping_index = mapping_storage.build_prompt_index()
+
+        matched_prompts = []
+        for p in all_prompts:
+            if (query in (p.get("value") or "").lower()
+                    or query in (p.get("name") or "").lower()
+                    or query in (p.get("alias") or "").lower()):
+                # 计算 coverImagePath
+                cover_path = p.get("coverImageId")
+                if not cover_path:
+                    mappings = prompt_mapping_index.get(p.get("value"), [])
+                    for m in mappings:
+                        image_path = m.get("imagePath")
+                        if is_remote_path(image_path, m.get("type", "")) or (P(output_dir) / image_path).exists():
+                            cover_path = image_path
+                            break
+                matched_prompts.append({
+                    "value": p.get("value"),
+                    "name": p.get("name"),
+                    "categoryId": p.get("categoryId", "root"),
+                    "coverImagePath": cover_path,
+                    "imageCount": p.get("imageCount", 0),
+                    "createdAt": p.get("createdAt", 0),
+                })
+                if len(matched_prompts) >= limit:
+                    break
+
+        # 搜索 Combinations
+        all_combinations = combination_storage.get_all_combinations()
+        matched_combinations = []
+        for c in all_combinations:
+            if (query in (c.get("name") or "").lower()
+                    or query in (c.get("outputContent") or "").lower()):
+                # 计算 coverImagePath
+                cover_path = c.get("coverImageId")
+                if not cover_path:
+                    for prompt_name in c.get("prompts", []):
+                        for m in prompt_mapping_index.get(prompt_name, []):
+                            image_path = m.get("imagePath")
+                            if is_remote_path(image_path, m.get("type", "")) or (P(output_dir) / image_path).exists():
+                                cover_path = image_path
+                                break
+                        if cover_path:
+                            break
+                matched_combinations.append({
+                    "id": c.get("id"),
+                    "name": c.get("name"),
+                    "categoryId": c.get("categoryId", "root"),
+                    "prompts": c.get("prompts", []),
+                    "outputContent": c.get("outputContent", ""),
+                    "coverImagePath": cover_path,
+                })
+                if len(matched_combinations) >= limit:
+                    break
+
+        return web.json_response({
+            "prompts": matched_prompts,
+            "combinations": matched_combinations,
+            "totalCount": len(matched_prompts) + len(matched_combinations),
+        })
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 

@@ -1,9 +1,9 @@
 /**
  * 分区项组件
- * 显示单个分区及其内容
+ * 显示单个分区及其内容（扁平列表 + 拖拽排序）
  */
 import { h } from '../../lib/preact.mjs';
-import { useState, useEffect, useRef, useMemo } from '../../lib/hooks.mjs';
+import { useState, useEffect, useRef } from '../../lib/hooks.mjs';
 import { Icon } from '../../lib/icons.mjs';
 import { PartitionHeader } from './PartitionHeader.js';
 import { useBodyRender } from './hooks/useBodyRender.js';
@@ -60,23 +60,20 @@ function WeightSliderPopup({ weight, style, onChange, onMouseEnter, onMouseLeave
 
 export function PartitionItem({
   partition,
-  prompts,
-  partitionCategories,
-  partitionCombinations,
+  items,
   promptWeights,
-  allPrompts,
+  coversCache,
   onPartitionAction,
-  onPromptMove,
-  onCategoryMove,
-  onPromptRemove,
-  onCategoryRemove,
-  onCombinationMove,
-  onCombinationRemove,
+  onItemMove,
+  onItemRemove,
+  onItemReorder,
   onPromptWeightChange,
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [hoveredKey, setHoveredKey] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(-1);
   const hideTimerRef = useRef(null);
+  const draggedItemRef = useRef(null);
 
   const weightsRef = useRef(promptWeights);
   weightsRef.current = promptWeights;
@@ -87,25 +84,23 @@ export function PartitionItem({
   const { renderToBody, clear: clearSlider } = useBodyRender();
 
   // 分区预览 hook
-  const { onPreviewEnter, onPreviewLeave, buildPreviewItems } = usePartitionPreview();
-  const previewItems = useMemo(
-    () => buildPreviewItems(partition, prompts, partitionCategories, partitionCombinations, allPrompts),
-    [partition, prompts, partitionCategories, partitionCombinations, allPrompts],
-  );
-  const handlePreviewEnter = (e) => onPreviewEnter(e, previewItems);
+  const { onPreviewEnterWithFetch, onPreviewLeave } = usePartitionPreview();
+  const handlePreviewEnter = (e) => {
+    // 从 items 按 type 分拣传给预览
+    const prompts = items.filter((item) => item.type === 'prompt').map((item) => item.data);
+    const cats = items.filter((item) => item.type === 'category').map((item) => item.data);
+    const combs = items.filter((item) => item.type === 'combination').map((item) => item.data);
+    onPreviewEnterWithFetch(e, partition, prompts, cats, combs, coversCache);
+  };
   const handlePreviewLeave = () => onPreviewLeave();
 
   // 当标签被删除时清除悬浮状态
-  const allKeys = new Set([
-    ...prompts.map((a) => (a._orphaned ? a._orphanedKey : `${a.categoryId}:${a.value}`)),
-    ...(partitionCategories || []).map((c) => c.id),
-    ...(partitionCombinations || []).map((c) => `combination:${c.id}`),
-  ]);
+  const allKeys = new Set(items.map((item) => item.key));
   if (hoveredKey && !allKeys.has(hoveredKey)) {
     setHoveredKey(null);
   }
 
-  const totalCount = prompts.length + partitionCategories.length + (partitionCombinations || []).length;
+  const totalCount = items.length;
   const partitionClass = `partition-item ${partition.isDefault ? 'is-default' : ''} ${!partition.enabled ? 'disabled' : ''} ${isDragOver ? 'drag-over' : ''}`;
 
   const scheduleHide = () => {
@@ -117,7 +112,7 @@ export function PartitionItem({
     clearTimeout(hideTimerRef.current);
   };
 
-  // 用 Preact render 挂载/卸载悬浮滑条到 portal
+  // 权重滑条 portal
   useEffect(() => {
     if (!hoveredKey) {
       clearSlider();
@@ -152,87 +147,169 @@ export function PartitionItem({
     return () => clearSlider();
   }, [hoveredKey]);
 
-  // 拖拽经过
-  const handleDragOver = (e) => {
+  // 拖拽排序：标签 onDragStart
+  const handleTagDragStart = (e, item, index) => {
+    draggedItemRef.current = { ...item, index, sourcePartitionId: partition.id };
+    e.dataTransfer.setData(
+      'text/plain',
+      JSON.stringify({
+        type: item.type,
+        key: item.key,
+        id: item.type === 'category' ? item.key : undefined,
+        sourcePartitionId: partition.id,
+        sourceIndex: index,
+      }),
+    );
+    e.dataTransfer.effectAllowed = 'move';
+    // 给拖拽源加样式
+    e.currentTarget.classList.add('dragging');
+  };
+
+  const handleTagDragEnd = (e) => {
+    e.currentTarget.classList.remove('dragging');
+    draggedItemRef.current = null;
+    setDragOverIndex(-1);
+    setIsDragOver(false);
+  };
+
+  // 标签 onDragOver：计算插入位置
+  const handleTagDragOver = (e, index) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    const insertIndex = e.clientX < midX ? index : index + 1;
+    setDragOverIndex(insertIndex);
+    setIsDragOver(true);
+  };
+
+  // 容器 onDragOver
+  const handleContainerDragOver = (e) => {
     e.preventDefault();
     setIsDragOver(true);
   };
 
-  // 拖拽离开
   const handleDragLeave = () => {
     setIsDragOver(false);
+    setDragOverIndex(-1);
   };
 
-  // 放置
+  // 容器 onDrop：处理跨分区移入和分区内排序
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
+    setDragOverIndex(-1);
 
     try {
-      const data = e.dataTransfer.getData('text/plain');
-      if (!data) return;
-
-      const draggedData = JSON.parse(data);
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (!data.type) return;
 
       // 分区拖拽由 PartitionList 处理
-      if (draggedData.type === 'partition') return;
+      if (data.type === 'partition') return;
 
-      if (draggedData.type === 'prompt') {
-        onPromptMove && onPromptMove(draggedData.key, partition.id);
-      } else if (draggedData.type === 'category') {
-        onCategoryMove && onCategoryMove(draggedData.id, partition.id);
-      } else if (draggedData.type === 'combination') {
-        onCombinationMove && onCombinationMove(draggedData.key, partition.id);
+      if (data.sourcePartitionId === partition.id && data.sourceIndex != null) {
+        // 分区内排序
+        const toIndex = dragOverIndex >= 0 ? (dragOverIndex > data.sourceIndex ? dragOverIndex - 1 : dragOverIndex) : items.length - 1;
+        if (data.sourceIndex !== toIndex) {
+          onItemReorder && onItemReorder(data.sourceIndex, toIndex);
+        }
+      } else {
+        // 跨分区移入
+        onItemMove && onItemMove(data.type, data.key, data.sourcePartitionId, partition.id);
       }
     } catch (error) {
       console.error('[PartitionItem] Failed to parse drop data:', error);
     }
   };
 
-  // 渲染组合标签
-  const renderCombinationTags = () => {
-    if (!partitionCombinations || partitionCombinations.length === 0) return [];
+  // 渲染单个标签
+  const renderTag = (item, index) => {
+    const { type, key, data, orphaned } = item;
+    const isPrompt = type === 'prompt';
+    const isCategory = type === 'category';
+    const isCombination = type === 'combination';
 
-    return partitionCombinations.map((combination) => {
-      const combKey = `combination:${combination.id}`;
-      return h(
+    const tagClasses = [
+      'prompt-selector-tag',
+      isCategory ? 'category-tag' : '',
+      isCombination ? 'combination-tag' : '',
+      orphaned ? 'orphaned' : '',
+      hoveredKey === key ? 'weight-focused' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    const weight = isPrompt && promptWeights && promptWeights[key] != null ? promptWeights[key] : 1.0;
+    const showWeight = isPrompt && !orphaned && Math.abs(weight - 1.0) > 0.001;
+    const tagStyle = isPrompt && !orphaned ? { background: getWeightColor(weight) } : {};
+
+    const icon = isCategory ? 'folder' : isCombination ? 'link' : orphaned ? 'alert-triangle' : null;
+
+    const displayName = isCategory
+      ? (data.name || key)
+      : isCombination
+        ? (data.name || key)
+        : ((data.name || data.value || key) + (orphaned ? ' (未找到)' : ''));
+
+    // 插入指示线
+    const showIndicatorBefore = dragOverIndex === index;
+    const showIndicatorAfter = dragOverIndex === index + 1 && index === items.length - 1;
+
+    const result = [];
+
+    if (showIndicatorBefore) {
+      result.push(h('div', { key: `indicator-${index}`, class: 'partition-item-drop-indicator' }));
+    }
+
+    result.push(
+      h(
         'span',
         {
-          key: combKey,
-          class: 'prompt-selector-tag combination-tag',
-          draggable: true,
-          onDragStart: (e) => {
-            e.dataTransfer.setData(
-              'text/plain',
-              JSON.stringify({
-                type: 'combination',
-                key: combKey,
-              }),
-            );
-            e.dataTransfer.effectAllowed = 'move';
-          },
+          key,
+          'data-weight-key': isPrompt ? key : undefined,
+          class: tagClasses,
+          style: tagStyle,
+          draggable: !orphaned,
+          onDragStart: orphaned ? undefined : (e) => handleTagDragStart(e, item, index),
+          onDragEnd: orphaned ? undefined : handleTagDragEnd,
+          onDragOver: (e) => handleTagDragOver(e, index),
+          onMouseEnter: isPrompt && !orphaned
+            ? () => { cancelHide(); setHoveredKey(key); }
+            : undefined,
+          onMouseLeave: isPrompt && !orphaned ? () => scheduleHide() : undefined,
         },
         [
-          h('span', { class: 'prompt-selector-tag-icon' }, h(Icon, { name: 'link', size: 12 })),
-          combination.name,
+          showWeight && h('span', { class: 'prompt-weight-value' }, weight.toFixed(1)),
+          icon && h('span', { class: 'prompt-selector-tag-icon' }, h(Icon, { name: icon, size: 12 })),
+          h('span', { class: 'prompt-name' }, displayName),
+          // 分类特殊 badge
+          isCategory && partition.config?.autoSaveCombinationCategoryId === key &&
+            h('span', { class: 'prompt-selector-tag-badge auto-save-badge', title: '组合自动保存到此分类' }, h(Icon, { name: 'bookmark', size: 10 })),
+          isCategory && data.metadata?.blockGallerySave &&
+            h('span', { class: 'prompt-selector-tag-badge gallery-block-badge', title: '已禁止保存到画廊' }, h(Icon, { name: 'ban', size: 10 })),
           h(
             'button',
             {
               class: 'prompt-remove-btn',
               onClick: (e) => {
                 e.stopPropagation();
-                onCombinationRemove && onCombinationRemove(combKey);
+                onItemRemove && onItemRemove(type, key);
               },
             },
             h(Icon, { name: 'x', size: 12 }),
           ),
         ],
-      );
-    });
+      ),
+    );
+
+    if (showIndicatorAfter) {
+      result.push(h('div', { key: `indicator-after-${index}`, class: 'partition-item-drop-indicator' }));
+    }
+
+    return result;
   };
 
   return h('div', { class: partitionClass }, [
-    // 分区头部
     h(PartitionHeader, {
       partition,
       onAction: onPartitionAction,
@@ -240,137 +317,17 @@ export function PartitionItem({
       onPreviewLeave: handlePreviewLeave,
     }),
 
-    // 内容区域（启用状态才显示）
     partition.enabled &&
       h(
         'div',
         {
           class: 'partition-prompts',
-          onDragOver: handleDragOver,
+          onDragOver: handleContainerDragOver,
           onDragLeave: handleDragLeave,
           onDrop: handleDrop,
         },
         [
-          // 渲染该分区的组合
-          ...renderCombinationTags(),
-
-          // 渲染该分区的分类
-          ...(partitionCategories || []).map((category) => {
-            return h(
-              'span',
-              {
-                key: `cat-${category.id}`,
-                class: 'prompt-selector-tag category-tag',
-                draggable: true,
-                onDragStart: (e) => {
-                  e.dataTransfer.setData(
-                    'text/plain',
-                    JSON.stringify({
-                      type: 'category',
-                      id: category.id,
-                    }),
-                  );
-                  e.dataTransfer.effectAllowed = 'move';
-                },
-              },
-              [
-                h('span', { class: 'prompt-selector-tag-icon' }, h(Icon, { name: 'folder', size: 12 })),
-                category.name,
-                partition.config?.autoSaveCombinationCategoryId === category.id &&
-                  h('span', {
-                    class: 'prompt-selector-tag-badge auto-save-badge',
-                    title: '组合自动保存到此分类',
-                  }, h(Icon, { name: 'bookmark', size: 10 })),
-                category.metadata?.blockGallerySave &&
-                  h('span', {
-                    class: 'prompt-selector-tag-badge gallery-block-badge',
-                    title: '已禁止保存到画廊',
-                  }, h(Icon, { name: 'ban', size: 10 })),
-                h(
-                  'button',
-                  {
-                    class: 'prompt-remove-btn',
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      onCategoryRemove && onCategoryRemove(category.id);
-                    },
-                  },
-                  h(Icon, { name: 'x', size: 12 }),
-                ),
-              ],
-            );
-          }),
-
-          // 渲染该分区的Prompt（含孤立项）
-          ...prompts.map((prompt) => {
-            const key = prompt._orphaned ? prompt._orphanedKey : `${prompt.categoryId}:${prompt.value}`;
-            const weight = promptWeights && promptWeights[key] != null ? promptWeights[key] : 1.0;
-            const showWeight = !prompt._orphaned && Math.abs(weight - 1.0) > 0.001;
-            const tagStyle = prompt._orphaned ? {} : { background: getWeightColor(weight) };
-            return h(
-              'span',
-              {
-                key: key,
-                'data-weight-key': key,
-                class: `prompt-selector-tag ${prompt._orphaned ? 'orphaned' : ''} ${hoveredKey === key ? 'weight-focused' : ''}`,
-                style: tagStyle,
-                draggable: !prompt._orphaned,
-                onDragStart: prompt._orphaned
-                  ? undefined
-                  : (e) => {
-                      e.dataTransfer.setData(
-                        'text/plain',
-                        JSON.stringify({
-                          type: 'prompt',
-                          key: key,
-                        }),
-                      );
-                      e.dataTransfer.effectAllowed = 'move';
-                    },
-                onMouseEnter: prompt._orphaned
-                  ? undefined
-                  : () => {
-                      cancelHide();
-                      setHoveredKey(key);
-                    },
-                onMouseLeave: prompt._orphaned
-                  ? undefined
-                  : () => {
-                      scheduleHide();
-                    },
-              },
-              [
-                showWeight && h('span', { class: 'prompt-weight-value' }, weight.toFixed(1)),
-                prompt._orphaned &&
-                  h(
-                    'span',
-                    { class: 'prompt-selector-tag-icon' },
-                    h(Icon, {
-                      name: 'alert-triangle',
-                      size: 12,
-                    }),
-                  ),
-                h(
-                  'span',
-                  { class: 'prompt-name' },
-                  (prompt.name || prompt.value) + (prompt._orphaned ? ' (未找到)' : ''),
-                ),
-                h(
-                  'button',
-                  {
-                    class: 'prompt-remove-btn',
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      onPromptRemove && onPromptRemove(key);
-                    },
-                  },
-                  h(Icon, { name: 'x', size: 12 }),
-                ),
-              ],
-            );
-          }),
-
-          // 空状态提示
+          ...items.flatMap((item, index) => renderTag(item, index)),
           totalCount === 0 && h('div', { class: 'partition-empty' }, '拖拽Prompt或分类到此处'),
         ],
       ),

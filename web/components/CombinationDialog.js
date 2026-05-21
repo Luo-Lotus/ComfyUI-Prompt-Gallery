@@ -3,11 +3,11 @@
  * 用于创建和编辑组合
  */
 import { h } from '../lib/preact.mjs';
-import { useState, useEffect, useMemo } from '../lib/hooks.mjs';
+import { useState, useEffect, useMemo, useCallback } from '../lib/hooks.mjs';
 import { Dialog, DialogButton, DialogFormGroup, DialogFormItem } from './Dialog.js';
 import { FlatSelector } from './FlatSelector.js';
 import { showToast } from './Toast.js';
-import { createCombination, updateCombination } from '../utils.js';
+import { createCombination, updateCombination, searchAll } from '../utils.js';
 import { Icon } from '../lib/icons.mjs';
 
 export function CombinationDialog({
@@ -15,7 +15,6 @@ export function CombinationDialog({
   mode = 'add',
   combination = null,
   currentCategoryId = 'root',
-  prompts = [],
   onClose,
   onSave,
 }) {
@@ -23,6 +22,8 @@ export function CombinationDialog({
   const [selectedPromptNames, setSelectedPromptNames] = useState(new Set());
   const [outputContent, setOutputContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // 编辑模式时填充数据
   useEffect(() => {
@@ -54,6 +55,23 @@ export function CombinationDialog({
       return next;
     });
   };
+
+  const handleSearch = useCallback(async (query) => {
+    if (!query || query.length < 1) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const result = await searchAll(query, 50);
+      setSearchResults(result.prompts || []);
+    } catch (err) {
+      console.error('搜索失败:', err);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -131,17 +149,20 @@ export function CombinationDialog({
         }),
       ),
 
-      // 选择Prompt（使用 FlatSelector 多选模式）
+      // 选择Prompt（使用 FlatSelector 搜索模式）
       h(
         DialogFormItem,
         { label: `选择Prompt (${selectedPromptNames.size})` },
         h(FlatSelector, {
           type: 'prompt',
-          prompts: prompts,
+          prompts: searchResults,
           multiSelect: true,
           selectedIds: selectedPromptNames,
           onToggleItem: togglePrompt,
           placeholder: '搜索Prompt...',
+          searchMode: true,
+          onSearch: handleSearch,
+          searchLoading,
         }),
       ),
 

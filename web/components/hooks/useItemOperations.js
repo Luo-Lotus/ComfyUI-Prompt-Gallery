@@ -3,7 +3,6 @@
  * 管理移动和复制的对话框状态与业务逻辑（单条 + 批量）
  */
 import { useState } from '../../lib/hooks.mjs';
-import { fetchCategories, fetchAllPrompts } from '../../utils.js';
 import { showToast } from '../Toast.js';
 
 export function useItemOperations({

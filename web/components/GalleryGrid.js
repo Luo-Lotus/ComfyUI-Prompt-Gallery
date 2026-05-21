@@ -74,7 +74,6 @@ export function GalleryGrid() {
         return h(CombinationCard, {
           key: `comb-${combination.id}`,
           combination,
-          prompts: ctx.allPrompts,
           onClick: ctx.handleCombinationClick,
           onEdit: ctx.handleCombinationEdit,
           onDuplicate: ctx.handleCombinationDuplicate,
@@ -110,7 +109,6 @@ export function GalleryGrid() {
       categories.length,
       combinations.length,
       ctx.currentCombinations,
-      ctx.allPrompts,
       ctx.favorites,
       ctx.selectionMode,
       ctx.selectedItems,

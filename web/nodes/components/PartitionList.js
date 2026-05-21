@@ -1,6 +1,6 @@
 /**
  * 分区列表组件
- * 显示所有分区及其包含的Prompt，支持分区拖拽排序
+ * 显示所有分区及其内容，支持分区拖拽排序
  */
 import { h } from '../../lib/preact.mjs';
 import { useState, useRef } from '../../lib/hooks.mjs';
@@ -9,23 +9,18 @@ import { AddPartitionForm } from './AddPartitionForm.js';
 
 export function PartitionList({
   partitions,
-  promptsByPartition,
-  categoriesByPartition,
-  combinationsByPartition,
+  itemsByPartition,
   promptWeights,
-  allPrompts,
+  coversCache,
   onPartitionAction,
   onPartitionReorder,
-  onPromptMove,
-  onPromptRemove,
-  onCategoryMove,
-  onCategoryRemove,
-  onCombinationMove,
-  onCombinationRemove,
+  onItemMove,
+  onItemRemove,
+  onItemReorder,
   onPromptWeightChange,
 }) {
   const [showAddPartition, setShowAddPartition] = useState(false);
-  const [dragOverInfo, setDragOverInfo] = useState(null); // { partitionId, position: 'before'|'after' }
+  const [dragOverInfo, setDragOverInfo] = useState(null);
   const draggedPartitionIdRef = useRef(null);
 
   const sortedPartitions = [...partitions].sort((a, b) => a.order - b.order);
@@ -33,16 +28,12 @@ export function PartitionList({
   const handlePartitionDragOver = (e, partitionId) => {
     const data = e.dataTransfer;
     if (!data) return;
-    // 只处理分区类型的拖拽
     try {
-      // dataTransfer.types 在 dragover 中可用
       if (!data.types || !data.types.includes('text/plain')) return;
     } catch {
       return;
     }
 
-    // 延迟读取 dataTransfer 数据不可行（dragover 中无法 getData），
-    // 所以通过 ref 判断是否是分区拖拽
     if (!draggedPartitionIdRef.current) return;
     if (draggedPartitionIdRef.current === partitionId) return;
 
@@ -53,7 +44,6 @@ export function PartitionList({
   };
 
   const handlePartitionDragLeave = (e) => {
-    // 只在真正离开元素时清除
     const rect = e.currentTarget.getBoundingClientRect();
     if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
       setDragOverInfo(null);
@@ -75,7 +65,6 @@ export function PartitionList({
       const targetIndex = sortedPartitions.findIndex((p) => p.id === info.partitionId);
       if (fromIndex < 0 || targetIndex < 0) return;
 
-      // 计算 toIndex
       let toIndex = info.position === 'before' ? targetIndex : targetIndex + 1;
       if (fromIndex < toIndex) toIndex--;
 
@@ -93,7 +82,6 @@ export function PartitionList({
     setDragOverInfo(null);
   };
 
-  // 全局 dragstart 监听：记录拖拽的分区 ID
   const handleGlobalDragStart = (e) => {
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
@@ -103,7 +91,6 @@ export function PartitionList({
     } catch {}
   };
 
-  // 渲染添加分区表单
   const renderAddPartitionForm = () => {
     if (!showAddPartition) return null;
 
@@ -120,7 +107,6 @@ export function PartitionList({
     });
   };
 
-  // 渲染添加分区按钮
   const renderAddButton = () => {
     if (showAddPartition) return null;
 
@@ -135,16 +121,13 @@ export function PartitionList({
     );
   };
 
-  // 计算总Prompt数
-  const totalPrompts = Object.values(promptsByPartition || {}).reduce((sum, prompts) => sum + prompts.length, 0);
-  const totalCombinations = Object.values(combinationsByPartition || {}).reduce((sum, combs) => sum + combs.length, 0);
+  // 计算总项数
+  const totalItems = Object.values(itemsByPartition || {}).reduce((sum, items) => sum + items.length, 0);
 
-  // 渲染分区项（含插入指示线）
   const renderPartitionWithIndicator = (partition, index) => {
     const result = [];
     const isDragOver = dragOverInfo && dragOverInfo.partitionId === partition.id;
 
-    // 上方插入指示线
     if (isDragOver && dragOverInfo.position === 'before') {
       result.push(
         h('div', {
@@ -168,24 +151,18 @@ export function PartitionList({
         },
         h(PartitionItem, {
           partition,
-          prompts: (promptsByPartition || {})[partition.id] || [],
-          partitionCategories: (categoriesByPartition || {})[partition.id] || [],
-          partitionCombinations: (combinationsByPartition || {})[partition.id] || [],
+          items: (itemsByPartition || {})[partition.id] || [],
           promptWeights,
-          allPrompts,
+          coversCache,
           onPartitionAction,
-          onPromptMove,
-          onCategoryMove,
-          onPromptRemove,
-          onCategoryRemove,
-          onCombinationMove,
-          onCombinationRemove,
+          onItemMove,
+          onItemRemove: (type, key) => onItemRemove && onItemRemove(type, key, partition.id),
+          onItemReorder: (fromIndex, toIndex) => onItemReorder && onItemReorder(partition.id, fromIndex, toIndex),
           onPromptWeightChange,
         }),
       ),
     );
 
-    // 下方插入指示线
     if (isDragOver && dragOverInfo.position === 'after') {
       result.push(
         h('div', {
@@ -205,16 +182,13 @@ export function PartitionList({
       onDragStart: handleGlobalDragStart,
     },
     [
-      // 头部
       h('div', { class: 'partition-list-header' }, [
-        h('span', { class: 'partition-list-title' }, `已选择 (${totalPrompts + totalCombinations})`),
+        h('span', { class: 'partition-list-title' }, `已选择 (${totalItems})`),
         renderAddButton(),
       ]),
 
-      // 添加分区表单
       renderAddPartitionForm(),
 
-      // 分区列表
       h(
         'div',
         { class: 'partition-list-content' },

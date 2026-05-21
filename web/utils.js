@@ -125,9 +125,61 @@ export async function updateCategory(categoryId, data) {
 }
 
 export async function fetchAllPrompts() {
+  // Deprecated: 使用 searchPrompts 替代
   const response = await fetch('/prompt_gallery/prompts');
   if (!response.ok) {
     throw new Error('获取Prompt列表失败');
+  }
+  return await response.json();
+}
+
+export async function searchPrompts(query, limit = 100) {
+  const response = await fetch(`/prompt_gallery/prompts?search=${encodeURIComponent(query)}&limit=${limit}`);
+  if (!response.ok) {
+    throw new Error('搜索Prompt失败');
+  }
+  return await response.json();
+}
+
+export async function searchAll(query, limit = 50) {
+  const response = await fetch(`/prompt_gallery/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  if (!response.ok) {
+    throw new Error('搜索失败');
+  }
+  return await response.json();
+}
+
+export async function batchResolvePrompts(keys) {
+  const response = await fetch('/prompt_gallery/prompts/batch_resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keys }),
+  });
+  if (!response.ok) {
+    throw new Error('批量解析Prompt失败');
+  }
+  return await response.json();
+}
+
+export async function fetchCovers(promptKeys = [], combinationIds = []) {
+  const params = new URLSearchParams();
+  if (promptKeys.length > 0) params.set('prompts', promptKeys.join(','));
+  if (combinationIds.length > 0) params.set('combinations', combinationIds.join(','));
+  const response = await fetch(`/prompt_gallery/covers?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error('获取封面失败');
+  }
+  return await response.json();
+}
+
+export async function batchResolve({ prompts = [], categories = [], combinations = [] } = {}) {
+  const response = await fetch('/prompt_gallery/batch_resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompts, categories, combinations }),
+  });
+  if (!response.ok) {
+    throw new Error('批量解析失败');
   }
   return await response.json();
 }

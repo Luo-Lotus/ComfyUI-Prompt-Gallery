@@ -28,7 +28,7 @@ Prompt Gallery is a ComfyUI custom node plugin that provides:
 
 - **PromptGallery**: Output node for UI (no workflow output)
 - **PromptSelector**: Workflow node that provides prompt selection widget
-    - Processes partitions, resolves prompts from `promptKeys` and `categoryIds`
+    - Processes partitions, resolves prompts from `orderItems` (unified flat list per partition, each item has `type` + `key`)
     - Handles random/cycle mode, format templates, auto-create combination
     - Tracks `partition_used_prompts` (actual prompts after random/cycle filtering)
     - Tracks `partition_formats` (per-partition format string)
@@ -61,7 +61,7 @@ All storage classes are thread-safe with locking mechanism. Access via `get_stor
 | Module             | Endpoints                                                                                        |
 | ------------------ | ------------------------------------------------------------------------------------------------ |
 | `gallery.py`       | `GET /data` — returns prompts + combinations with `coverImagePath` (no full `images` array)      |
-| `prompts.py`       | Prompt CRUD, batch operations, `GET /prompt_images` (lazy-load prompt images)                    |
+| `prompts.py`       | Prompt CRUD, batch operations, `GET /prompt_images` (lazy-load prompt images), `POST /batch_resolve` (resolve mixed prompt/category/combination keys) |
 | `categories.py`    | Category CRUD, move (supports `metadata` field update)                                           |
 | `combinations.py`  | Combination CRUD, duplicate, move, images (intersection of member prompts), batch delete         |
 | `images.py`        | Image info, save to gallery, delete/move/copy image, restore from metadata                       |
@@ -81,6 +81,7 @@ All storage classes are thread-safe with locking mechanism. Access via `get_stor
 - Combination images endpoint returns intersection of all member prompts' images
 - Remote images (`type: "remote"`, imagePath is URL) are supported across all endpoints via `is_remote_path()` check
 - Init endpoint (`/init`) returns categories + prompts + combinations in one call for faster frontend initialization
+- Batch resolve endpoint (`POST /batch_resolve`) resolves mixed entity keys (prompts, categories, combinations) in one call, used for hydrating selected items from non-root categories
 
 ### Frontend (JavaScript/Preact)
 
@@ -98,7 +99,7 @@ All storage classes are thread-safe with locking mechanism. Access via `get_stor
 ```
 web/
 ├── prompt_gallery.js              # Main entry point
-├── utils.js                       # Shared utilities (buildImageUrl, fetchPromptImages, setPromptCover)
+├── utils.js                       # Shared utilities (buildImageUrl, fetchPromptImages, setPromptCover, batchResolve, fetchCovers)
 ├── Draggable.js                   # Drag-and-drop
 ├── lib/                           # Third-party libraries
 │   ├── preact.mjs                 # Preact core
@@ -152,16 +153,18 @@ web/
 ├── nodes/                         # Node-specific components
 │   ├── PromptSelector.js          # Node extension entry (beforeRegisterNodeDef)
 │   └── components/
-│       ├── PromptSelectorWidget.js    # Preact widget (hover preview for prompts & combinations)
+│       ├── PromptSelectorWidget.js    # Preact widget (hover preview, itemsByPartition, drag-reorder)
 │       ├── PartitionList.js           # Partition list with drag-drop
 │       ├── PartitionItem.js           # Individual partition item
 │       ├── PartitionHeader.js         # Partition header (shows link icon badge for auto-create)
 │       ├── PartitionConfigPanel.js    # Per-partition config (format, random, cycle, saveToGallery, autoCreateCombination, autoSaveCombinationCategoryId with searchable category selector)
 │       └── hooks/
-│           ├── usePromptSelector.js   # Core selection logic (loads prompts + combinations from /data)
+│           ├── usePromptSelector.js   # Core selection logic (loads data via /init, derives selection from orderItems)
 │           ├── useImagePreview.js     # Cover image hover preview (direct DOM, no fetch)
 │           ├── useNodeSync.js         # Node value synchronization
-│           └── usePartitionState.js   # Partition state management & persistence
+│           ├── usePartitionPreview.js # Partition content hover preview popup
+│           ├── useBodyRender.js       # Portal rendering hook (renders to document.body)
+│           └── usePartitionState.js   # Partition state, orderItems management & persistence
 ├── services/
 │   └── promptApi.js               # API call functions
 └── styles/                        # Component styles
@@ -195,9 +198,9 @@ web/
 
 - `useGalleryData`: Fetches and caches gallery data
 - `useFilteredPrompts`: Filters and sorts prompt list with `useMemo`
-- `usePromptSelector`: Core selection state, loads data from `/data` endpoint (prompts + combinations in one call)
+- `usePromptSelector`: Core selection state, loads data from `/init` endpoint, uses `hydrateAll` + `batchResolve` for selected items from non-root categories
 - `useImagePreview`: Direct DOM preview popup using `coverImagePath` (no API fetch)
-- `usePartitionState`: Partition CRUD, prompt/category/combination mapping, persistence
+- `usePartitionState`: Partition CRUD, `orderItems` management (unified member list per partition), persistence
 - `useLightboxEditor`: Lightbox edit mode — canvas rendering, undo stack, brush/mosaic/obfuscation tools
 
 **Lightbox Editor**:
@@ -235,9 +238,13 @@ The Lightbox (`Lightbox.js`) has an edit mode for image manipulation. Click the 
 **Partition System**:
 
 - Each partition has independent config: `format`, `randomMode`, `randomCount`, `cycleMode`, `saveToGallery`, `autoCreateCombination`, `autoSaveCombinationCategoryId`
+- Each partition has `orderItems[]` — a unified flat list of members: `[{ type: 'prompt'|'category'|'combination', key: '...' }]`. This is the single source of truth for partition membership and ordering
+- Tags within a partition support drag-reorder (intra-partition sort via `reorderPartitionItems`)
+- Cross-partition drag-move is also supported
 - `autoCreateCombination` is disabled when `saveToGallery` is off
 - `autoSaveCombinationCategoryId`: target category for auto-created combinations (empty = root category). Configured via searchable category selector in partition config panel
 - Partition header shows link icon badge when auto-create is enabled
+- `batchResolve` endpoint (`POST /prompt_gallery/batch_resolve`) resolves mixed prompt/category/combination keys in one call, used by `hydrateAll` on frontend init
 
 ## Development Workflow
 
@@ -595,6 +602,7 @@ svg.spin {
 - **Cover image preview**: Hover preview uses `coverImagePath` directly (no API call)
 - **Single data endpoint**: `/prompt_gallery/data` returns both prompts and combinations in one call
 - **Init endpoint**: `/prompt_gallery/init` returns categories + prompts + combinations in one call
+- **Batch resolve**: `POST /prompt_gallery/batch_resolve` resolves mixed prompt/category/combination keys in one call for hydration
 - **Pre-computed maxTime**: Calculated during data fetch for faster sorting
 - **Memoized filtering**: `useFilteredPrompts` with `useMemo`
 - **Image lazy loading**: `loading="lazy"` attribute on images

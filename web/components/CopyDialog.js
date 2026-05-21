@@ -3,9 +3,10 @@
  * 用于复制Prompt、分类或图片到其他位置
  */
 import { h } from '../lib/preact.mjs';
-import { useState, useMemo } from '../lib/hooks.mjs';
+import { useState, useMemo, useCallback } from '../lib/hooks.mjs';
 import { Dialog, DialogButton } from './Dialog.js';
 import { FlatSelector } from './FlatSelector.js';
+import { searchPrompts } from '../utils.js';
 import { showToast } from './Toast.js';
 import { Icon } from '../lib/icons.mjs';
 
@@ -14,7 +15,6 @@ export function CopyDialog({
   itemType, // 'category' | 'prompt' | 'image'
   item,
   categories,
-  prompts,
   onClose,
   onCopy,
 }) {
@@ -22,6 +22,8 @@ export function CopyDialog({
   const [newName, setNewName] = useState('');
   const [showNameInput, setShowNameInput] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // 过滤掉自己（不能复制到自己）
   const excludeIds = useMemo(() => {
@@ -52,6 +54,23 @@ export function CopyDialog({
     if (itemType === 'combination') return 'category';
     return 'category';
   }, [itemType]);
+
+  const handleSearch = useCallback(async (query) => {
+    if (!query || query.length < 1) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const result = await searchPrompts(query, 100);
+      setSearchResults(result.prompts || []);
+    } catch (err) {
+      console.error('搜索失败:', err);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
 
   const handleCopy = async () => {
     if (!selectedTarget) {
@@ -114,6 +133,8 @@ export function CopyDialog({
 
   if (!isOpen) return null;
 
+  const isPromptSearch = targetType === 'prompt';
+
   return h(
     Dialog,
     {
@@ -152,11 +173,14 @@ export function CopyDialog({
           h(FlatSelector, {
             type: targetType,
             categories,
-            prompts,
+            prompts: isPromptSearch ? searchResults : undefined,
             excludeIds,
             currentId: null,
             onSelect: handleTargetSelect,
             placeholder: '搜索目标...',
+            searchMode: isPromptSearch,
+            onSearch: isPromptSearch ? handleSearch : undefined,
+            searchLoading,
           }),
         ),
       ]),

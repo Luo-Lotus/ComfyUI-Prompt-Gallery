@@ -228,7 +228,6 @@ function DialogLayer() {
       itemType: ctx.moveItemType,
       item: ctx.moveItem,
       categories: ctx.categories,
-      prompts: ctx.allPrompts,
       onClose: ctx.closeMoveDialog,
       onMove: ctx.handleMove,
     }),
@@ -238,7 +237,6 @@ function DialogLayer() {
       itemType: ctx.copyItemType,
       item: ctx.copyItem,
       categories: ctx.categories,
-      prompts: ctx.allPrompts,
       onClose: ctx.closeCopyDialog,
       onCopy: ctx.handleCopy,
     }),
@@ -306,7 +304,6 @@ function DialogLayer() {
       mode: ctx.combinationDialogMode,
       combination: ctx.editingCombination,
       currentCategoryId: ctx.currentCategory,
-      prompts: ctx.allPrompts,
       onClose: () => {
         ctx.setShowCombinationDialog(false);
         ctx.setEditingCombination(null);

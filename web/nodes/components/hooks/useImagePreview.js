@@ -1,6 +1,7 @@
 /**
  * 图片预览 Hook
  * 用 Preact 组件渲染到 body，不受节点 transform 影响
+ * 支持按需获取封面
  */
 import { h } from '../../../lib/preact.mjs';
 import { buildImageUrl } from '../../../utils.js';
@@ -17,11 +18,30 @@ function ImagePreviewPopup({ imageUrl, alt, x, y }) {
   );
 }
 
-export function useImagePreview() {
+export function useImagePreview(coversCache, fetchCoversByIds) {
   const { renderToBody, clear } = useBodyRender();
 
-  const showPreview = (prompt, event) => {
-    const coverPath = prompt.coverImagePath;
+  const showPreview = async (prompt, event) => {
+    let coverPath = prompt.coverImagePath;
+
+    // 如果没有封面路径，尝试从缓存获取或按需加载
+    if (!coverPath && coversCache && fetchCoversByIds) {
+      const key = prompt.id
+        ? `combination:${prompt.id}`
+        : `${prompt.categoryId || 'root'}:${prompt.value}`;
+      coverPath = coversCache[key];
+
+      if (!coverPath) {
+        // 按需获取
+        const isCombination = !!prompt.id;
+        await fetchCoversByIds(
+          isCombination ? [] : [key],
+          isCombination ? [prompt.id] : [],
+        );
+        coverPath = coversCache[key];
+      }
+    }
+
     if (!coverPath) return;
 
     renderToBody(

@@ -102,22 +102,17 @@ partitionData = {
                 saveToGallery: true,        // 是否保存到画廊
                 autoCreateCombination: false, // 是否自动创建组合
                 autoSaveCombinationCategoryId: "" // 自动创建组合的目标分类（空=root）
-            }
+            },
+            orderItems: [                  // 分区成员的有序列表（统一数据源）
+                { type: 'prompt', key: 'root:prompt_a' },
+                { type: 'category', key: 'cat-id-1' },
+                { type: 'combination', key: 'combination:uuid-xxx' },
+            ]
         },
         // ... 最多 10 个分区
     ],
-    promptPartitionMap: {      // Prompt → 分区ID 的映射
-        "root:prompt_a": "partition-default",
-        "cat1:prompt_b": "partition-2"
-    },
-    categoryPartitionMap: {    // 分类 → 分区ID 的映射
-        "cat-id-1": "partition-default"
-    },
-    combinationPartitionMap: { // 组合 → 分区ID 的映射
-        "combination:uuid-xxx": "partition-default"
-    },
     promptWeights: {           // Prompt权重（仅Prompt，不含分类/组合）
-        "root:prompt_a": 1.5,  // key 格式同 promptPartitionMap
+        "root:prompt_a": 1.5,  // key 格式为 "categoryId:promptName"
         "cat1:prompt_b": 0.8   // 不存在或为 1.0 时表示默认权重
     },
     globalConfig: { ... }      // 全局默认配置
@@ -126,22 +121,27 @@ partitionData = {
 
 #### 关键设计
 
-- **映射表模式**：使用三个扁平映射表记录归属关系，而非在每个分区内部嵌套数组
+- **统一 orderItems**：每个分区使用一个 `orderItems[]` 数组记录成员和顺序，每项包含 `type`（`'prompt'`/`'category'`/`'combination'`）和 `key`。这是分区成员和排序的唯一数据源
+- **向后兼容**：旧数据无 `orderItems` 时，自动从 `promptKeys + categoryIds + combinationKeys` 构建
 - **权重存储**：`promptWeights` 扁平字典（`promptKey → number`），权重为 1.0 时删除 key，仅限Prompt标签
 - **持久化方式**：不使用独立的 JSON 文件存储，而是通过 `useNodeSync` 序列化到 ComfyUI 节点的 widget 值中，随工作流一起保存
 - **状态恢复**：组件初始化时，从 `metadataInput.value`（ComfyUI 恢复的 widget 值）解析分区数据
+- **派生视图**：`itemsByPartition`（useMemo）遍历 `orderItems` 并解析每项的数据对象，产出扁平数组供 UI 渲染
 
 #### 主要操作
 
 | 操作                                       | 说明                                           |
 | ------------------------------------------ | ---------------------------------------------- |
 | `addPartition(name)`                       | 创建新分区（继承全局配置），最多 10 个         |
-| `deletePartition(id)`                      | 删除分区，其中的Prompt/组合自动移回默认分区    |
+| `deletePartition(id)`                      | 删除分区，orderItems 转移回默认分区（去重）     |
 | `updatePartition(id, updates)`             | 更新分区名称或配置（不可改 enabled/isDefault） |
 | `togglePartition(id)`                      | 切换分区启用/禁用                              |
-| `movePromptToPartition(key, pid)`          | 将Prompt移到指定分区（pid=null 则移除）        |
-| `moveCategoryToPartition(catId, pid)`      | 将分类移到指定分区                             |
-| `moveCombinationToPartition(combKey, pid)` | 将组合移到指定分区                             |
+| `addItemToPartition(type, key, pid)`       | 将项添加到指定分区的 orderItems 末尾           |
+| `removeItemFromPartition(type, key, pid)`  | 从指定分区的 orderItems 中移除项               |
+| `removeItemGlobally(type, key)`            | 从所有分区的 orderItems 中移除项               |
+| `reorderPartitionItems(pid, from, to)`     | 分区内拖拽排序（调整 orderItems 顺序）         |
+| `isItemSelected(type, key)`                | 检查某项是否在任意分区的 orderItems 中          |
+| `getItemPartition(type, key)`              | 获取某项所在的分区 ID                          |
 | `setPromptWeight(key, weight)`             | 设置Prompt权重（0~2，weight=1.0 时删除 key）   |
 
 ### 2.4 节点同步（前端 → ComfyUI）
@@ -160,10 +160,9 @@ v1 metadata（传输格式）
 
 具体步骤：
 
-1. **构建 partitions 数组**：遍历每个分区，从映射表中反查出属于该分区的所有 key：
-    - `promptKeys`：从 `promptPartitionMap` 过滤出属于该分区的Prompt key（格式 `"categoryId:promptName"`）
-    - `categoryIds`：从 `categoryPartitionMap` 过滤出属于该分区的分类 ID
-    - `combinationKeys`：从 `combinationPartitionMap` 过滤出属于该分区的组合 key（格式 `"combination:{uuid}"`）
+1. **构建 partitions 数组**：遍历每个分区，直接读取 `orderItems` 数组：
+    - `orderItems`：分区的成员有序列表，每项 `{ type, key }`
+    - 向后兼容：旧数据仍输出 `promptKeys`/`categoryIds`/`combinationKeys`，后端会自动转换
 
 2. **构建 metadata 对象**：
 
@@ -177,9 +176,12 @@ v1 metadata（传输格式）
                 "isDefault": true,
                 "enabled": true,
                 "config": { "format": "{content}", ... },
-                "promptKeys": ["root:prompt_a", "cat1:prompt_b"],
-                "categoryIds": ["cat-id-1"],
-                "combinationKeys": ["combination:uuid-xxx"]
+                "orderItems": [
+                    { "type": "prompt", "key": "root:prompt_a" },
+                    { "type": "prompt", "key": "cat1:prompt_b" },
+                    { "type": "category", "key": "cat-id-1" },
+                    { "type": "combination", "key": "combination:uuid-xxx" }
+                ]
             }
         ],
         "promptWeights": {
@@ -205,18 +207,18 @@ toggleSelection(categoryId, name)
     ↓
 生成 key = "categoryId:name"
     ↓
-更新 selectedKeys（Set）和 selectedPromptsCache（Object）
+addItemToPartition('prompt', key, defaultPartition.id)
     ↓
-movePromptToPartition(key, defaultPartition.id)
-    ↓
-partitionData 更新
+分区 orderItems 更新 → itemsByPartition 重新计算
     ↓
 useNodeSync useEffect 触发
     ↓
-序列化 v1 metadata → 写入 widget → graph.change()
+序列化 v1 metadata（含 orderItems）→ 写入 widget → graph.change()
 ```
 
-分类选择和组合选择的流程类似，分别调用 `toggleCategorySelection` 和 `toggleCombinationSelection`。
+分类选择和组合选择的流程类似，分别调用 `toggleCategorySelection` 和 `toggleCombinationSelection`，内部使用 `addItemToPartition`/`removeItemGlobally`。
+
+分区内标签支持拖拽排序：通过 `reorderPartitionItems(partitionId, fromIndex, toIndex)` 调整 `orderItems` 顺序。
 
 ---
 
@@ -268,26 +270,28 @@ useNodeSync useEffect 触发
 
 ### 3.2 Prompt来源解析
 
+后端从每个分区的 `orderItems` 中按 `type` 字段分组解析Prompt来源。向后兼容：如果 `orderItems` 不存在，则 fallback 读取 `promptKeys` + `categoryIds` + `combinationKeys` 构建。
+
 每个分区中的Prompt来自三个渠道，全部解析后合并为一个统一的工作列表：
 
-#### 来源一：直接选择的Prompt（promptKeys）
+#### 来源一：直接选择的Prompt（type = 'prompt'）
 
-- 格式：`"categoryId:promptName"`
+- key 格式：`"categoryId:promptName"`
 - 处理：按 `:` 分割，提取 `categoryId` 和 `name`
 - 示例：`"root:mike"` → `('', 'mike')`
 
-#### 来源二：分类递归解析（categoryIds）
+#### 来源二：分类递归解析（type = 'category'）
 
 - 用户可能选择了整个分类而非单个Prompt
-- 调用 `_resolve_category_to_prompts(category_id, all_prompts, all_categories)` 递归解析
+- key 为分类 ID，调用 `_resolve_category_to_prompts(category_id, all_prompts, all_categories)` 递归解析
 - 解析逻辑：
     1. 查找 `parentId == category_id` 的所有子分类，递归处理
     2. 查找 `categoryId == category_id` 的所有Prompt，收集名称
 - 防止循环引用：用 `visited` 集合记录已访问的分类 ID
 
-#### 来源三：组合（combinationKeys）
+#### 来源三：组合（type = 'combination'）
 
-- 格式：`"combination:{uuid}"`
+- key 格式：`"combination:{uuid}"`
 - 处理：提取 UUID，从 `CombinationStorage` 查询组合详情
 - 获取两个关键字段：
     - `outputContent`：组合的格式化输出文本（如 `"@prompt_a,@prompt_b"`）
@@ -304,7 +308,7 @@ working_items = [
 ]
 ```
 
-去重：按 `"categoryId:promptName"` 去重，保持选择顺序。
+去重：按 `"categoryId:promptName"` 去重，保持 `orderItems` 中的选择顺序。
 
 ### 3.3 输出模式处理
 
@@ -578,18 +582,20 @@ saveable_names = [a["name"] for a in saveable_prompts]
                 "autoCreateCombination": true,
                 "autoSaveCombinationCategoryId": ""
             },
-            "promptKeys": ["root:mike", "cat1:sarah"],
-            "categoryIds": ["cat2"],
-            "combinationKeys": []
+            "orderItems": [
+                { "type": "prompt", "key": "root:mike" },
+                { "type": "prompt", "key": "cat1:sarah" },
+                { "type": "category", "key": "cat2" }
+            ]
         },
         {
             "id": "partition-2",
             "name": "分区2",
             "enabled": true,
             "config": { "format": "{content}", "saveToGallery": true },
-            "promptKeys": [],
-            "categoryIds": [],
-            "combinationKeys": ["combination:uuid-123"]
+            "orderItems": [
+                { "type": "combination", "key": "combination:uuid-123" }
+            ]
         }
     ],
     "promptWeights": {
@@ -642,11 +648,18 @@ saveable_names = [a["name"] for a in saveable_prompts]
 
 ```
 partitionData = {
-    partitions: Partition[]                          // 分区列表
-    promptPartitionMap: { [promptKey]: partitionId } // Prompt归属
-    categoryPartitionMap: { [catId]: partitionId }   // 分类归属
-    combinationPartitionMap: { [combKey]: partitionId } // 组合归属
+    partitions: Partition[]                          // 分区列表（每个分区含 orderItems[]）
     promptWeights: { [promptKey]: number }           // Prompt权重 (0~2, 默认 1.0)
+}
+
+Partition = {
+    id, name, isDefault, enabled, config,
+    orderItems: [{ type: 'prompt'|'category'|'combination', key: string }]  // 统一成员+排序数据源
+}
+
+// 派生视图（useMemo 计算，不存储）
+itemsByPartition = {
+    [partitionId]: [{ type, key, data: Object, orphaned: boolean }]  // 解析后的扁平数组
 }
 ```
 
@@ -658,14 +671,18 @@ partitionData = {
     "partitions": [{
         "id": "...", "name": "...", "isDefault": bool, "enabled": bool,
         "config": { format, randomMode, randomCount, cycleMode, saveToGallery, autoCreateCombination, autoSaveCombinationCategoryId },
-        "promptKeys": ["categoryId:name", ...],
-        "categoryIds": ["catId", ...],
-        "combinationKeys": ["combination:uuid", ...]
+        "orderItems": [
+            { "type": "prompt", "key": "categoryId:name" },
+            { "type": "category", "key": "catId" },
+            { "type": "combination", "key": "combination:uuid" }
+        ]
     }],
     "promptWeights": { "categoryId:name": 1.5, ... },
     "globalConfig": { ... }
 }
 ```
+
+向后兼容：旧格式的 `promptKeys`/`categoryIds`/`combinationKeys` 数组仍然被后端支持，会自动转换为 `orderItems`。
 
 ### 后端→后端传递格式（enriched metadata）
 

@@ -742,7 +742,6 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
 
       // Categories
       categories: categoryMgr.categories,
-      allPrompts: categoryMgr.allPrompts,
       categoryPath: categoryMgr.categoryPath,
       currentCategoryChildren: categoryMgr.currentCategoryChildren,
       refreshCategories: categoryMgr.refreshCategories,
@@ -916,7 +915,6 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       loading,
       error,
       categoryMgr.categories,
-      categoryMgr.allPrompts,
       categoryMgr.categoryPath,
       categoryMgr.currentCategoryChildren,
       categoryMgr.refreshCategories,

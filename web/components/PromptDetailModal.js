@@ -12,7 +12,7 @@ import { Icon } from '../lib/icons.mjs';
 import { showToast } from './Toast.js';
 import { deleteImage } from '../services/promptApi.js';
 
-export function PromptDetailModal({ isOpen, prompt, onClose, onImageDelete, categories, allPrompts }) {
+export function PromptDetailModal({ isOpen, prompt, onClose, onImageDelete, categories }) {
   const [lightbox, setLightbox] = useState({
     open: false,
     prompt: null,
@@ -188,7 +188,6 @@ export function PromptDetailModal({ isOpen, prompt, onClose, onImageDelete, cate
         itemType: 'image',
         item: selectedImage,
         categories: categories || [],
-        prompts: allPrompts || [],
         onClose: () => {
           setShowMoveDialog(false);
           setSelectedImage(null);

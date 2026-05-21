@@ -1,6 +1,7 @@
 /**
  * 分区状态管理 Hook
  * 分区 CRUD、校验、计算分区视图
+ * 使用 orderItems[] 统一管理分区内成员和排序
  * 持久化由 useNodeSync 通过 nodeInstance widget 完成（ComfyUI 自动保存）
  */
 import { useState, useMemo, useCallback } from '../../../lib/hooks.mjs';
@@ -22,14 +23,12 @@ const DEFAULT_PARTITION = {
   config: { ...DEFAULT_CONFIG },
   order: 0,
   createdAt: Date.now(),
+  orderItems: [],
 };
 
 const DEFAULT_PARTITION_DATA = {
   partitions: [DEFAULT_PARTITION],
-  promptPartitionMap: {},
   promptWeights: {},
-  categoryPartitionMap: {},
-  combinationPartitionMap: {},
   globalConfig: { ...DEFAULT_CONFIG },
 };
 
@@ -42,18 +41,19 @@ function validatePartitionData(data) {
     console.warn('[PartitionState] No default partition found');
     return null;
   }
-  if (!data.promptPartitionMap) data.promptPartitionMap = {};
   if (!data.promptWeights) data.promptWeights = {};
-  if (!data.categoryPartitionMap) data.categoryPartitionMap = {};
-  if (!data.combinationPartitionMap) data.combinationPartitionMap = {};
   if (!data.globalConfig) data.globalConfig = { ...DEFAULT_CONFIG };
+  // 确保每个分区有 orderItems
+  for (const p of data.partitions) {
+    if (!p.orderItems) p.orderItems = [];
+  }
   return data;
 }
 
 /**
  * 从 nodeInstance metadata widget 值解析分区数据
- * v1 格式: { version:1, partitions:[{id, promptKeys[], categoryIds[], ...}], globalConfig }
- * 内部格式: { partitions, promptPartitionMap, categoryPartitionMap, globalConfig }
+ * v1 格式: { version:1, partitions:[{id, orderItems[], ...}], globalConfig }
+ * 向后兼容旧格式: promptKeys[], categoryIds[], combinationKeys[]
  */
 function parseWidgetMetadata(widgetValue) {
   try {
@@ -61,19 +61,18 @@ function parseWidgetMetadata(widgetValue) {
     if (!data || data.version !== 1 || !Array.isArray(data.partitions)) {
       return null;
     }
-    const promptPartitionMap = {};
-    const categoryPartitionMap = {};
-    const combinationPartitionMap = {};
     const partitions = data.partitions.map((p, i) => {
-      for (const key of p.promptKeys || []) {
-        promptPartitionMap[key] = p.id;
+      let orderItems = p.orderItems || [];
+
+      // 向后兼容：旧格式无 orderItems，从三个数组构建
+      if (!p.orderItems && (p.promptKeys || p.categoryIds || p.combinationKeys)) {
+        orderItems = [
+          ...(p.combinationKeys || []).map((key) => ({ type: 'combination', key })),
+          ...(p.categoryIds || []).map((key) => ({ type: 'category', key })),
+          ...(p.promptKeys || []).map((key) => ({ type: 'prompt', key })),
+        ];
       }
-      for (const catId of p.categoryIds || []) {
-        categoryPartitionMap[catId] = p.id;
-      }
-      for (const combKey of p.combinationKeys || []) {
-        combinationPartitionMap[combKey] = p.id;
-      }
+
       return {
         id: p.id,
         name: p.name,
@@ -82,14 +81,12 @@ function parseWidgetMetadata(widgetValue) {
         config: p.config,
         order: i,
         createdAt: p.createdAt || Date.now(),
+        orderItems,
       };
     });
     return validatePartitionData({
       partitions,
-      promptPartitionMap,
       promptWeights: data.promptWeights || {},
-      categoryPartitionMap,
-      combinationPartitionMap,
       globalConfig: data.globalConfig || { ...DEFAULT_CONFIG },
     });
   } catch {
@@ -99,7 +96,6 @@ function parseWidgetMetadata(widgetValue) {
 
 export function usePartitionState({ selectedPromptsCache, categories, combinations, metadataInput }) {
   const [partitionData, setPartitionData] = useState(() => {
-    // 从 nodeInstance widget 恢复（ComfyUI 在 onNodeCreated 前已恢复 widget 值）
     if (metadataInput?.value) {
       const parsed = parseWidgetMetadata(metadataInput.value);
       if (parsed) return parsed;
@@ -107,51 +103,136 @@ export function usePartitionState({ selectedPromptsCache, categories, combinatio
     return { ...DEFAULT_PARTITION_DATA };
   });
 
-  // 合并计算每个分区的画师、分类、组合列表（单次遍历 partitionData.partitions）
+  // 合并计算每个分区的扁平 items 列表（单次遍历）
   const partitionViews = useMemo(() => {
-    const promptsByPartition = {};
-    const categoriesByPartition = {};
-    const combinationsByPartition = {};
+    const itemsByPartition = {};
 
     partitionData.partitions.forEach((partition) => {
-      // 画师
-      promptsByPartition[partition.id] = Object.keys(partitionData.promptPartitionMap)
-        .filter((key) => partitionData.promptPartitionMap[key] === partition.id)
-        .map((key) => {
-          const cached = selectedPromptsCache[key];
-          if (cached) return cached;
-          const colonIdx = key.indexOf(':');
-          return {
-            categoryId: key.substring(0, colonIdx),
-            name: key.substring(colonIdx + 1),
-            displayName: key.substring(colonIdx + 1),
-            _orphaned: true,
-            _orphanedKey: key,
-          };
-        });
+      const items = [];
+      for (const orderItem of partition.orderItems) {
+        const { type, key } = orderItem;
+        let data = null;
+        let orphaned = false;
 
-      // 分类
-      categoriesByPartition[partition.id] = Object.keys(partitionData.categoryPartitionMap)
-        .filter((catId) => partitionData.categoryPartitionMap[catId] === partition.id)
-        .map((catId) => categories.find((c) => c.id === catId))
-        .filter(Boolean);
+        if (type === 'prompt') {
+          data = selectedPromptsCache[key];
+          if (!data) {
+            const colonIdx = key.indexOf(':');
+            data = {
+              categoryId: key.substring(0, colonIdx),
+              name: key.substring(colonIdx + 1),
+              value: key.substring(colonIdx + 1),
+            };
+            orphaned = true;
+          }
+        } else if (type === 'category') {
+          data = categories.find((c) => c.id === key);
+          if (!data) {
+            data = { id: key, name: key };
+            orphaned = true;
+          }
+        } else if (type === 'combination') {
+          const combId = key.replace('combination:', '');
+          data = (combinations || []).find((c) => c.id === combId);
+          if (!data) {
+            data = { id: combId, name: key };
+            orphaned = true;
+          }
+        }
 
-      // 组合
-      combinationsByPartition[partition.id] = Object.keys(partitionData.combinationPartitionMap)
-        .filter((combKey) => partitionData.combinationPartitionMap[combKey] === partition.id)
-        .map((combKey) => {
-          const combId = combKey.replace('combination:', '');
-          return (combinations || []).find((c) => c.id === combId);
-        })
-        .filter(Boolean);
+        items.push({ type, key, data, orphaned });
+      }
+      itemsByPartition[partition.id] = items;
     });
 
-    return { promptsByPartition, categoriesByPartition, combinationsByPartition };
+    return { itemsByPartition };
   }, [partitionData, selectedPromptsCache, categories, combinations]);
 
-  const getPromptsByPartition = partitionViews.promptsByPartition;
-  const getCategoriesByPartition = partitionViews.categoriesByPartition;
-  const getCombinationsByPartition = partitionViews.combinationsByPartition;
+  const { itemsByPartition } = partitionViews;
+
+  // 添加项到分区末尾
+  const addItemToPartition = useCallback((type, key, partitionId) => {
+    setPartitionData((prev) => {
+      return {
+        ...prev,
+        partitions: prev.partitions.map((p) => {
+          if (p.id !== partitionId) return p;
+          // 检查是否已存在
+          if (p.orderItems.some((item) => item.type === type && item.key === key)) return p;
+          return { ...p, orderItems: [...p.orderItems, { type, key }] };
+        }),
+      };
+    });
+  }, []);
+
+  // 从分区移除项
+  const removeItemFromPartition = useCallback((type, key, partitionId) => {
+    setPartitionData((prev) => {
+      const newPromptWeights = { ...prev.promptWeights };
+      // 如果是 prompt，同时移除权重
+      if (type === 'prompt') {
+        delete newPromptWeights[key];
+      }
+      return {
+        ...prev,
+        promptWeights: newPromptWeights,
+        partitions: prev.partitions.map((p) => {
+          if (p.id !== partitionId) return p;
+          return {
+            ...p,
+            orderItems: p.orderItems.filter((item) => !(item.type === type && item.key === key)),
+          };
+        }),
+      };
+    });
+  }, []);
+
+  // 从任意分区移除项（不指定分区）
+  const removeItemGlobally = useCallback((type, key) => {
+    setPartitionData((prev) => {
+      const newPromptWeights = { ...prev.promptWeights };
+      if (type === 'prompt') {
+        delete newPromptWeights[key];
+      }
+      return {
+        ...prev,
+        promptWeights: newPromptWeights,
+        partitions: prev.partitions.map((p) => ({
+          ...p,
+          orderItems: p.orderItems.filter((item) => !(item.type === type && item.key === key)),
+        })),
+      };
+    });
+  }, []);
+
+  // 分区内拖拽排序
+  const reorderPartitionItems = useCallback((partitionId, fromIndex, toIndex) => {
+    setPartitionData((prev) => {
+      return {
+        ...prev,
+        partitions: prev.partitions.map((p) => {
+          if (p.id !== partitionId) return p;
+          const items = [...p.orderItems];
+          const [moved] = items.splice(fromIndex, 1);
+          items.splice(toIndex, 0, moved);
+          return { ...p, orderItems: items };
+        }),
+      };
+    });
+  }, []);
+
+  // 设置画师权重
+  const setPromptWeight = useCallback((promptKey, weight) => {
+    setPartitionData((prev) => {
+      const newWeights = { ...prev.promptWeights };
+      if (weight === 1.0 || weight == null) {
+        delete newWeights[promptKey];
+      } else {
+        newWeights[promptKey] = Math.round(weight * 10) / 10;
+      }
+      return { ...prev, promptWeights: newWeights };
+    });
+  }, []);
 
   // 添加新分区
   const addPartition = useCallback((name) => {
@@ -168,6 +249,7 @@ export function usePartitionState({ selectedPromptsCache, categories, combinatio
         config: { ...prev.globalConfig },
         order: prev.partitions.length,
         createdAt: Date.now(),
+        orderItems: [],
       };
       return {
         ...prev,
@@ -176,7 +258,7 @@ export function usePartitionState({ selectedPromptsCache, categories, combinatio
     });
   }, []);
 
-  // 删除分区
+  // 删除分区（orderItems 转移到默认分区）
   const deletePartition = useCallback((partitionId) => {
     setPartitionData((prev) => {
       const partition = prev.partitions.find((p) => p.id === partitionId);
@@ -186,23 +268,20 @@ export function usePartitionState({ selectedPromptsCache, categories, combinatio
       }
       const defaultPartition = prev.partitions.find((p) => p.isDefault);
       if (!defaultPartition) return prev;
-      const newPromptPartitionMap = { ...prev.promptPartitionMap };
-      Object.keys(newPromptPartitionMap).forEach((key) => {
-        if (newPromptPartitionMap[key] === partitionId) {
-          newPromptPartitionMap[key] = defaultPartition.id;
-        }
-      });
-      const newCombinationPartitionMap = { ...prev.combinationPartitionMap };
-      Object.keys(newCombinationPartitionMap).forEach((key) => {
-        if (newCombinationPartitionMap[key] === partitionId) {
-          newCombinationPartitionMap[key] = defaultPartition.id;
-        }
-      });
+
       return {
         ...prev,
-        partitions: prev.partitions.filter((p) => p.id !== partitionId),
-        promptPartitionMap: newPromptPartitionMap,
-        combinationPartitionMap: newCombinationPartitionMap,
+        partitions: prev.partitions
+          .filter((p) => p.id !== partitionId)
+          .map((p) => {
+            if (p.id !== defaultPartition.id) return p;
+            // 将被删分区的 orderItems 合并到默认分区（去重）
+            const existingKeys = new Set(p.orderItems.map((item) => `${item.type}:${item.key}`));
+            const newItems = partition.orderItems.filter(
+              (item) => !existingKeys.has(`${item.type}:${item.key}`),
+            );
+            return { ...p, orderItems: [...p.orderItems, ...newItems] };
+          }),
       };
     });
   }, []);
@@ -213,53 +292,17 @@ export function usePartitionState({ selectedPromptsCache, categories, combinatio
       return {
         ...prev,
         partitions: prev.partitions.map((p) => {
-          if (p.id === partitionId) {
-            return {
-              ...p,
-              ...updates,
-              enabled: p.enabled,
-              isDefault: p.isDefault,
-              order: p.order,
-              createdAt: p.createdAt,
-            };
-          }
-          return p;
+          if (p.id !== partitionId) return p;
+          return {
+            ...p,
+            ...updates,
+            enabled: p.enabled,
+            isDefault: p.isDefault,
+            order: p.order,
+            createdAt: p.createdAt,
+            orderItems: p.orderItems,
+          };
         }),
-      };
-    });
-  }, []);
-
-  // 移动画师到指定分区（partitionId 为 null 时移除）
-  const movePromptToPartition = useCallback((promptKey, partitionId) => {
-    setPartitionData((prev) => {
-      const newMap = { ...prev.promptPartitionMap };
-      const newWeights = { ...prev.promptWeights };
-      if (partitionId == null) {
-        delete newMap[promptKey];
-        delete newWeights[promptKey];
-      } else {
-        newMap[promptKey] = partitionId;
-      }
-      return {
-        ...prev,
-        promptPartitionMap: newMap,
-        promptWeights: newWeights,
-      };
-    });
-  }, []);
-
-  // 设置画师权重
-  const setPromptWeight = useCallback((promptKey, weight) => {
-    setPartitionData((prev) => {
-      const newWeights = { ...prev.promptWeights };
-      if (weight === 1.0 || weight == null) {
-        delete newWeights[promptKey];
-      } else {
-        newWeights[promptKey] = Math.round(weight * 10) / 10;
-      }
-      return {
-        ...prev,
-        promptWeights: newWeights,
       };
     });
   }, []);
@@ -287,35 +330,6 @@ export function usePartitionState({ selectedPromptsCache, categories, combinatio
     });
   }, []);
 
-  // 移动分类到指定分区（partitionId 为 null 时移除）
-  const moveCategoryToPartition = useCallback((categoryId, partitionId) => {
-    setPartitionData((prev) => {
-      const newMap = { ...prev.categoryPartitionMap };
-      if (partitionId == null) {
-        delete newMap[categoryId];
-      } else {
-        newMap[categoryId] = partitionId;
-      }
-      return {
-        ...prev,
-        categoryPartitionMap: newMap,
-      };
-    });
-  }, []);
-
-  // 移动组合到指定分区（partitionId 为 null 时移除）
-  const moveCombinationToPartition = useCallback((combinationKey, partitionId) => {
-    setPartitionData((prev) => {
-      const newMap = { ...prev.combinationPartitionMap };
-      if (partitionId == null) {
-        delete newMap[combinationKey];
-      } else {
-        newMap[combinationKey] = partitionId;
-      }
-      return { ...prev, combinationPartitionMap: newMap };
-    });
-  }, []);
-
   // 重排分区顺序
   const reorderPartitions = useCallback((fromIndex, toIndex) => {
     setPartitionData((prev) => {
@@ -329,21 +343,45 @@ export function usePartitionState({ selectedPromptsCache, categories, combinatio
     });
   }, []);
 
+  // 辅助：检查某项是否在任意分区中
+  const isItemSelected = useCallback(
+    (type, key) => {
+      return partitionData.partitions.some((p) =>
+        p.orderItems.some((item) => item.type === type && item.key === key),
+      );
+    },
+    [partitionData],
+  );
+
+  // 辅助：获取某项所在的分区 ID
+  const getItemPartition = useCallback(
+    (type, key) => {
+      for (const p of partitionData.partitions) {
+        if (p.orderItems.some((item) => item.type === type && item.key === key)) {
+          return p.id;
+        }
+      }
+      return null;
+    },
+    [partitionData],
+  );
+
   return {
     partitionData,
     setPartitionData,
-    getPromptsByPartition,
-    getCategoriesByPartition,
-    getCombinationsByPartition,
+    itemsByPartition,
+    addItemToPartition,
+    removeItemFromPartition,
+    removeItemGlobally,
+    reorderPartitionItems,
+    setPromptWeight,
     addPartition,
     deletePartition,
     updatePartition,
-    movePromptToPartition,
-    setPromptWeight,
-    moveCategoryToPartition,
-    moveCombinationToPartition,
     togglePartition,
     setAsDefaultPartition,
     reorderPartitions,
+    isItemSelected,
+    getItemPartition,
   };
 }

@@ -1,10 +1,10 @@
 /**
  * 平铺选择器组件
  * 用于移动对话框中选择目标（分类或Prompt）
- * 支持单选和多选模式
+ * 支持单选和多选模式，支持搜索模式
  */
 import { h } from '../lib/preact.mjs';
-import { useState, useMemo } from '../lib/hooks.mjs';
+import { useState, useMemo, useCallback, useRef } from '../lib/hooks.mjs';
 import { LazyList } from './LazyList.js';
 import { Icon } from '../lib/icons.mjs';
 
@@ -20,8 +20,13 @@ export function FlatSelector({
   multiSelect = false,
   selectedIds = new Set(),
   onToggleItem,
+  // 搜索模式
+  searchMode = false,
+  onSearch,
+  searchLoading = false,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const searchTimerRef = useRef(null);
 
   // 构建平铺的分类树（包含缩进）
   const flattenedCategories = useMemo(() => {
@@ -64,13 +69,13 @@ export function FlatSelector({
     if (!prompts || prompts.length === 0) return [];
     return prompts.filter((prompt) => {
       if (excludeIds.includes(getPromptKey(prompt))) return false;
-      if (searchQuery) {
+      if (searchQuery && !searchMode) {
         const name = (prompt.name || prompt.value).toLowerCase();
         return name.includes(searchQuery.toLowerCase());
       }
       return true;
     });
-  }, [prompts, excludeIds, searchQuery]);
+  }, [prompts, excludeIds, searchQuery, searchMode]);
 
   const items = type === 'category' ? filteredCategories : filteredPrompts;
 
@@ -97,6 +102,21 @@ export function FlatSelector({
     }
     return currentId === getPromptKey(item);
   };
+
+  const handleSearchInput = useCallback(
+    (e) => {
+      const value = e.target.value;
+      setSearchQuery(value);
+
+      if (searchMode && onSearch) {
+        clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(() => {
+          onSearch(value);
+        }, 200);
+      }
+    },
+    [searchMode, onSearch],
+  );
 
   const renderItem = (item) => {
     const selected = isSelected(item);
@@ -148,10 +168,12 @@ export function FlatSelector({
     h('input', {
       class: 'flat-selector-search',
       type: 'text',
-      placeholder: placeholder,
+      placeholder: searchMode ? '输入关键词搜索...' : placeholder,
       value: searchQuery,
-      onInput: (e) => setSearchQuery(e.target.value),
+      onInput: handleSearchInput,
     }),
+
+    searchLoading && h('div', { class: 'flat-selector-loading' }, '搜索中...'),
 
     h(LazyList, {
       items,

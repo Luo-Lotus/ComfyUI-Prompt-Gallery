@@ -15,7 +15,7 @@ import { showToast } from '../../components/Toast.js';
 import { useBodyRender } from './hooks/useBodyRender.js';
 import { AddPromptDialog } from '../../components/AddPromptDialog.js';
 import { CategoryDialog } from '../../components/CategoryDialog.js';
-import { addCategory } from '../../utils.js';
+import { addCategory, batchResolvePrompts, searchAll } from '../../utils.js';
 import { updateCategoryMetadata } from '../../services/promptApi.js';
 
 // 辅助函数：构建面包屑路径
@@ -59,19 +59,19 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
     refreshing,
     breadcrumbPath,
     partitionData,
-    getPromptsByPartition,
-    getCategoriesByPartition,
-    getCombinationsByPartition,
+    itemsByPartition,
     addPartition,
     deletePartition,
     updatePartition,
-    movePromptToPartition,
+    addItemToPartition,
+    removeItemFromPartition,
+    removeItemGlobally,
+    reorderPartitionItems,
     setPromptWeight,
-    moveCategoryToPartition,
-    moveCombinationToPartition,
     togglePartition,
     setAsDefaultPartition,
     reorderPartitions,
+    isItemSelected,
     setSearchQuery,
     setSortBy,
     setSortOrder,
@@ -83,11 +83,13 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
     makePromptKey,
     parsePromptKey,
     updateNodeValue,
-    allPrompts,
+    searchResults,
+    coversCache,
+    fetchCoversByIds,
   } = usePromptSelector(nodeInstance, selectedInput, metadataInput);
 
-  // 使用图片预览 hook
-  const { showPreview, removePreview } = useImagePreview();
+  // 使用图片预览 hook（支持按需获取封面）
+  const { showPreview, removePreview } = useImagePreview(coversCache, fetchCoversByIds);
 
   // 使用右键菜单 hook
   const { showContextMenu } = useContextMenu();
@@ -255,13 +257,9 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   const renderSelectedPrompts = () => {
     return h(PartitionList, {
       partitions: partitionData.partitions,
-      promptsByPartition: getPromptsByPartition,
-      categoriesByPartition: getCategoriesByPartition,
-      combinationsByPartition: getCombinationsByPartition,
+      itemsByPartition,
       promptWeights: partitionData.promptWeights,
-      allPrompts,
-      selectedCategories: selectedCategoriesList,
-      categories: categories,
+      coversCache,
       onPartitionAction: (action, data) => {
         if (action === 'add') {
           addPartition(data);
@@ -277,26 +275,15 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         }
       },
       onPartitionReorder: reorderPartitions,
-      onPromptMove: (promptKey, partitionId) => {
-        movePromptToPartition(promptKey, partitionId);
+      onItemMove: (type, key, fromPartitionId, toPartitionId) => {
+        removeItemFromPartition(type, key, fromPartitionId);
+        addItemToPartition(type, key, toPartitionId);
       },
-      onPromptRemove: (promptKey) => {
-        const { categoryId, value } = parsePromptKey(promptKey);
-        toggleSelection(categoryId, value);
+      onItemRemove: (type, key, partitionId) => {
+        removeItemFromPartition(type, key, partitionId);
       },
-      onCategoryMove: (categoryId, partitionId) => {
-        moveCategoryToPartition(categoryId, partitionId);
-      },
-      onCategoryRemove: (categoryId) => {
-        toggleCategorySelection(categoryId);
-      },
-      onCombinationMove: (combinationKey, partitionId) => {
-        moveCombinationToPartition(combinationKey, partitionId);
-      },
-      onCombinationRemove: (combinationKey) => {
-        // 从 key 提取 combination id
-        const combId = combinationKey.replace('combination:', '');
-        toggleCombinationSelection(combId);
+      onItemReorder: (partitionId, fromIndex, toIndex) => {
+        reorderPartitionItems(partitionId, fromIndex, toIndex);
       },
       onPromptWeightChange: (promptKey, weight) => {
         setPromptWeight(promptKey, weight);
@@ -552,8 +539,19 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
             {
               icon: 'copy',
               label: '复制文本',
-              action: () => {
-                navigator.clipboard.writeText(combination.outputContent);
+              action: async () => {
+                let text = combination.outputContent;
+                if (!text) {
+                  // 按需获取 outputContent
+                  try {
+                    const result = await searchAll(combination.name, 1);
+                    const found = (result.combinations || []).find((c) => c.id === combination.id);
+                    text = found?.outputContent || (combination.prompts || []).join(',');
+                  } catch {
+                    text = (combination.prompts || []).join(',');
+                  }
+                }
+                navigator.clipboard.writeText(text);
                 showToast('已复制', 'success');
               },
             },
@@ -573,18 +571,27 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
             {
               icon: 'unlink',
               label: '拆分选择',
-              action: () => {
-                const promptMap = partitionData.promptPartitionMap || {};
+              action: async () => {
+                // 尝试通过 batch_resolve 获取各 prompt 的 categoryId
+                const keys = (combination.prompts || []).map((v) => `${combination.categoryId || 'root'}:${v}`);
+                let resolvedMap = {};
+                try {
+                  const result = await batchResolvePrompts(keys);
+                  resolvedMap = result.prompts || {};
+                } catch {
+                  // fallback: 使用 combination.categoryId
+                }
+
                 (combination.prompts || []).forEach((promptValue) => {
-                  const promptInfo = (allPrompts || []).find((p) => p.value === promptValue);
-                  const categoryId = promptInfo ? promptInfo.categoryId : combination.categoryId;
-                  const key = makePromptKey(categoryId, promptValue);
-                  if (!(key in promptMap)) {
+                  const key = `${combination.categoryId || 'root'}:${promptValue}`;
+                  const resolved = resolvedMap[key];
+                  const categoryId = resolved ? resolved.categoryId : (combination.categoryId || 'root');
+                  const resolvedKey = makePromptKey(categoryId, promptValue);
+                  if (!isItemSelected('prompt', resolvedKey)) {
                     toggleSelection(categoryId, promptValue);
                   }
                 });
-                const comboKey = `combination:${combination.id}`;
-                if (comboKey in (partitionData.combinationPartitionMap || {})) {
+                if (isItemSelected('combination', `combination:${combination.id}`)) {
                   toggleCombinationSelection(combination.id);
                 }
                 showToast(`已拆分组合「${combination.name}」`, 'success');

@@ -13,20 +13,14 @@ export function useNodeSync({
   partitionData,
 }) {
   const updateNodeValue = useCallback(() => {
-    const promptMap = partitionData.promptPartitionMap || {};
-    const categoryMap = partitionData.categoryPartitionMap || {};
-    const combinationMap = partitionData.combinationPartitionMap || {};
-
-    // 构建 v1 格式的 partitions（每个分区自带其 promptKeys 和 categoryIds 和 combinationKeys）
+    // 构建 v1 格式的 partitions（每个分区携带 orderItems）
     const partitions = partitionData.partitions.map((p) => ({
       id: p.id,
       name: p.name,
       isDefault: p.isDefault,
       enabled: p.enabled,
       config: p.config,
-      promptKeys: Object.keys(promptMap).filter((key) => promptMap[key] === p.id),
-      categoryIds: Object.keys(categoryMap).filter((catId) => categoryMap[catId] === p.id),
-      combinationKeys: Object.keys(combinationMap).filter((key) => combinationMap[key] === p.id),
+      orderItems: p.orderItems || [],
     }));
 
     const metadata = {
