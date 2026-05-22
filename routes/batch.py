@@ -7,7 +7,7 @@ import server
 from ..storage import get_storage
 from ..storage.backup import BackupManager
 from ._utils import is_remote_path
-from ._delete_utils import delete_category_cascade, delete_prompt_cascade, remove_image_prompt_link, delete_image_completely
+from ._delete_utils import delete_category_cascade, delete_prompt_cascade, batch_delete_prompts_cascade, remove_image_prompt_link, delete_image_completely
 
 
 # ============ Batch Operations API ============
@@ -66,24 +66,31 @@ async def batch_delete(request):
             except Exception as e:
                 result["errors"].append(f"删除分类 {cat_id} 失败: {str(e)}")
 
-        # 删除 Prompt（级联）
-        for prompt_data in prompts:
-            try:
+        # 删除 Prompt（批量级联）
+        if prompts:
+            # 先验证并收集有效的 prompt keys
+            valid_keys = []
+            for prompt_data in prompts:
                 category_id = prompt_data.get("categoryId")
                 value = prompt_data.get("value")
+                if not category_id or not value:
+                    result["errors"].append(f"无效的 Prompt 数据: {prompt_data}")
+                    continue
                 prompt = prompt_storage.get_prompt(category_id, value)
                 if not prompt:
                     result["errors"].append(f"Prompt {value} 不存在")
                     continue
-                prompt_result = delete_prompt_cascade(
-                    category_id, value,
+                valid_keys.append((category_id, value))
+                result["deleted_prompts"].append(prompt.get("name", value))
+
+            # 批量级联删除（3 次锁操作代替 N*M 次）
+            if valid_keys:
+                prompt_result = batch_delete_prompts_cascade(
+                    valid_keys,
                     prompt_storage, mapping_storage, combination_storage,
                 )
-                result["deleted_prompts"].append(prompt.get("name", value))
                 result["deleted_files"].extend(prompt_result["deleted_files"])
                 result["disassociated_images"].extend(prompt_result["disassociated_images"])
-            except Exception as e:
-                result["errors"].append(f"删除Prompt {prompt_data.get('value')} 失败: {str(e)}")
 
         # 删除组合
         for comb_id in combination_ids:

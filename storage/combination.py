@@ -215,6 +215,29 @@ class CombinationStorage:
                 self._write_data(data)
             return affected
 
+    def batch_remove_prompts_from_all(self, prompt_values: List[str]) -> int:
+        """批量从所有组合中移除多个 Prompt 值（一次锁完成）"""
+        if not prompt_values:
+            return 0
+        prompt_set = set(prompt_values)
+        with self._lock:
+            data = self._read_data()
+            affected = 0
+            for c in data["combinations"]:
+                keys = c.get("prompts", [])
+                matched = prompt_set & set(keys)
+                if matched:
+                    remaining = [p for p in keys if p not in prompt_set]
+                    old_content = c.get("outputContent", "")
+                    # 如果 outputContent 是自动生成的（等于旧 prompts 逗号拼接），则重新生成
+                    if not old_content or old_content == ",".join(keys):
+                        c["outputContent"] = ",".join(remaining)
+                    c["prompts"] = remaining
+                    affected += 1
+            if affected > 0:
+                self._write_data(data)
+            return affected
+
     def batch_delete(self, combination_ids: List[str]) -> int:
         """批量删除组合"""
         with self._lock:

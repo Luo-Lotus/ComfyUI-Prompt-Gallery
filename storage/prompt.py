@@ -357,6 +357,27 @@ class PromptStorage:
                 return True
             return False
 
+    def batch_delete_prompts(self, keys: list) -> int:
+        """
+        批量删除多个 Prompt（一次锁完成）
+        :param keys: [(categoryId, value), ...] 列表
+        :return: 删除数量
+        """
+        if not keys:
+            return 0
+        key_set = set(keys)
+        with self._lock:
+            data = self._read_data()
+            original_count = len(data["prompts"])
+            data["prompts"] = [
+                a for a in data["prompts"]
+                if (a.get("categoryId", "root"), a.get("value", "")) not in key_set
+            ]
+            deleted = original_count - len(data["prompts"])
+            if deleted > 0:
+                self._write_data(data)
+            return deleted
+
     def update_image_count(self, category_id: str, value: str, delta: int = 1):
         """
         更新Prompt的图片数量（使用组合键）

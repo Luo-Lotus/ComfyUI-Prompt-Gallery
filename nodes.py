@@ -750,3 +750,73 @@ class QuickSavePrompt:
 
         return ()
 
+
+def _flatten_categories(categories, tree):
+    """将分类树扁平化为带缩进的名称列表，返回 (名称列表, 名称→ID映射)"""
+    name_to_id = {}
+
+    def walk(nodes, depth=0):
+        for node in nodes:
+            display = "  " * depth + node["name"]
+            name_to_id[display] = node["id"]
+            walk(node.get("children", []), depth + 1)
+
+    walk(tree)
+    return name_to_id
+
+
+class PromptCategoryReader:
+    """从分类读取Prompt节点"""
+
+    CATEGORY = "🎨 Prompt Gallery"
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("text",)
+    FUNCTION = "read_prompts"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        _, _, category_storage, _ = get_storage()
+        categories = category_storage.get_all_categories()
+        tree = category_storage.get_category_tree()
+        name_to_id = _flatten_categories(categories, tree)
+        category_list = ["全部"] + list(name_to_id.keys())
+        cls._cat_name_to_id_map = {"全部": "root", **name_to_id}
+
+        return {
+            "required": {
+                "category": (category_list, {"default": "全部"}),
+                "property": (["value", "name"], {"default": "value"}),
+                "mode": (["选取所有", "取最新N个", "随机取N个", "取最旧N个"], {"default": "选取所有"}),
+                "count": ("INT", {"default": 10, "min": 1, "max": 9999, "step": 1}),
+                "separator": ("STRING", {"default": ", "}),
+            }
+        }
+
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        return float("nan")
+
+    def read_prompts(self, category, property, mode, count, separator):
+        category_id = self.__class__._cat_name_to_id_map.get(category, "root")
+
+        prompt_storage, _, category_storage, _ = get_storage()
+        descendant_ids = set(category_storage.get_descendant_ids(category_id))
+        all_prompts = prompt_storage.get_all_prompts()
+        filtered = [p for p in all_prompts if p.get("categoryId") in descendant_ids]
+
+        if not filtered:
+            return ("",)
+
+        if mode == "取最新N个":
+            filtered.sort(key=lambda p: p.get("createdAt", 0), reverse=True)
+            filtered = filtered[:count]
+        elif mode == "取最旧N个":
+            filtered.sort(key=lambda p: p.get("createdAt", 0))
+            filtered = filtered[:count]
+        elif mode == "随机取N个":
+            filtered = random.sample(filtered, min(count, len(filtered)))
+
+        key = "name" if property == "name" else "value"
+        result = separator.join(p.get(key, "") for p in filtered)
+        return (result,)
+

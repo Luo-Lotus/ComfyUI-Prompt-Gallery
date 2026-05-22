@@ -84,15 +84,14 @@ export function PartitionItem({
   const { renderToBody, clear: clearSlider } = useBodyRender();
 
   // 分区预览 hook
-  const { onPreviewEnterWithFetch, onPreviewLeave } = usePartitionPreview();
-  const handlePreviewEnter = (e) => {
+  const { onPreviewToggle } = usePartitionPreview();
+  const handlePreviewClick = (e) => {
     // 从 items 按 type 分拣传给预览
     const prompts = items.filter((item) => item.type === 'prompt').map((item) => item.data);
     const cats = items.filter((item) => item.type === 'category').map((item) => item.data);
     const combs = items.filter((item) => item.type === 'combination').map((item) => item.data);
-    onPreviewEnterWithFetch(e, partition, prompts, cats, combs, coversCache);
+    onPreviewToggle(e, partition, prompts, cats, combs, coversCache);
   };
-  const handlePreviewLeave = () => onPreviewLeave();
 
   // 当标签被删除时清除悬浮状态
   const allKeys = new Set(items.map((item) => item.key));
@@ -313,8 +312,7 @@ export function PartitionItem({
     h(PartitionHeader, {
       partition,
       onAction: onPartitionAction,
-      onPreviewEnter: handlePreviewEnter,
-      onPreviewLeave: handlePreviewLeave,
+      onPreviewClick: handlePreviewClick,
     }),
 
     partition.enabled &&

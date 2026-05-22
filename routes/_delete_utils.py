@@ -129,6 +129,40 @@ def delete_prompt_cascade(category_id: str, value: str,
     return result
 
 
+def batch_delete_prompts_cascade(prompt_keys: list,
+                                  prompt_storage, mapping_storage,
+                                  combination_storage) -> dict:
+    """
+    批量级联删除多个 prompt（高效版本，一次锁完成所有存储操作）。
+    :param prompt_keys: [(categoryId, value), ...]
+    """
+    result = {
+        "deleted_files": [],
+        "disassociated_images": [],
+    }
+    if not prompt_keys:
+        return result
+
+    prompt_values = [value for _, value in prompt_keys]
+
+    # 1. 批量从映射中移除 prompt 关联（一次锁）
+    link_result = mapping_storage.batch_remove_prompt_links(prompt_values)
+    for item in link_result["orphan_images"]:
+        path = item["path"]
+        if path:
+            delete_image_file(path, item.get("type", ""))
+            result["deleted_files"].append(path)
+    result["disassociated_images"] = [p for p in link_result["updated_paths"] if p]
+
+    # 2. 批量从组合中移除 prompt（一次锁）
+    combination_storage.batch_remove_prompts_from_all(prompt_values)
+
+    # 3. 批量删除 prompt 记录（一次锁）
+    prompt_storage.batch_delete_prompts(prompt_keys)
+
+    return result
+
+
 def delete_category_cascade(category_id: str,
                              prompt_storage, mapping_storage,
                              category_storage, combination_storage) -> dict:
@@ -159,19 +193,21 @@ def delete_category_cascade(category_id: str,
     if combo_ids_to_delete:
         result["deleted_combinations"] = combination_storage.batch_delete(combo_ids_to_delete)
 
-    # 3. 收集所有分类下的 prompt，逐个级联删除
+    # 3. 收集所有分类下的 prompt，批量级联删除
     all_prompts = prompt_storage.get_all_prompts()
     prompts_to_delete = [
         a for a in all_prompts
         if a.get("categoryId") in all_cat_ids
     ]
 
-    for prompt in prompts_to_delete:
-        prompt_result = delete_prompt_cascade(
-            prompt["categoryId"], prompt["value"],
+    if prompts_to_delete:
+        prompt_keys = [(p["categoryId"], p["value"]) for p in prompts_to_delete]
+        prompt_result = batch_delete_prompts_cascade(
+            prompt_keys,
             prompt_storage, mapping_storage, combination_storage,
         )
-        result["deleted_prompts"].append(prompt.get("name", prompt["value"]))
+        for p in prompts_to_delete:
+            result["deleted_prompts"].append(p.get("name", p["value"]))
         result["deleted_files"].extend(prompt_result["deleted_files"])
         result["disassociated_images"].extend(prompt_result["disassociated_images"])
 

@@ -192,7 +192,7 @@ export function useItemOperations({
           categories: details.categories.map((c) => ({ id: c.id, newParentId: target.id })),
           prompts: details.prompts.map((a) => ({
             categoryId: a.categoryId,
-            name: a.name,
+            value: a.value,
             newCategoryId: target.id,
           })),
         };

@@ -234,6 +234,42 @@ class ImageMappingStorage:
 
             return orphan_images
 
+    def batch_remove_prompt_links(self, prompt_values: List[str]) -> dict:
+        """
+        批量从所有映射中移除多个 prompt 关联（一次锁完成）。
+        :param prompt_values: 要移除的 prompt value 列表
+        :return: {"orphan_images": [{"path": ..., "type": ...}], "updated_paths": [...]}
+        """
+        if not prompt_values:
+            return {"orphan_images": [], "updated_paths": []}
+        prompt_set = set(prompt_values)
+        with self._lock:
+            data = self._read_data()
+            orphan_images = []
+            updated_paths = []
+            new_mappings = []
+
+            for mapping in data["mappings"]:
+                prompts = list(mapping.get("prompts", []))
+                matched = prompt_set & set(prompts)
+                if matched:
+                    remaining = [p for p in prompts if p not in prompt_set]
+                    if remaining:
+                        mapping["prompts"] = remaining
+                        new_mappings.append(mapping)
+                        updated_paths.append(mapping.get("imagePath"))
+                    else:
+                        orphan_images.append({
+                            "path": mapping.get("imagePath"),
+                            "type": mapping.get("type", ""),
+                        })
+                else:
+                    new_mappings.append(mapping)
+
+            data["mappings"] = new_mappings
+            self._write_data(data)
+            return {"orphan_images": orphan_images, "updated_paths": updated_paths}
+
     def delete_mapping_by_image(self, image_path: str) -> bool:
         """根据图片路径删除映射"""
         with self._lock:
