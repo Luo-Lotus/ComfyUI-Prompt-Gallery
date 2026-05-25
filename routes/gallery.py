@@ -100,7 +100,7 @@ async def get_gallery_data(request):
         return web.json_response({
             "prompts": result_prompts,
             "combinations": result_combinations,
-            "childCategories": [{"id": c.get("id"), "name": c.get("name"), "parentId": c.get("parentId")} for c in child_categories],
+            "childCategories": [{"id": c.get("id"), "name": c.get("name"), "parentId": c.get("parentId"), "metadata": c.get("metadata", {})} for c in child_categories],
             "totalCount": len(result_prompts),
             "categoryId": category_id,
             "generatedAt": int(__import__('time').time() * 1000)

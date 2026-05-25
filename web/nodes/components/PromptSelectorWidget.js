@@ -298,9 +298,12 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   const renderCategoryCard = (cat, showPath) => {
     const isSelected = selectedCategories.has(cat.id);
     // 搜索模式下显示父分类路径
-    const parentPath = showPath && cat.parentId
-      ? buildBreadcrumbPath(cat.parentId, categories).map((c) => c.name).join(' / ')
-      : '';
+    const parentPath =
+      showPath && cat.parentId
+        ? buildBreadcrumbPath(cat.parentId, categories)
+            .map((c) => c.name)
+            .join(' / ')
+        : '';
     return h(
       'div',
       {
@@ -356,10 +359,15 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
         h('span', { class: 'prompt-selector-category-name' }, [
           parentPath && h('span', { class: 'prompt-selector-item-path' }, parentPath + ' / '),
           cat.name,
-          cat.metadata?.blockGallerySave && h('span', {
-            class: 'prompt-selector-badge gallery-block-badge',
-            title: '已禁止保存到画廊',
-          }, h(Icon, { name: 'ban', size: 11 })),
+          cat.metadata?.blockGallerySave &&
+            h(
+              'span',
+              {
+                class: 'prompt-selector-badge gallery-block-badge',
+                title: '已禁止保存到画廊',
+              },
+              h(Icon, { name: 'ban', size: 11 }),
+            ),
         ]),
         h(
           'span',
@@ -589,7 +597,7 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
                 const cacheUpdates = {};
                 (combination.prompts || []).forEach((promptValue) => {
                   const resolved = resolvedByValue[promptValue];
-                  const categoryId = resolved ? resolved.categoryId : (combination.categoryId || 'root');
+                  const categoryId = resolved ? resolved.categoryId : combination.categoryId || 'root';
                   const key = makePromptKey(categoryId, promptValue);
                   if (resolved) {
                     cacheUpdates[key] = resolved;
@@ -601,7 +609,7 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
 
                 (combination.prompts || []).forEach((promptValue) => {
                   const resolved = resolvedByValue[promptValue];
-                  const categoryId = resolved ? resolved.categoryId : (combination.categoryId || 'root');
+                  const categoryId = resolved ? resolved.categoryId : combination.categoryId || 'root';
                   const resolvedKey = makePromptKey(categoryId, promptValue);
                   if (!isItemSelected('prompt', resolvedKey)) {
                     toggleSelection(categoryId, promptValue);
@@ -656,14 +664,24 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
       return renderPromptItem(item.data, isSearching);
     };
 
-    return h(LazyList, {
-      items: listItems,
-      renderItem: renderListItem,
-      layout: 'flex',
-      className: 'prompt-selector-list',
-      scrollContainer: 'self',
-      emptyMessage: h('div', { class: 'prompt-selector-empty-prompts' }, isSearching ? '没有找到匹配结果' : '没有找到Prompt'),
-    });
+    return h('div', { class: 'prompt-selector-list' }, [
+      h(LazyList, {
+        items: listItems,
+        renderItem: renderListItem,
+        layout: 'flex',
+        className: 'prompt-selector-list-inner',
+        emptyMessage: h(
+          'div',
+          { class: 'prompt-selector-empty-prompts' },
+          isSearching ? '没有找到匹配结果' : '没有找到Prompt',
+        ),
+      }),
+      h('div', { class: 'prompt-selector-hint' }, [
+        '右键点击可复制文本、在画廊中打开',
+        h('br'),
+        '保存图片时间过长可右键数据量大的分类禁止保存到画廊',
+      ]),
+    ]);
   };
 
   // ============ 主渲染 ============
@@ -671,10 +689,14 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
   // 处理全局配置保存
   return h('div', { class: 'prompt-selector-container', ref: containerRef }, [
     // 已选择区域（分区列表）
-    h('div', {
-      class: 'prompt-selector-section',
-      style: { flex: `${splitPercent} 1 0%` },
-    }, [renderSelectedPrompts()]),
+    h(
+      'div',
+      {
+        class: 'prompt-selector-section',
+        style: { flex: `${splitPercent} 1 0%` },
+      },
+      [renderSelectedPrompts()],
+    ),
 
     // 拖拽分隔条
     h('div', {
@@ -683,18 +705,22 @@ export function PromptSelectorWidget({ nodeInstance, selectedInput, metadataInpu
     }),
 
     // 浏览区域
-    h('div', {
-      class: 'prompt-selector-section',
-      style: { flex: `${100 - splitPercent} 1 0%` },
-    }, [
-      // 面包屑导航
-      renderBreadcrumb(),
+    h(
+      'div',
+      {
+        class: 'prompt-selector-section',
+        style: { flex: `${100 - splitPercent} 1 0%` },
+      },
+      [
+        // 面包屑导航
+        renderBreadcrumb(),
 
-      // 搜索和排序控件（同一行）
-      renderControls(),
+        // 搜索和排序控件（同一行）
+        renderControls(),
 
-      // Prompt列表（包含分类和Prompt）
-      renderPromptList(),
-    ]),
+        // Prompt列表（包含分类和Prompt）
+        renderPromptList(),
+      ],
+    ),
   ]);
 }

@@ -119,12 +119,15 @@ export function GalleryGrid() {
     return h('div', { class: 'gallery-empty' }, '没有找到匹配的内容');
   }
 
-  return h(LazyList, {
-    items: allItems,
-    renderItem,
-    layout: 'grid',
-    className: 'gallery-grid',
-    style: gridStyle,
-    emptyMessage: h('div', { class: 'gallery-empty' }, '没有找到匹配的内容'),
-  });
+  return h('div', { class: 'gallery-grid-wrapper' }, [
+    h(LazyList, {
+      items: allItems,
+      renderItem,
+      layout: 'grid',
+      className: 'gallery-grid',
+      style: gridStyle,
+      emptyMessage: h('div', { class: 'gallery-empty' }, '没有找到匹配的内容'),
+    }),
+    h('div', { class: 'gallery-hint' }, '右键点击卡片可进行编辑、移动、删除等操作'),
+  ]);
 }

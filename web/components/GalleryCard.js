@@ -93,32 +93,31 @@ export function GalleryCard({
   /**
    * 渲染覆盖信息层（名称+value左上角，数量右上角）
    */
+  const name = prompt.name || prompt.value;
+
   const renderOverlay = () => {
-    const name = prompt.name || prompt.value;
     const value = prompt.value;
     const showValue = value && value !== name;
 
     return h('div', { class: 'gallery-card-overlay' }, [
-      // 左上角：名称 + value
-      h('div', { class: 'gallery-card-info-left' }, [
-        h(
-          'span',
-          { class: 'gallery-card-name-tag', title: name },
-          name,
-        ),
+      h(
+        'span',
+        { class: 'gallery-card-name-tag' },
+        name,
+      ),
+      h('div', { class: 'gallery-card-bottom-bar' }, [
         showValue &&
           h(
             'span',
             { class: 'gallery-card-value-tag', title: value },
             value,
           ),
+        h(
+          'span',
+          { class: 'gallery-card-count-tag' },
+          `${prompt.imageCount}张`,
+        ),
       ]),
-      // 右上角：数量
-      h(
-        'span',
-        { class: 'gallery-card-count-tag' },
-        `${prompt.imageCount}张`,
-      ),
     ]);
   };
 
@@ -141,7 +140,7 @@ export function GalleryCard({
       [
         h('img', {
           src: buildImageUrl(coverImage.path),
-          alt: prompt.name || prompt.value,
+          alt: name,
           loading: 'lazy',
         }),
         renderOverlay(),

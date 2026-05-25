@@ -25,7 +25,6 @@ export function CombinationCard({
   const { showContextMenu } = useContextMenu();
 
   const selectionKey = `combination:${combination.id}`;
-  const memberCount = (combination.prompts || []).length;
 
   // 封面图：使用后端提供的 coverImagePath
   const coverImage = combination.coverImagePath ? { path: combination.coverImagePath } : null;
@@ -78,24 +77,19 @@ export function CombinationCard({
     const outputText = combination.outputContent || combination.prompts?.join(',');
 
     return h('div', { class: 'gallery-card-overlay' }, [
-      h('div', { class: 'gallery-card-info-left' }, [
-        h(
-          'span',
-          { class: 'gallery-card-name-tag', title: combination.name },
-          combination.name,
-        ),
-        outputText &&
+      h(
+        'span',
+        { class: 'gallery-card-name-tag' },
+        combination.name,
+      ),
+      outputText &&
+        h('div', { class: 'gallery-card-bottom-bar' }, [
           h(
             'span',
             { class: 'gallery-card-value-tag', title: outputText },
             outputText,
           ),
-      ]),
-      h(
-        'span',
-        { class: 'gallery-card-count-tag' },
-        `${memberCount}人`,
-      ),
+        ]),
     ]);
   };
 
@@ -134,7 +128,7 @@ export function CombinationCard({
       },
       [
         h('div', { class: 'gallery-card-empty-icon' }, h(Icon, { name: 'link', size: 32 })),
-        h('div', { class: 'gallery-card-empty-text' }, `${memberCount} 个Prompt`),
+        h('div', { class: 'gallery-card-empty-text' }, '暂无图片'),
         renderOverlay(),
       ],
     );

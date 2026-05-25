@@ -326,7 +326,7 @@ export function PartitionItem({
         },
         [
           ...items.flatMap((item, index) => renderTag(item, index)),
-          totalCount === 0 && h('div', { class: 'partition-empty' }, '拖拽Prompt或分类到此处'),
+          totalCount === 0 && h('div', { class: 'partition-empty' }, '选择或拖拽到此处'),
         ],
       ),
   ]);

@@ -107,7 +107,7 @@ export function PartitionContent({
       ...partitionCategories.map(renderCategoryTag),
 
       // 渲染该分区的Prompt
-      hasContent ? prompts.map(renderPromptTag) : h('div', { class: 'partition-empty' }, '拖拽Prompt或分类到此处'),
+      hasContent ? prompts.map(renderPromptTag) : h('div', { class: 'partition-empty' }, '选择或拖拽到此处'),
     ],
   );
 }

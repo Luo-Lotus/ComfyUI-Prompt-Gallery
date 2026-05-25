@@ -89,6 +89,19 @@
     gap: var(--card-grid-gap);
 }
 
+.gallery-grid-wrapper {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.gallery-hint {
+    text-align: center;
+    padding: 12px 10px;
+    font-size: 13px;
+    color: #b0b0b0;
+}
+
 /* ============ 合并的头部样式（面包屑 + 筛选） ============ */
 .gallery-merged-header {
     display: flex;

@@ -194,6 +194,9 @@ export function PartitionList({
         { class: 'partition-list-content' },
         sortedPartitions.flatMap((partition, index) => renderPartitionWithIndicator(partition, index)),
       ),
+
+      totalItems === 0 &&
+        h('div', { class: 'partition-list-hint' }, '从下方列表点击或右键添加到分区'),
     ],
   );
 }
