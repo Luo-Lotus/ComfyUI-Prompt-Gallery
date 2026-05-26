@@ -2,6 +2,8 @@
 
 一个 ComfyUI 自定义节点插件，提供Prompt图库管理、Prompt选择和图片保存功能。
 
+有任何问题或建议，欢迎加QQ群：1082160486，群内也有一些可以直接导入的资源
+
 ![demo1](assets/demo1.png)
 ![demo2](assets/demo2.png)
 ![demo3](assets/demo3.png)
@@ -320,20 +322,20 @@ artist_gallery/
 
 ### Prompt管理
 
-| 方法   | 路径                                             | 说明                         |
-| ------ | ------------------------------------------------ | ---------------------------- |
-| GET    | `/prompt_gallery/prompts`                        | 获取所有Prompt列表           |
-| POST   | `/prompt_gallery/prompts`                        | 添加Prompt                   |
-| POST   | `/prompt_gallery/prompts/batch`                  | 批量添加Prompt               |
-| PUT    | `/prompt_gallery/prompts/{id}`                   | 更新Prompt（按ID）           |
-| DELETE | `/prompt_gallery/prompts/{id}`                   | 删除Prompt（按ID）           |
-| GET    | `/prompt_gallery/prompts/{categoryId}/{value}`   | 获取Prompt详情（组合键）     |
-| PUT    | `/prompt_gallery/prompts/{categoryId}/{value}`   | 更新Prompt（组合键）         |
-| DELETE | `/prompt_gallery/prompts/{categoryId}/{value}`   | 删除Prompt（组合键）         |
-| POST   | `/prompt_gallery/prompts/{categoryId}/{value}/copy` | 复制Prompt到其他分类      |
-| POST   | `/prompt_gallery/prompts/{id}/move`              | 移动Prompt到其他分类         |
-| GET    | `/prompt_gallery/prompt/{id}/images`             | 获取Prompt图片列表           |
-| GET    | `/prompt_gallery/prompt_images`                  | 获取Prompt图片（?value= 查询） |
+| 方法   | 路径                                                | 说明                           |
+| ------ | --------------------------------------------------- | ------------------------------ |
+| GET    | `/prompt_gallery/prompts`                           | 获取所有Prompt列表             |
+| POST   | `/prompt_gallery/prompts`                           | 添加Prompt                     |
+| POST   | `/prompt_gallery/prompts/batch`                     | 批量添加Prompt                 |
+| PUT    | `/prompt_gallery/prompts/{id}`                      | 更新Prompt（按ID）             |
+| DELETE | `/prompt_gallery/prompts/{id}`                      | 删除Prompt（按ID）             |
+| GET    | `/prompt_gallery/prompts/{categoryId}/{value}`      | 获取Prompt详情（组合键）       |
+| PUT    | `/prompt_gallery/prompts/{categoryId}/{value}`      | 更新Prompt（组合键）           |
+| DELETE | `/prompt_gallery/prompts/{categoryId}/{value}`      | 删除Prompt（组合键）           |
+| POST   | `/prompt_gallery/prompts/{categoryId}/{value}/copy` | 复制Prompt到其他分类           |
+| POST   | `/prompt_gallery/prompts/{id}/move`                 | 移动Prompt到其他分类           |
+| GET    | `/prompt_gallery/prompt/{id}/images`                | 获取Prompt图片列表             |
+| GET    | `/prompt_gallery/prompt_images`                     | 获取Prompt图片（?value= 查询） |
 
 ### 分类管理
 
@@ -362,37 +364,37 @@ artist_gallery/
 
 ### 图片操作
 
-| 方法   | 路径                                  | 说明                       |
-| ------ | ------------------------------------- | -------------------------- |
-| GET    | `/prompt_gallery/image/info`          | 获取图片详细信息           |
-| POST   | `/prompt_gallery/save`                | 保存图片到画廊             |
-| DELETE | `/prompt_gallery/image`               | 删除单张图片               |
-| POST   | `/prompt_gallery/image/move`          | 移动图片到其他Prompt       |
-| POST   | `/prompt_gallery/image/copy`          | 复制图片到其他Prompt       |
-| POST   | `/prompt_gallery/restore_from_metadata` | 从PNG元数据恢复映射      |
+| 方法   | 路径                                    | 说明                 |
+| ------ | --------------------------------------- | -------------------- |
+| GET    | `/prompt_gallery/image/info`            | 获取图片详细信息     |
+| POST   | `/prompt_gallery/save`                  | 保存图片到画廊       |
+| DELETE | `/prompt_gallery/image`                 | 删除单张图片         |
+| POST   | `/prompt_gallery/image/move`            | 移动图片到其他Prompt |
+| POST   | `/prompt_gallery/image/copy`            | 复制图片到其他Prompt |
+| POST   | `/prompt_gallery/restore_from_metadata` | 从PNG元数据恢复映射  |
 
 ### 历史视图
 
-| 方法 | 路径                              | 说明                             |
-| ---- | --------------------------------- | -------------------------------- |
-| GET  | `/prompt_gallery/images_grouped`  | 图片按日期分组（支持prompt过滤） |
+| 方法 | 路径                             | 说明                             |
+| ---- | -------------------------------- | -------------------------------- |
+| GET  | `/prompt_gallery/images_grouped` | 图片按日期分组（支持prompt过滤） |
 
 ### 导入导出
 
-| 方法 | 路径                            | 说明                                         |
-| ---- | ------------------------------- | -------------------------------------------- |
-| POST | `/prompt_gallery/import`        | 导入数据（批量JSON，支持分离存储）           |
-| POST | `/prompt_gallery/import/zip`    | 导入ZIP文件（支持分离存储）                  |
-| POST | `/prompt_gallery/images/import` | 导入图片（批量导入，支持分离存储）           |
-| GET  | `/prompt_gallery/export`        | 导出数据                                     |
+| 方法 | 路径                            | 说明                               |
+| ---- | ------------------------------- | ---------------------------------- |
+| POST | `/prompt_gallery/import`        | 导入数据（批量JSON，支持分离存储） |
+| POST | `/prompt_gallery/import/zip`    | 导入ZIP文件（支持分离存储）        |
+| POST | `/prompt_gallery/images/import` | 导入图片（批量导入，支持分离存储） |
+| GET  | `/prompt_gallery/export`        | 导出数据                           |
 
 ### 批量操作
 
-| 方法   | 路径                            | 说明             |
-| ------ | ------------------------------- | ---------------- |
-| DELETE | `/prompt_gallery/batch/delete`  | 批量删除         |
-| POST   | `/prompt_gallery/batch/move`    | 批量移动         |
-| POST   | `/prompt_gallery/batch/copy`    | 批量复制         |
+| 方法   | 路径                           | 说明     |
+| ------ | ------------------------------ | -------- |
+| DELETE | `/prompt_gallery/batch/delete` | 批量删除 |
+| POST   | `/prompt_gallery/batch/move`   | 批量移动 |
+| POST   | `/prompt_gallery/batch/copy`   | 批量复制 |
 
 ## 故障排除
 

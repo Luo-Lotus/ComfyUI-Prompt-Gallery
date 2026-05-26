@@ -234,7 +234,8 @@
 /* ============ GalleryCard 空状态类 ============ */
 .gallery-card-empty {
   position: relative;
-  height: var(--card-empty-height);
+  width: 100%;
+  aspect-ratio: 1 / 1;
   display: flex;
   flex-direction: column;
   align-items: center;

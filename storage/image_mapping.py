@@ -156,6 +156,32 @@ class ImageMappingStorage:
             self._write_data(data)
             return count
 
+    def add_mappings_batch(self, items: List[dict]) -> int:
+        """
+        批量添加映射（一次读写），用于 SaveToGallery 多图保存
+        :param items: [{"image_path", "prompt_values", "file_info", "prompt_string", "generate_prompt"}, ...]
+        :return: 成功添加数量
+        """
+        with self._lock:
+            data = self._read_data()
+            count = 0
+            for item in items:
+                mapping = {
+                    "type": "local",
+                    "imagePath": item["image_path"],
+                    "prompts": item["prompt_values"],
+                    "fileInfo": item.get("file_info") or {},
+                }
+                if item.get("prompt_string"):
+                    mapping["promptString"] = item["prompt_string"]
+                if item.get("generate_prompt") is not None:
+                    gp = item["generate_prompt"]
+                    mapping["generatePrompt"] = json.dumps(gp, ensure_ascii=False) if isinstance(gp, (dict, list)) else gp
+                data["mappings"].append(mapping)
+                count += 1
+            self._write_data(data)
+            return count
+
     def get_mappings_by_prompt(self, prompt_value: str) -> List[dict]:
         """
         获取指定Prompt的所有图片映射
