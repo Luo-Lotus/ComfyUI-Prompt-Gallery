@@ -33,6 +33,7 @@ async def get_images_grouped(request):
         prompts_param = request.query.get("prompts", "").strip()
         search_query = request.query.get("search", "").strip().lower()
         filters_param = request.query.get("filters", "").strip()
+        include_comfy_output = request.query.get("include_comfy_output", "").strip() == "1"
 
         # 组合模式：多个 prompt 取交集
         combination_prompts = None
@@ -60,6 +61,13 @@ async def get_images_grouped(request):
 
         _, mapping_storage, _, _ = get_storage()
         mappings = mapping_storage.get_all_mappings()
+
+        # 未显式请求时，排除 comfy_output.images.json 中的图片
+        if not include_comfy_output:
+            mappings = [
+                m for m in mappings
+                if "comfy_output.images.json" not in m.get("_source_file", "")
+            ]
 
         # 收集有效图片
         valid_items = []

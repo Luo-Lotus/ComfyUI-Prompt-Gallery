@@ -3,6 +3,7 @@
  * 薄壳层：Provider 包裹 + 视图路由 + Dialog 渲染
  */
 import { h } from '../lib/preact.mjs';
+import { useState } from '../lib/hooks.mjs';
 import { GalleryProvider, useGallery } from './GalleryContext.js';
 import { GalleryGrid } from './GalleryGrid.js';
 import { Lightbox } from './Lightbox.js';
@@ -24,6 +25,7 @@ import { GalleryFilterBar } from './GalleryFilterBar.js';
 import { PromptDetailView } from './PromptDetailView.js';
 import { CombinationDetailView } from './CombinationDetailView.js';
 import { HistoryView } from './HistoryView.js';
+import { SettingsDialog } from './SettingsDialog.js';
 
 import { Icon } from '../lib/icons.mjs';
 
@@ -33,6 +35,7 @@ export function GalleryModal({ isOpen, onClose, initialNavigation }) {
 
 function GalleryModalContent() {
   const ctx = useGallery();
+  const [showSettings, setShowSettings] = useState(false);
 
   return h(
     'div',
@@ -46,6 +49,11 @@ function GalleryModalContent() {
       h('div', { class: 'gallery-modal-content' }, [
         h(GalleryHeader),
         h('div', { class: 'gallery-modal-body' }, h(GalleryBody)),
+        h('button', {
+          class: 'settings-floating-btn',
+          onClick: () => setShowSettings(true),
+          title: '设置',
+        }, h(Icon, { name: 'settings', size: 16 })),
         ctx.viewMode !== 'history' &&
           h('button', {
             class: 'history-floating-btn',
@@ -59,6 +67,10 @@ function GalleryModalContent() {
 
       // Dialog 层
       h(DialogLayer),
+      h(SettingsDialog, {
+        isOpen: showSettings,
+        onClose: () => setShowSettings(false),
+      }),
     ],
   );
 }

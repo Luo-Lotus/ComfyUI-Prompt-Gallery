@@ -135,3 +135,16 @@ def get_custom_filter_storage() -> CustomFilterStorage:
         storage_dir = _resolve_storage_dir()
         _custom_filter_instance = CustomFilterStorage(storage_dir)
         return _custom_filter_instance
+
+
+def clear_all_caches():
+    """清除所有 Storage 单例的缓存和索引"""
+    global _storage_instances
+    if _storage_instances is None:
+        return
+    prompt_storage, mapping_storage, category_storage, combination_storage = _storage_instances
+    for s in (prompt_storage, mapping_storage, category_storage, combination_storage):
+        s._cache = None
+    prompt_storage._idx_by_key = None
+    prompt_storage._idx_by_id = None
+    mapping_storage._idx_by_path = None

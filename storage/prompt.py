@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import threading
 
+from ._config import get_disabled_files
+
 
 class PromptStorage:
     """Prompt数据存储管理"""
@@ -30,13 +32,15 @@ class PromptStorage:
                 self._write_data({"prompts": []})
 
     def _glob_source_files(self) -> list:
-        """查找所有源文件：主文件 + glob 匹配的分片文件"""
+        """查找所有源文件：主文件 + glob 匹配的分片文件（排除已禁用）"""
+        disabled = get_disabled_files(self.storage_dir)
         sources = []
         if self.prompts_file.exists():
             sources.append(self.prompts_file)
         for f in sorted(self.storage_dir.glob(self._glob_pattern)):
             if f.resolve() != self.prompts_file.resolve():
-                sources.append(f)
+                if f.name not in disabled:
+                    sources.append(f)
         return sources
 
     def _read_data(self) -> dict:
@@ -240,6 +244,7 @@ class PromptStorage:
         :return: (成功列表, 失败值列表)
         """
         import time as _time
+        print(f"[PromptStorage] 批量导入 {len(items)} 个 Prompt...")
         with self._lock:
             data = self._read_data()
             existing = {(a.get("value"), a.get("categoryId")) for a in data["prompts"]}
@@ -268,6 +273,7 @@ class PromptStorage:
                 success.append(new_prompt)
                 existing.add((value, cat_id))
             self._write_data(data)
+            print(f"[PromptStorage] Prompt 导入完成: 成功={len(success)}, 跳过={len(failed)}")
             return success, failed
 
     def update_prompt(self, category_id: str, old_value: str, **kwargs) -> bool:

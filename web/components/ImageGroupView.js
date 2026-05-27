@@ -55,6 +55,7 @@ function DateSidebar({ dateList, dateCountMap, currentDateIndex, onJumpToDate })
  * @param {Function} [props.onSelectItem]
  * @param {Function} [props.onDeleteSuccess] - 删除后的额外回调
  * @param {number} props.cardSize
+ * @param {boolean} [props.includeComfyOutput] - 是否包含 comfy_output 导入的图片
  * @param {Function} props.openLightbox
  */
 export function ImageGroupView({
@@ -63,6 +64,7 @@ export function ImageGroupView({
   lightboxName = '图片',
   searchQuery = '',
   customFilters = null,
+  includeComfyOutput = false,
   onDataLoaded,
   getContextMenuItems,
   showContextMenu,
@@ -95,6 +97,7 @@ export function ImageGroupView({
           prompts: promptFilters || undefined,
           search: search || undefined,
           filters: customFilters || undefined,
+          includeComfyOutput: includeComfyOutput || undefined,
         });
         if (result.success) {
           setGroupData(result);
@@ -108,7 +111,7 @@ export function ImageGroupView({
         setLoading(false);
       }
     },
-    [promptFilter, promptFilters, customFilters, onDataLoaded],
+    [promptFilter, promptFilters, customFilters, includeComfyOutput, onDataLoaded],
   );
 
   // 首次挂载、filter 变化或 searchQuery 变化时加载（search 增加 300ms debounce）

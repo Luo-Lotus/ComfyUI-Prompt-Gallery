@@ -1,0 +1,445 @@
+/* ============ 设置浮动按钮（模态框内左下角） ============ */
+.settings-floating-btn {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: rgba(255, 107, 157, 0.9);
+  border: 2px solid #ffb6c1;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.settings-floating-btn:hover {
+  background: rgba(255, 90, 141, 1);
+  transform: translateY(-2px) rotate(30deg);
+  box-shadow: 0 4px 16px rgba(255, 107, 157, 0.4);
+}
+
+/* ============ 设置弹窗布局 ============ */
+.settings-dialog {
+  display: flex;
+  min-height: 420px;
+  max-height: 70vh;
+}
+
+.settings-sidebar {
+  width: 160px;
+  flex-shrink: 0;
+  border-right: 1px solid #ffe0eb;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.settings-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.settings-menu-item:hover {
+  background: #fff5f8;
+  color: #ff6b9d;
+}
+
+.settings-menu-item.active {
+  background: #ff6b9d;
+  color: white;
+  font-weight: 600;
+}
+
+.settings-menu-item svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.settings-content {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.settings-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 16px;
+}
+
+.settings-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #999;
+  font-size: 14px;
+  gap: 8px;
+}
+
+.settings-placeholder svg {
+  opacity: 0.3;
+}
+
+@media (max-width: 768px) {
+  .settings-floating-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .settings-sidebar {
+    width: 120px;
+  }
+}
+
+/* ============ 分割线 ============ */
+.settings-divider {
+  height: 1px;
+  background: #ffe0eb;
+  margin: 20px 0;
+}
+
+/* ============ 存储文件分组 ============ */
+.storage-file-group {
+  border: 1px solid #ffe0eb;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.storage-file-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #fff5f8;
+  border-bottom: 1px solid #ffe0eb;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ff6b9d;
+}
+
+.storage-file-group-count {
+  font-size: 11px;
+  font-weight: 400;
+  color: #999;
+}
+
+.storage-file-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #fff0f3;
+  transition: background 0.15s;
+}
+
+.storage-file-row:last-child {
+  border-bottom: none;
+}
+
+.storage-file-row:hover {
+  background: #fffafc;
+}
+
+.storage-file-row.disabled {
+  opacity: 0.5;
+}
+
+.storage-file-row.disabled .storage-file-name {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.storage-file-name {
+  flex: 1;
+  font-size: 13px;
+  color: #4a4a4a;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storage-file-size {
+  font-size: 12px;
+  color: #999;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.storage-file-badge {
+  font-size: 11px;
+  color: #ff6b9d;
+  background: #fff5f8;
+  border: 1px solid #ffb6c1;
+  border-radius: 8px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* ============ 开关按钮 ============ */
+.storage-toggle-btn {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  border: 2px solid #ffb6c1;
+  background: #ff6b9d;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.storage-toggle-btn.off {
+  background: #ddd;
+  border-color: #ccc;
+}
+
+.storage-toggle-knob {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  position: absolute;
+  top: 1px;
+  left: 16px;
+  transition: left 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.storage-toggle-btn.off .storage-toggle-knob {
+  left: 2px;
+}
+
+.storage-toggle-btn:hover {
+  transform: scale(1.05);
+}
+
+/* ============ 空状态提示 ============ */
+.storage-empty-hint {
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  padding: 24px;
+}
+
+/* ============ 备份列表 ============ */
+.backup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.backup-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid #ffe0eb;
+  border-radius: 10px;
+  gap: 12px;
+  transition: background 0.15s;
+}
+
+.backup-row:hover {
+  background: #fff5f8;
+}
+
+.backup-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.backup-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.backup-meta {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+}
+
+.backup-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid #ffb6c1;
+  border-radius: 8px;
+  background: #fff5f8;
+  color: #ff6b9d;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.backup-apply-btn:hover {
+  background: #ff6b9d;
+  color: white;
+  border-color: #ff6b9d;
+}
+
+.backup-apply-btn svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* ============ 备份操作栏 ============ */
+.backup-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.backup-max-setting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.backup-max-label {
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.backup-max-input {
+  width: 56px;
+  height: 30px;
+  border: 1px solid #ffe0eb;
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 13px;
+  text-align: center;
+  color: #333;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.backup-max-input:focus {
+  border-color: #ff6b9d;
+}
+
+.backup-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border: 1px solid #ff6b9d;
+  border-radius: 8px;
+  background: #ff6b9d;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.backup-create-btn:hover {
+  background: #e55a8a;
+  border-color: #e55a8a;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 107, 157, 0.3);
+}
+
+.backup-create-btn svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* ============ FAQ 手风琴 ============ */
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.faq-item {
+  border: 1px solid #ffe0eb;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.faq-item:hover {
+  box-shadow: 0 2px 8px rgba(255, 107, 157, 0.1);
+}
+
+.faq-question {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  background: #fff;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.faq-question:hover {
+  background: #fff5f8;
+}
+
+.faq-question-icon {
+  flex-shrink: 0;
+  transition: transform 0.2s;
+  color: #ff6b9d;
+}
+
+.faq-question-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.faq-answer {
+  padding: 0 14px 14px 38px;
+  font-size: 13px;
+  color: #4a4a4a;
+  line-height: 1.7;
+  animation: faq-expand 0.2s ease;
+}
+
+@keyframes faq-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

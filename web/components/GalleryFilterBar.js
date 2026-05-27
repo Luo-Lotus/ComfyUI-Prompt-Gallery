@@ -147,6 +147,16 @@ export function GalleryFilterBar() {
           value: ctx.imageSearchQuery,
           onInput: (e) => ctx.setImageSearchQuery(e.target.value),
         }),
+        // 历史视图：画廊外图片按钮
+        isHistory && h(
+          'button',
+          {
+            class: `gallery-filter-btn ${ctx.includeComfyOutput ? 'active' : ''}`,
+            onClick: () => ctx.setIncludeComfyOutput((prev) => !prev),
+            title: '显示通过「导入输出图片」导入的图片',
+          },
+          '展示画廊外图片',
+        ),
         // 历史视图：筛查按钮 + 悬浮面板
         isHistory && h('div', {
           class: 'custom-filter-trigger',

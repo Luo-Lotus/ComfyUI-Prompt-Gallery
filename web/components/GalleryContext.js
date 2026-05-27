@@ -43,6 +43,18 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   const [imageSortBy, setImageSortBy] = useState('name');
   const [imageSortOrder, setImageSortOrder] = useState('asc');
   const [imageTotalCount, setImageTotalCount] = useState(0);
+  const [includeComfyOutput, setIncludeComfyOutput] = useState(() => {
+    try { return localStorage.getItem('prompt-gallery-include-comfy-output') === '1'; }
+    catch { return false; }
+  });
+  const handleSetIncludeComfyOutput = useCallback((val) => {
+    setIncludeComfyOutput((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      try { localStorage.setItem('prompt-gallery-include-comfy-output', next ? '1' : '0'); }
+      catch {}
+      return next;
+    });
+  }, []);
   const [lightbox, setLightbox] = useState({
     open: false,
     prompt: null,
@@ -783,6 +795,8 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       setImageSortOrder,
       imageTotalCount,
       setImageTotalCount,
+      includeComfyOutput,
+      setIncludeComfyOutput: handleSetIncludeComfyOutput,
       filteredPromptImages,
       filteredCombinationImages,
       currentCombinations,
@@ -934,6 +948,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       imageSortBy,
       imageSortOrder,
       imageTotalCount,
+      includeComfyOutput,
       filteredPromptImages,
       filteredCombinationImages,
       currentCombinations,

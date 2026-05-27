@@ -610,56 +610,81 @@ async def _import_v2(zf, manifest_data, target_category_id,
 
     shard_targets = _make_shard_targets(prompt_storage.storage_dir, separate_storage)
 
-    # A. 重建分类树
+    print(f"[ImportV2] 开始导入...")
+    print(f"  分类: {len(manifest_data.get('categories', []))}")
+    print(f"  Prompt: {len(manifest_data.get('prompts', []))}")
+    print(f"  组合: {len(manifest_data.get('combinations', []))}")
+    print(f"  图片: {len(manifest_data.get('images', []))}")
+
+    # A. 重建分类树（批量，一次读写）
     old_to_new_cat = {}  # old_category_id -> new_category_id
     root_old_id = manifest_data.get("rootCategoryId")
     root_cat_name = manifest_data.get("rootCategoryName", "")
 
-    # 先创建根分类（作为目标分类的子分类）
+    # 按拓扑排序：根分类排前面，子分类排后面
+    manifest_cats = manifest_data.get("categories", [])
+    cat_specs = []  # 待创建的分类规格
+    cat_spec_map = {}  # old_id -> index in cat_specs
+
+    # 先加入根分类
     if root_old_id and root_cat_name:
-        final_name = root_cat_name
-        suffix = 2
-        while True:
-            try:
-                new_cat = category_storage.add_category(name=final_name, parent_id=target_category_id,
-                                                         target_file=shard_targets["categories"])
-                break
-            except ValueError:
-                final_name = f"{root_cat_name} ({suffix})"
-                suffix += 1
-        old_to_new_cat[root_old_id] = new_cat["id"]
-        added_categories = 1
+        cat_spec_map[root_old_id] = len(cat_specs)
+        cat_specs.append({
+            "oldId": root_old_id,
+            "name": root_cat_name,
+            "oldParentId": None,
+            "order": 0,
+        })
 
-    # 创建子分类（跳过根分类）
-    for cat_info in manifest_data.get("categories", []):
+    # 再加入子分类
+    for cat_info in manifest_cats:
         old_id = cat_info.get("id")
-        old_parent_id = cat_info.get("parentId")
         name = cat_info.get("name", "")
-
-        if not old_id or not name:
+        if not old_id or not name or old_id == root_old_id:
             continue
+        cat_spec_map[old_id] = len(cat_specs)
+        cat_specs.append({
+            "oldId": old_id,
+            "name": name,
+            "oldParentId": cat_info.get("parentId"),
+            "order": cat_info.get("order", 0),
+        })
 
-        # 跳过根分类（已创建）
-        if old_id == root_old_id:
-            continue
+    # 批量创建（一次加锁、一次读写）
+    batch_specs = []
+    for spec in cat_specs:
+        batch_specs.append({
+            "name": spec["name"],
+            "parentId": target_category_id,  # 临时，后面修正
+            "order": spec["order"],
+        })
+    print(f"[ImportV2] 批量创建 {len(batch_specs)} 个分类...")
+    created_cats = category_storage.add_categories_batch(batch_specs, target_file=shard_targets["categories"])
+    print(f"[ImportV2] 分类创建完成: {len(created_cats)} 个")
 
-        # 确定新的父分类ID
-        new_parent_id = old_to_new_cat.get(old_parent_id, target_category_id)
+    # 构建 old_to_new 映射，并修正 parentId
+    for i, spec in enumerate(cat_specs):
+        old_to_new_cat[spec["oldId"]] = created_cats[i]["id"]
 
-        # 创建分类，处理名称冲突
-        final_name = name
-        suffix = 2
-        while True:
-            try:
-                new_cat = category_storage.add_category(name=final_name, parent_id=new_parent_id,
-                                                         target_file=shard_targets["categories"])
-                break
-            except ValueError:
-                final_name = f"{name} ({suffix})"
-                suffix += 1
+    # 修正 parentId（子分类指向新的父分类）
+    updates = []
+    for i, spec in enumerate(cat_specs):
+        old_parent = spec.get("oldParentId")
+        if old_parent and old_parent in old_to_new_cat:
+            new_parent = old_to_new_cat[old_parent]
+            if created_cats[i]["parentId"] != new_parent:
+                updates.append((created_cats[i]["id"], new_parent))
 
-        old_to_new_cat[old_id] = new_cat["id"]
-        added_categories += 1
+    if updates:
+        with category_storage._lock:
+            data = category_storage._read_data()
+            id_to_cat = {c["id"]: c for c in data["categories"]}
+            for cat_id, new_parent in updates:
+                if cat_id in id_to_cat:
+                    id_to_cat[cat_id]["parentId"] = new_parent
+            category_storage._write_data(data)
+
+    added_categories = len(created_cats)
 
     # B. 批量导入Prompt（一次读写）
     prompt_specs = []
@@ -675,7 +700,9 @@ async def _import_v2(zf, manifest_data, target_category_id,
             "alias": prompt_info.get("alias", ""),
             "categoryId": new_cat_id,
         })
+    print(f"[ImportV2] 批量导入 {len(prompt_specs)} 个 Prompt...")
     added_prompts_list, _ = prompt_storage.add_prompts_import(prompt_specs, target_file=shard_targets["prompts"])
+    print(f"[ImportV2] Prompt 导入完成: {len(added_prompts_list)} 个")
 
     # C. 导入组合（数量通常很少，保持逐条）
     added_combinations = 0
@@ -731,7 +758,9 @@ async def _import_v2(zf, manifest_data, target_category_id,
                 "mapping_type": "local",
             })
 
+    print(f"[ImportV2] 批量导入 {len(mapping_specs)} 个图片映射...")
     mapping_storage.add_mappings_import(mapping_specs, target_file=shard_targets["images"])
+    print(f"[ImportV2] 导入完成! 分类={added_categories}, Prompt={len(added_prompts_list)}, 组合={added_combinations}, 图片={len(mapping_specs)}")
 
     return web.json_response({
         "success": True,

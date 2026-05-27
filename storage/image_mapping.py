@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import threading
 
+from ._config import get_disabled_files
+
 
 class ImageMappingStorage:
     """图片-Prompt映射关系管理"""
@@ -27,13 +29,15 @@ class ImageMappingStorage:
                 self._write_data({"mappings": []})
 
     def _glob_source_files(self) -> list:
-        """查找所有源文件：主文件 + glob 匹配的分片文件"""
+        """查找所有源文件：主文件 + glob 匹配的分片文件（排除已禁用）"""
+        disabled = get_disabled_files(self.storage_dir)
         sources = []
         if self.mappings_file.exists():
             sources.append(self.mappings_file)
         for f in sorted(self.storage_dir.glob(self._glob_pattern)):
             if f.resolve() != self.mappings_file.resolve():
-                sources.append(f)
+                if f.name not in disabled:
+                    sources.append(f)
         return sources
 
     def _read_data(self) -> dict:
@@ -134,6 +138,7 @@ class ImageMappingStorage:
         :param target_file: 分离存储目标文件
         :return: 成功添加数量
         """
+        print(f"[ImageMapping] 批量导入 {len(items)} 个映射...")
         with self._lock:
             data = self._read_data()
             count = 0
@@ -154,6 +159,7 @@ class ImageMappingStorage:
                 data["mappings"].append(mapping)
                 count += 1
             self._write_data(data)
+            print(f"[ImageMapping] 映射导入完成: {count} 个")
             return count
 
     def add_mappings_batch(self, items: List[dict]) -> int:

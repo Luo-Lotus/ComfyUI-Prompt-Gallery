@@ -42,6 +42,7 @@ export function HistoryView() {
     lightboxName: '历史图片',
     searchQuery: ctx.imageSearchQuery,
     customFilters: ctx.activeCustomFilters.length > 0 ? ctx.activeCustomFilters : null,
+    includeComfyOutput: ctx.includeComfyOutput,
     onDataLoaded: ctx.setImageTotalCount,
     getContextMenuItems,
     showContextMenu,

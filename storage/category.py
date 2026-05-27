@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import threading
 
+from ._config import get_disabled_files
+
 
 class CategoryStorage:
     """分类数据存储管理"""
@@ -37,13 +39,15 @@ class CategoryStorage:
                 self._write_data(default_data)
 
     def _glob_source_files(self) -> list:
-        """查找所有源文件：主文件 + glob 匹配的分片文件"""
+        """查找所有源文件：主文件 + glob 匹配的分片文件（排除已禁用）"""
+        disabled = get_disabled_files(self.storage_dir)
         sources = []
         if self.categories_file.exists():
             sources.append(self.categories_file)
         for f in sorted(self.storage_dir.glob(self._glob_pattern)):
             if f.resolve() != self.categories_file.resolve():
-                sources.append(f)
+                if f.name not in disabled:
+                    sources.append(f)
         return sources
 
     def _read_data(self) -> dict:
@@ -148,6 +152,44 @@ class CategoryStorage:
             data["categories"].append(new_category)
             self._write_data(data)
             return new_category
+
+    def add_categories_batch(self, specs: List[dict], target_file: Optional[str] = None) -> List[dict]:
+        """
+        批量添加分类（一次读写）。
+        :param specs: [{"name": str, "parentId": str|None, "order": int}, ...]
+        :return: 创建的分类列表
+        """
+        import time as _time
+        print(f"[CategoryStorage] 批量创建 {len(specs)} 个分类...")
+        with self._lock:
+            data = self._read_data()
+            existing_names = {c.get("name") for c in data.get("categories", [])}
+            created = []
+            for spec in specs:
+                name = spec.get("name", "")
+                if not name:
+                    continue
+                final_name = name
+                suffix = 2
+                while final_name in existing_names:
+                    final_name = f"{name} ({suffix})"
+                    suffix += 1
+                new_cat = {
+                    "id": str(uuid.uuid4()),
+                    "name": final_name,
+                    "parentId": spec.get("parentId"),
+                    "order": spec.get("order", 0),
+                    "createdAt": int(_time.time() * 1000),
+                    "metadata": {}
+                }
+                if target_file:
+                    new_cat["_source_file"] = target_file
+                data["categories"].append(new_cat)
+                existing_names.add(final_name)
+                created.append(new_cat)
+            self._write_data(data)
+            print(f"[CategoryStorage] 分类批量创建完成: {len(created)} 个")
+            return created
 
     def update_category(self, category_id: str, **kwargs) -> bool:
         """更新分类信息"""

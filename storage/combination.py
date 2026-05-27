@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import threading
 
+from ._config import get_disabled_files
+
 
 class CombinationStorage:
     """组合数据存储管理"""
@@ -28,13 +30,15 @@ class CombinationStorage:
                 self._write_data({"combinations": []})
 
     def _glob_source_files(self) -> list:
-        """查找所有源文件：主文件 + glob 匹配的分片文件"""
+        """查找所有源文件：主文件 + glob 匹配的分片文件（排除已禁用）"""
+        disabled = get_disabled_files(self.storage_dir)
         sources = []
         if self.combinations_file.exists():
             sources.append(self.combinations_file)
         for f in sorted(self.storage_dir.glob(self._glob_pattern)):
             if f.resolve() != self.combinations_file.resolve():
-                sources.append(f)
+                if f.name not in disabled:
+                    sources.append(f)
         return sources
 
     def _read_data(self) -> dict:
