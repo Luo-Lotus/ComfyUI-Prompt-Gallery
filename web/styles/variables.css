@@ -12,8 +12,12 @@
   --card-category-padding: 20px;
   --card-category-name-font: 16px;
   --card-category-meta-font: 13px;
-  --card-empty-height: 200px;
+  --card-category-width: 200px;
   --card-empty-icon-size: 48px;
   --card-empty-text-font: 14px;
   --card-image-radius: 8px;
+  --card-row-height: 200px;
+  --card-min-width: 120px;
+  --card-name-tag-font: 13px;
+  --card-value-tag-font: 11px;
 }

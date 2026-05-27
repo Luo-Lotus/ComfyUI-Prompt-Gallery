@@ -12,6 +12,32 @@ import { buildImageUrl, fetchGroupedImages } from '../utils.js';
 import { computeSizeVars } from './SizePresets.js';
 import { showToast } from './Toast.js';
 
+// 自适应模式下的图片项组件（检测实际宽高比）
+function AdaptiveImageItem({ img, className, onClick, onContextMenu }) {
+  const [ratio, setRatio] = useState(1);
+  const imgRef = useRef(null);
+  const handleLoad = useCallback(() => {
+    const el = imgRef.current;
+    if (el && el.naturalWidth > 0 && el.naturalHeight > 0) {
+      setRatio(Math.max(0.5, Math.min(3.0, el.naturalWidth / el.naturalHeight)));
+    }
+  }, []);
+  return h('div', {
+    class: className,
+    style: { '--card-aspect-ratio': ratio },
+    onClick,
+    onContextMenu,
+  },
+    h('img', {
+      ref: imgRef,
+      src: buildImageUrl(img.path, img.type),
+      alt: img.path,
+      loading: 'lazy',
+      onLoad: handleLoad,
+    }),
+  );
+}
+
 // ============ DateSidebar ============
 
 function DateSidebar({ dateList, dateCountMap, currentDateIndex, onJumpToDate }) {
@@ -73,6 +99,7 @@ export function ImageGroupView({
   onSelectItem = null,
   onDeleteSuccess,
   cardSize,
+  cardLayoutMode = 'fixed',
   openLightbox,
 }) {
   const [groupData, setGroupData] = useState(null);
@@ -233,18 +260,31 @@ export function ImageGroupView({
         }));
       };
 
+      const itemClass = `prompt-detail-image-item ${selectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`;
+      const handleClick = (e) => {
+        if (selectionMode && onSelectItem) {
+          onSelectItem(imgKey, e.shiftKey);
+        } else if (openLightbox) {
+          openLightbox({ name: lightboxName, images: allVisibleImages }, flatIndex);
+        }
+      };
+
+      if (cardLayoutMode === 'adaptive') {
+        return h(AdaptiveImageItem, {
+          key: img.path,
+          img,
+          className: itemClass,
+          onClick: handleClick,
+          onContextMenu: handleContextMenu,
+        });
+      }
+
       return h(
         'div',
         {
           key: img.path,
-          class: `prompt-detail-image-item ${selectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`,
-          onClick: (e) => {
-            if (selectionMode && onSelectItem) {
-              onSelectItem(imgKey, e.shiftKey);
-            } else if (openLightbox) {
-              openLightbox({ name: lightboxName, images: allVisibleImages }, flatIndex);
-            }
-          },
+          class: itemClass,
+          onClick: handleClick,
           onContextMenu: handleContextMenu,
         },
         h('img', {
@@ -254,7 +294,7 @@ export function ImageGroupView({
         }),
       );
     },
-    [visibleGroups, selectionMode, selectedItems, onSelectItem, openLightbox, lightboxName, getContextMenuItems, showContextMenu, handleDeleteAndReload],
+    [visibleGroups, selectionMode, selectedItems, onSelectItem, openLightbox, lightboxName, getContextMenuItems, showContextMenu, handleDeleteAndReload, cardLayoutMode],
   );
 
   // ============ Loading / Empty ============
@@ -310,8 +350,8 @@ export function ImageGroupView({
                   ? h(LazyList, {
                       items: group.images,
                       renderItem: (img, imgIndex) => renderImageItem(img, imgIndex, groupIndex),
-                      layout: 'grid',
-                      className: 'prompt-detail-grid',
+                      layout: cardLayoutMode === 'adaptive' ? 'flex' : 'grid',
+                      className: 'prompt-detail-grid' + (cardLayoutMode === 'adaptive' ? ' adaptive' : ''),
                       style: gridStyle,
                       scrollContainer: 'parent',
                     })

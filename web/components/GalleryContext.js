@@ -37,6 +37,7 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [favorites, setFavorites] = useState(Storage.getFavorites());
   const [cardSize, setCardSize] = useState(() => Storage.getCardSize());
+  const [cardLayoutMode, setCardLayoutMode] = useState(() => Storage.getCardLayoutMode());
   const [viewMode, setViewMode] = useState('gallery');
   const [currentPrompt, setCurrentPrompt] = useState(null);
   const [imageSearchQuery, setImageSearchQuery] = useState('');
@@ -131,13 +132,16 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
     }
   }, [isOpen]);
 
-  // 分类切换时重新加载
+  // 分类切换时重新加载并重置搜索
   useEffect(() => {
-    if (isOpen && hasOpenedRef.current) loadData();
+    if (isOpen && hasOpenedRef.current) {
+      setSearchQuery('');
+      loadData();
+    }
   }, [currentCategory]);
 
   // 过滤排序
-  const filteredPrompts = useFilteredPrompts(data, searchQuery, sortBy, sortOrder, showFavoritesOnly, favorites);
+  const filteredPrompts = useFilteredPrompts(data, searchQuery, sortBy, sortOrder, showFavoritesOnly, favorites, categoryMgr.categories);
 
   // 打开批量导出对话框
   const handleOpenBatchExportDialog = useCallback(() => {
@@ -787,6 +791,8 @@ export function GalleryProvider({ children, isOpen, onClose, initialNavigation }
       handleFavoriteToggle,
       cardSize,
       setCardSize,
+      cardLayoutMode,
+      setCardLayoutMode,
       imageSearchQuery,
       setImageSearchQuery,
       imageSortBy,

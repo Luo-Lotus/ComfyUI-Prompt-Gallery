@@ -4,7 +4,7 @@
  */
 import { h } from '../lib/preact.mjs';
 import { Icon } from '../lib/icons.mjs';
-import { useState } from '../lib/hooks.mjs';
+import { useState, useRef, useCallback } from '../lib/hooks.mjs';
 import { buildImageUrl } from '../utils.js';
 import { BaseCard } from './BaseCard.js';
 import { useContextMenu } from './ContextMenu.js';
@@ -37,6 +37,16 @@ export function GalleryCard({
   // 封面图路径
   const coverPath = prompt.coverImagePath;
   const coverImage = coverPath ? { path: coverPath } : null;
+
+  // 封面图宽高比：图片加载后从 naturalWidth/naturalHeight 获取
+  const [aspectRatio, setAspectRatio] = useState(1);
+  const imgRef = useRef(null);
+  const handleImgLoad = useCallback(() => {
+    const img = imgRef.current;
+    if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      setAspectRatio(Math.max(0.5, Math.min(3.0, img.naturalWidth / img.naturalHeight)));
+    }
+  }, []);
 
   // ============ 事件处理 ============
 
@@ -139,9 +149,11 @@ export function GalleryCard({
       },
       [
         h('img', {
+          ref: imgRef,
           src: buildImageUrl(coverImage.path),
           alt: name,
           loading: 'lazy',
+          onLoad: handleImgLoad,
         }),
         renderOverlay(),
       ],
@@ -177,6 +189,7 @@ export function GalleryCard({
       selectionKey,
       onSelect,
       onContextMenu: handleContextMenu,
+      style: { '--card-aspect-ratio': aspectRatio },
     },
     [renderImages()],
   );

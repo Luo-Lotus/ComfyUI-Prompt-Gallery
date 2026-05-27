@@ -115,6 +115,60 @@
   }
 }
 
+/* ============ 图库设置选项 ============ */
+.settings-option-row {
+  margin-bottom: 12px;
+}
+
+.settings-option-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.settings-option-desc {
+  font-size: 12px;
+  color: #999;
+}
+
+.settings-radio-group {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-radio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 2px solid #ffe0eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #666;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.settings-radio-btn:hover {
+  border-color: #ffb6c1;
+  color: #ff6b9d;
+}
+
+.settings-radio-btn.active {
+  border-color: #ff6b9d;
+  background: #fff5f8;
+  color: #ff6b9d;
+  font-weight: 600;
+}
+
+.settings-radio-btn svg {
+  display: block;
+  flex-shrink: 0;
+}
+
 /* ============ 分割线 ============ */
 .settings-divider {
   height: 1px;

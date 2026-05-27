@@ -21,6 +21,7 @@ export function BaseCard({
   onContextMenu,
   // 样式
   className = '',
+  style = null,
   children,
 }) {
   const computedClass = [
@@ -45,6 +46,7 @@ export function BaseCard({
     'div',
     {
       class: computedClass,
+      style: style || undefined,
       onClick: handleClick,
       onContextMenu: onContextMenu || null,
     },

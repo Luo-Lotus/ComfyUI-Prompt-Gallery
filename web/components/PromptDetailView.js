@@ -83,6 +83,7 @@ export function PromptDetailView() {
       onSelectItem: ctx.handlePromptSelect,
       onDeleteSuccess: handleDeleteSuccess,
       cardSize: ctx.cardSize,
+      cardLayoutMode: ctx.cardLayoutMode,
       openLightbox: ctx.openLightbox,
     }),
   ]);

@@ -77,7 +77,7 @@ export function GalleryFilterBar() {
         h('input', {
           class: 'gallery-search-input',
           type: 'text',
-          placeholder: '搜索Prompt...',
+          placeholder: '搜索Prompt或分类...',
           value: ctx.searchQuery,
           onInput: (e) => ctx.setSearchQuery(e.target.value),
         }),

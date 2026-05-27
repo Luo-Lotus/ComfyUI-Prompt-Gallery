@@ -3,8 +3,11 @@ import { useState, useEffect, useCallback } from '../lib/hooks.mjs';
 import { Dialog } from './Dialog.js';
 import { Icon } from '../lib/icons.mjs';
 import { showToast } from './Toast.js';
+import { useGallery } from './GalleryContext.js';
+import { Storage } from '../utils.js';
 
 const MENU_ITEMS = [
+  { key: 'gallery', label: '图库设置', icon: 'image' },
   { key: 'storage', label: '存储管理', icon: 'folder' },
   { key: 'faq', label: '常见问题', icon: 'info-circle' },
 ];
@@ -15,6 +18,42 @@ const TYPE_LABELS = {
   combinations: '组合',
   images: '图片映射',
 };
+
+// ───────── 图库设置面板 ─────────
+
+function GallerySettings() {
+  const ctx = useGallery();
+  const mode = ctx.cardLayoutMode;
+
+  const handleModeChange = useCallback((newMode) => {
+    ctx.setCardLayoutMode(newMode);
+    Storage.saveCardLayoutMode(newMode);
+  }, [ctx.setCardLayoutMode]);
+
+  return h('div', { class: 'settings-panel' }, [
+    h('div', { class: 'settings-section-title' }, '图库设置'),
+    h('div', { class: 'settings-option-row' }, [
+      h('div', { class: 'settings-option-label' }, '卡片展示方式'),
+      h('div', { class: 'settings-option-desc' }, '选择图库中卡片的展示方式'),
+    ]),
+    h('div', { class: 'settings-radio-group' }, [
+      h('button', {
+        class: 'settings-radio-btn' + (mode === 'fixed' ? ' active' : ''),
+        onClick: () => handleModeChange('fixed'),
+      }, [
+        h(Icon, { name: 'grid', size: 14 }),
+        '固定大小',
+      ]),
+      h('button', {
+        class: 'settings-radio-btn' + (mode === 'adaptive' ? ' active' : ''),
+        onClick: () => handleModeChange('adaptive'),
+      }, [
+        h(Icon, { name: 'image', size: 14 }),
+        '自适应',
+      ]),
+    ]),
+  ]);
+}
 
 // ───────── 存储管理面板 ─────────
 
@@ -272,6 +311,7 @@ function FAQ() {
 // ───────── 主组件 ─────────
 
 const PANELS = {
+  gallery: GallerySettings,
   storage: StorageSettings,
   faq: FAQ,
 };

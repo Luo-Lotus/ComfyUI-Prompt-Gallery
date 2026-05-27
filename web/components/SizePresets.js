@@ -19,10 +19,14 @@ const BASE_SIZES = {
   categoryPadding: 20,
   categoryNameFont: 16,
   categoryMetaFont: 13,
-  emptyHeight: 200,
+  categoryWidth: 200,
   emptyIconSize: 48,
   emptyTextFont: 14,
   imageRadius: 8,
+  rowHeight: 200,
+  minWidth: 120,
+  nameTagFont: 13,
+  valueTagFont: 11,
 };
 
 /**

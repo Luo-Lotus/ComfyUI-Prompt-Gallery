@@ -86,6 +86,24 @@
   object-fit: cover;
 }
 
+/* 自适应模式 */
+.prompt-detail-grid.adaptive {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.prompt-detail-grid.adaptive .prompt-detail-image-item {
+  flex: 0 0 calc(var(--card-aspect-ratio, 1) * var(--card-row-height));
+  height: var(--card-row-height);
+  min-width: var(--card-min-width);
+  aspect-ratio: unset;
+}
+
+.prompt-detail-grid.adaptive .prompt-detail-image-item img {
+  object-fit: contain;
+}
+
 .prompt-detail-empty {
   flex: 1;
   display: flex;

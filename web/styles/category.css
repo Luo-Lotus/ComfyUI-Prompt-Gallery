@@ -1,16 +1,20 @@
 /* ============ 分类卡片样式 ============ */
 .category-card {
+    flex: 0 0 auto;
+    width: var(--card-category-width);
+    height: var(--card-row-height);
     background: white;
     border-radius: 16px;
     padding: var(--card-category-padding);
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--card-header-gap);
     cursor: pointer;
     transition: transform 0.2s, border-color 0.2s;
     box-shadow: 0 2px 8px rgba(255, 107, 157, 0.1);
     border: 2px solid transparent;
     position: relative;
+    box-sizing: border-box;
 }
 
 .category-card:hover {
@@ -30,6 +34,8 @@
 .category-icon svg {
     display: block;
     color: #ffb347;
+    width: var(--card-category-icon-size) !important;
+    height: var(--card-category-icon-size) !important;
 }
 
 .category-info {

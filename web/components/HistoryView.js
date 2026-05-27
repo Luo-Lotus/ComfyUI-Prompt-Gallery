@@ -47,6 +47,7 @@ export function HistoryView() {
     getContextMenuItems,
     showContextMenu,
     cardSize: ctx.cardSize,
+    cardLayoutMode: ctx.cardLayoutMode,
     openLightbox: ctx.openLightbox,
   });
 }

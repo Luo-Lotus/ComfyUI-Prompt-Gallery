@@ -72,6 +72,7 @@ export function CombinationDetailView() {
       showContextMenu,
       onDeleteSuccess: handleDeleteSuccess,
       cardSize: ctx.cardSize,
+      cardLayoutMode: ctx.cardLayoutMode,
       openLightbox: ctx.openLightbox,
     }),
   ]);

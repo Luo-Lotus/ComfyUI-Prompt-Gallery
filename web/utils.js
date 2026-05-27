@@ -62,6 +62,16 @@ export const Storage = {
   saveCardSize(scale) {
     localStorage.setItem('prompt-gallery-card-size', String(scale));
   },
+  getCardLayoutMode() {
+    try {
+      return localStorage.getItem('prompt-gallery-card-layout') || 'fixed';
+    } catch {
+      return 'fixed';
+    }
+  },
+  saveCardLayoutMode(mode) {
+    localStorage.setItem('prompt-gallery-card-layout', mode);
+  },
 };
 
 export function buildImageUrl(path, type) {

@@ -17,9 +17,16 @@ export function GalleryGrid() {
 
   const gridStyle = useMemo(() => computeSizeVars(ctx.cardSize), [ctx.cardSize]);
 
-  const categories = ctx.currentCategoryChildren;
+  const allCategories = ctx.currentCategoryChildren;
   const combinations = ctx.currentCombinations;
   const prompts = ctx.filteredPrompts;
+
+  // 搜索时同时过滤分类名称
+  const categories = useMemo(() => {
+    if (!ctx.searchQuery) return allCategories;
+    const query = ctx.searchQuery.toLowerCase();
+    return allCategories.filter((cat) => (cat.name || '').toLowerCase().includes(query));
+  }, [allCategories, ctx.searchQuery]);
 
   // 计算每个分类的Prompt数量
   const categoryPromptCounts = useMemo(() => {
@@ -119,12 +126,14 @@ export function GalleryGrid() {
     return h('div', { class: 'gallery-empty' }, '没有找到匹配的内容');
   }
 
+  const isAdaptive = ctx.cardLayoutMode === 'adaptive';
+
   return h('div', { class: 'gallery-grid-wrapper' }, [
     h(LazyList, {
       items: allItems,
       renderItem,
-      layout: 'grid',
-      className: 'gallery-grid',
+      layout: isAdaptive ? 'flex' : 'grid',
+      className: 'gallery-grid' + (isAdaptive ? '' : ' gallery-grid--fixed'),
       style: gridStyle,
       emptyMessage: h('div', { class: 'gallery-empty' }, '没有找到匹配的内容'),
     }),
