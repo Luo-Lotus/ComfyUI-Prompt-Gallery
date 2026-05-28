@@ -11,7 +11,7 @@ import { Icon } from '../lib/icons.mjs';
 export function ImportZipDialog({ isOpen, onClose, currentCategory, onSuccess }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [importing, setImporting] = useState(false);
-  const [separateStorage, setSeparateStorage] = useState(false);
+  const [separateStorage, setSeparateStorage] = useState(true);
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -174,7 +174,11 @@ export function ImportZipDialog({ isOpen, onClose, currentCategory, onSuccess })
             checked: separateStorage,
             onInput: (e) => setSeparateStorage(e.target.checked),
           }),
-          h('label', { for: 'zip-separate-storage' }, '分离存储（写入新文件而非追加到主文件）'),
+          h('label', { for: 'zip-separate-storage' }, [
+            '分离存储',
+            h('span', { class: 'form-checkbox-recommend' }, '推荐'),
+            ' 写入独立文件，可在设置中随时禁用/删除',
+          ]),
         ]),
       ]),
     ],

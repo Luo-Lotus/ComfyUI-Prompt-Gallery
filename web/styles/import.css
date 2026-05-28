@@ -169,6 +169,21 @@
   cursor: pointer;
 }
 
+.form-checkbox-recommend {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ff6b9d;
+  background: #fff0f3;
+  border: 1px solid #ffb6c1;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 4px;
+  margin-right: 2px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
 /* 单个Prompt导入提示 */
 .import-single-prompt-hint {
   margin-top: 20px;
